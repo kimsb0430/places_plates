@@ -51,6 +51,20 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: placesplates_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local_ci_admin_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d placesplates_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
@@ -63,5 +77,18 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
+      - name: Prepare non-superuser database owner
+        env:
+          PGPASSWORD: local_ci_admin_password
+        run: >-
+          psql -h localhost -U postgres -d placesplates_test -v ON_ERROR_STOP=1
+          -c "CREATE ROLE placesplates_test LOGIN PASSWORD 'local_ci_password'"
+          -c "ALTER DATABASE placesplates_test OWNER TO placesplates_test"
+          -c "ALTER SCHEMA public OWNER TO placesplates_test"
       - name: Test and build
         run: ./gradlew test bootJar --no-daemon
+        env:
+          POSTGRES_RLS_TEST_ENABLED: "true"
+          POSTGRES_TEST_URL: jdbc:postgresql://localhost:5432/placesplates_test
+          POSTGRES_TEST_USERNAME: placesplates_test
+          POSTGRES_TEST_PASSWORD: local_ci_password
