@@ -39,3 +39,10 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+
+tasks.register<JavaExec>("provisionSupabaseDatabase") {
+	group = "database"
+	description = "Provisions and verifies the Supabase PostgreSQL database"
+	classpath = sourceSets["main"].runtimeClasspath
+	mainClass = "com.placesplates.infra.persistence.SupabaseDatabaseProvisioner"
+}

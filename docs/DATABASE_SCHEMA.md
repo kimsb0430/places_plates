@@ -1,7 +1,7 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.2
-작성일: 2026-08-23
+문서 버전: v1.3
+작성일: 2026-08-24
 
 ## 1. 적용 범위
 
@@ -45,6 +45,7 @@ PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 | `db/migration/postgresql/V2__add_postgis_and_partial_indexes.sql` | PostgreSQL | PostGIS 위치 컬럼·GiST·공개 부분 인덱스·카테고리 트리거 |
 | `db/migration/common/V3__add_account_role.sql` | 모든 DB | 관리자·일반 회원 역할 컬럼과 검사 제약 |
 | `db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql` | PostgreSQL | 소유자·공개 모드 함수와 12개 개인 데이터 테이블의 강제 RLS 정책 |
+| `db/migration/postgresql/V5__grant_runtime_role_and_restrict_data_api.sql` | PostgreSQL | 제한된 런타임 역할 권한과 Supabase Data API의 백엔드 테이블 접근 차단 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -112,7 +113,7 @@ PHOTO_ASSET
 
 ## 7. 실행 준비
 
-운영 또는 로컬 PostgreSQL에는 PostGIS 확장을 생성할 수 있는 권한이 필요하다. 관리형 서비스에서 애플리케이션 계정의 확장 생성이 제한된 경우 데이터베이스 관리 화면에서 PostGIS를 먼저 활성화한다.
+운영 또는 로컬 PostgreSQL에는 PostGIS 확장을 생성할 수 있는 권한이 필요하다. Supabase `placesplates` 프로젝트는 서울 리전의 무료 `nano` 구성이며 PostGIS 3.3.7을 `extensions` 스키마에 미리 활성화한다.
 
 필수 환경변수:
 
@@ -122,7 +123,7 @@ DATABASE_USERNAME=<database-user>
 DATABASE_PASSWORD=<database-password>
 ```
 
-실제 값은 Git에 저장하지 않는다. 애플리케이션 시작 시 Flyway가 마이그레이션을 적용하고 Hibernate는 `ddl-auto=validate`로 결과만 검증한다.
+실제 값은 Git에 저장하지 않는다. 로컬 개발은 애플리케이션 시작 시 Flyway를 적용한다. Supabase 운영 DB는 `scripts/provision-supabase-database.ps1`에서 관리자 연결로 Flyway를 실행하고, 런타임은 제한된 `placesplates_app` 연결과 `FLYWAY_ENABLED=false`를 사용한다. 세부 절차는 `docs/SUPABASE_DATABASE.md`를 기준으로 한다.
 
 GitHub Actions는 `postgis/postgis:17-3.5` 서비스에서 전체 PostgreSQL 마이그레이션을 실행하고, 두 소유자와 공개 모드의 게시물·사진 자산·업로드 격리를 실제 엔진으로 검증한다. 로컬에 PostgreSQL이 없는 경우 H2 검증은 수행되지만 PostgreSQL RLS 통합 테스트는 건너뛴다.
 

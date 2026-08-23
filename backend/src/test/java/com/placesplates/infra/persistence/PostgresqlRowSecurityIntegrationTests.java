@@ -126,6 +126,22 @@ class PostgresqlRowSecurityIntegrationTests {
 		)).isInstanceOf(DataAccessException.class);
 	}
 
+	@Test
+	void runtimeRoleCannotBypassRlsAndReceivesOnlyApplicationObjectPrivileges() {
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT NOT rolsuper AND NOT rolbypassrls FROM pg_roles WHERE rolname = 'placesplates_app'",
+			Boolean.class
+		)).isTrue();
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT has_table_privilege('placesplates_app', 'public.posts', 'SELECT')",
+			Boolean.class
+		)).isTrue();
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT has_table_privilege('placesplates_app', 'public.posts', 'DELETE')",
+			Boolean.class
+		)).isTrue();
+	}
+
 	private UUID createAccount() {
 		UUID userId = UUID.randomUUID();
 		jdbcTemplate.update(
