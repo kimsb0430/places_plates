@@ -1,0 +1,77 @@
+:root {
+  --color-forest-950: #17342d;
+  --color-forest-800: #1f5a49;
+  --color-forest-600: #477f6c;
+  --color-forest-100: #dce8e2;
+  --color-coral-700: #c24c20;
+  --color-coral-600: #d96636;
+  --color-coral-300: #f4a776;
+  --color-sand-50: #fffdf8;
+  --color-sand-100: #f8f5ef;
+  --color-sand-200: #f4f0e7;
+  --color-sand-300: #ece8df;
+  --color-sand-400: #e1ddd3;
+  --color-stone-500: #7e817c;
+  --color-stone-600: #6f7772;
+  --color-stone-700: #58645f;
+  --color-white: #ffffff;
+
+  --color-background: var(--color-sand-200);
+  --color-surface: var(--color-sand-50);
+  --color-surface-subtle: var(--color-sand-100);
+  --color-text: var(--color-forest-950);
+  --color-text-muted: var(--color-stone-600);
+  --color-text-subtle: var(--color-stone-500);
+  --color-border: #d9d4c7;
+  --color-brand: var(--color-forest-800);
+  --color-accent: var(--color-coral-600);
+  --color-food: var(--color-coral-700);
+  --color-travel: var(--color-forest-600);
+  --color-positive-surface: var(--color-forest-100);
+
+  --font-sans: var(--font-geist-sans), Pretendard, "Noto Sans KR", "Segoe UI", sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
+  --font-size-label: 0.625rem;
+  --font-size-caption: 0.75rem;
+  --font-size-body: 0.9375rem;
+  --font-size-body-large: 1.0625rem;
+  --font-size-title: clamp(2.5rem, 5vw, 4.125rem);
+  --font-size-hero: clamp(3.375rem, 6.4vw, 6rem);
+  --line-height-tight: 1.08;
+  --line-height-body: 1.8;
+  --letter-spacing-label: 0.18em;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.75rem;
+  --radius-arch: 0.25rem 2.625rem 0.25rem 0.25rem;
+  --radius-pill: 999px;
+
+  --shadow-raised: 0 1.25rem 2.375rem rgb(29 54 46 / 11%);
+  --shadow-floating: 0 1.5rem 3.4375rem rgb(27 46 39 / 17%);
+  --shadow-dialog: 0 1.875rem 5.625rem rgb(0 0 0 / 30%);
+  --focus-ring: 0 0 0 0.1875rem rgb(217 102 54 / 28%);
+
+  --duration-fast: 160ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --layout-max-width: 86.25rem;
+  --layout-gutter: clamp(1.125rem, 4vw, 2rem);
+  --header-height: 5.125rem;
+  --layer-dialog: 50;
+}
