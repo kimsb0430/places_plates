@@ -25,3 +25,30 @@
 - [Project structure](./PROJECT_STRUCTURE.md)
 - [Development schedule](./DEVELOPMENT_SCHEDULE.md)
 - [Contribution workflow](./CONTRIBUTING.md)
+
+## Local development
+
+필수 도구는 Node.js 22.13 이상, pnpm 11, JDK 21이다. 환경변수는 각 애플리케이션의 `.env.example`을 참고하고 실제 비밀값은 Git에 추가하지 않는다.
+
+```powershell
+cd frontend
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+```powershell
+cd backend
+.\gradlew.bat bootRun
+```
+
+백엔드 기본 상태 확인 API는 `GET http://localhost:8080/api/v1/health`이며 `{"status":"UP"}`을 반환한다.
+
+## Verification
+
+저장소 루트에서 다음 명령으로 프론트엔드 lint·타입 검사·빌드와 백엔드 테스트·실행 JAR 빌드를 한 번에 수행한다.
+
+```powershell
+.\scripts\verify-all.ps1
+```
+
+같은 검증은 pull request와 `main` push에서 GitHub Actions로 자동 실행된다.
