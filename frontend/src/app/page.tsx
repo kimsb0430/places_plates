@@ -37,13 +37,7 @@ export default function Home() {
   const counts = { all: posts.length, food: posts.filter((post) => post.category === 'food').length, travel: posts.filter((post) => post.category === 'travel').length };
 
   return (
-    <main className="site-shell">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="Places and Plates 홈"><span className="brand-mark">P</span><span>Places <i>&amp;</i> Plates</span></a>
-        <nav className="main-nav" aria-label="주요 메뉴"><a className="active" href="#archive">기록</a><a href="#map-panel">지도</a><a href="#journeys">여행</a></nav>
-        <button className="round-button" type="button" aria-label="검색">⌕</button>
-      </header>
-
+    <>
       <section className="hero" id="top">
         <div className="hero-copy">
           <p className="overline">MY TRAVEL &amp; DINING ARCHIVE</p>
@@ -73,7 +67,7 @@ export default function Home() {
         <div className={`explore-grid ${view === 'map' ? 'map-focus' : ''}`}>
           <section className="post-grid" aria-label="게시물 목록">
             {filtered.map((post) => (
-              <article className="post-card" key={post.id} onClick={() => setSelected(post)} tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') setSelected(post); }}>
+              <article className="post-card" key={post.id} role="button" aria-label={`${post.title} 기록 미리보기`} onClick={() => setSelected(post)} tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(post); } }}>
                 <div className={`post-photo ${post.palette}`}><span className={`category-badge ${post.category}`}>{post.category === 'food' ? '맛집' : '여행지'}</span><span className="photo-count">▣ {post.photoCount}</span><span className="watermark">Places &amp; Plates</span></div>
                 <div className="post-content"><p className="location">{post.city} · {post.country}</p><h3>{post.title}</h3><p className="post-note">{post.note}</p><div className="post-meta"><span>{post.date}</span><span>{post.meta}</span></div></div>
               </article>
@@ -90,7 +84,6 @@ export default function Home() {
       </section>
 
       <section className="journey-strip" id="journeys"><div><p className="overline">FEATURED JOURNEY</p><h2>Kyoto, Spring 2026</h2><p>비가 자주 내렸고, 그래서 더 천천히 걸었던 나흘.</p></div><button type="button">여행 기록 보기 <span>→</span></button></section>
-      <footer><span>Places &amp; Plates</span><span>사진과 기억이 머무는 개인 여행 아카이브</span><span>© 2026</span></footer>
 
       {selected && (
         <div className="detail-backdrop" role="presentation" onClick={() => setSelected(null)}>
@@ -101,7 +94,7 @@ export default function Home() {
           </article>
         </div>
       )}
-    </main>
+    </>
   );
 }
 
