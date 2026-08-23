@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: places-plates-api
+  jpa:
+    open-in-view: false
+
+server:
+  port: ${PORT:8080}
