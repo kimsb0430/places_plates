@@ -1,8 +1,23 @@
 spring:
   application:
     name: places-plates-api
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration/common
+      - classpath:db/migration/{vendor}
   jpa:
     open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 
 server:
   port: ${PORT:8080}

@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.3
+문서 버전: v1.4
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -135,6 +135,8 @@ backend/src/main/resources/
 ├── application-local.example.yml       # 로컬 설정 복사용 예시
 ├── application-test.yml
 └── db/migration/                # Flyway 데이터베이스 변경 이력
+    ├── common/                  # 공통 테이블·관계·기본 인덱스
+    └── postgresql/              # PostGIS·부분 인덱스·DB 전용 제약
 ```
 
 ### 백엔드 계층 책임
@@ -195,3 +197,5 @@ backend/src/test/java/com/placesplates/
 3. 루트 README와 전체 실행·검증 스크립트를 추가한다.
 4. 프론트·백엔드 각각의 환경설정 예시와 Git 제외 규칙을 만든다.
 5. 프로필·게시물·장소·사진의 소유자 중심 데이터 모델부터 연결한다.
+
+데이터베이스 관계, 제약조건, 인덱스와 마이그레이션 실행 규칙은 `docs/DATABASE_SCHEMA.md`를 기준으로 한다.

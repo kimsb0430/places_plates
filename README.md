@@ -24,6 +24,7 @@
 - [Product design](./PLACES_AND_PLATES_PRODUCT_DESIGN.html)
 - [Project structure](./PROJECT_STRUCTURE.md)
 - [Development schedule](./DEVELOPMENT_SCHEDULE.md)
+- [Database schema](./docs/DATABASE_SCHEMA.md)
 - [Contribution workflow](./CONTRIBUTING.md)
 - [Commit and deployment checklist](./docs/DEPLOYMENT_CHECKLIST.md)
 
@@ -39,8 +40,12 @@ pnpm dev
 
 ```powershell
 cd backend
+Copy-Item src/main/resources/application-local.example.yml src/main/resources/application-local.yml
+$env:SPRING_PROFILES_ACTIVE = 'local'
 .\gradlew.bat bootRun
 ```
+
+백엔드를 실행하기 전에 `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`를 로컬 환경이나 호스팅사의 비밀 저장소에 설정한다. PostgreSQL에는 PostGIS 확장을 사용할 수 있어야 하며, 실제 비밀번호와 로컬 설정 파일은 Git에 추가하지 않는다. 애플리케이션 시작 시 Flyway가 스키마를 생성하고 JPA는 생성 결과를 검증한다.
 
 백엔드 기본 상태 확인 API는 `GET http://localhost:8080/api/v1/health`이며 `{"status":"UP"}`을 반환한다.
 
