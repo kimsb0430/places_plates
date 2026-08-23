@@ -46,6 +46,17 @@ class DatabaseMigrationTests {
 	}
 
 	@Test
+	void accountRoleDefaultsToMember() {
+		UUID userId = createUser();
+
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT role FROM app_users WHERE id = ?",
+			String.class,
+			userId
+		)).isEqualTo("MEMBER");
+	}
+
+	@Test
 	void postCategoryRejectsUnknownValues() {
 		UUID userId = createUser();
 

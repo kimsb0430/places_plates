@@ -1,6 +1,6 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.0  
+문서 버전: v1.1
 작성일: 2026-08-23
 
 ## 1. 적용 범위
@@ -43,12 +43,14 @@ PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 |---|---|---|
 | `db/migration/common/V1__create_owner_scoped_schema.sql` | 모든 DB | 테이블·외래키·검사 제약·공통 인덱스 |
 | `db/migration/postgresql/V2__add_postgis_and_partial_indexes.sql` | PostgreSQL | PostGIS 위치 컬럼·GiST·공개 부분 인덱스·카테고리 트리거 |
+| `db/migration/common/V3__add_account_role.sql` | 모든 DB | 관리자·일반 회원 역할 컬럼과 검사 제약 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
 ## 4. 주요 무결성 규칙
 
 - 이메일과 프로필·여행·태그 주소명은 소문자로 저장한다.
+- 계정 역할은 `ADMIN` 또는 향후 커뮤니티 회원을 위한 `MEMBER` 중 하나다.
 - 게시물 대표 카테고리는 맛집 또는 여행지 중 정확히 하나다.
 - 공개 게시물은 장소, 공개 방문 연월, 게시 시각을 가져야 한다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.

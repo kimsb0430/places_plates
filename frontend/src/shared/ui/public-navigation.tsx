@@ -11,6 +11,7 @@ const navigationItems = [
 
 export function HeaderNavigation() {
   const pathname = usePathname();
+  const isManagePath = pathname.startsWith('/manage');
 
   return (
     <>
@@ -31,11 +32,11 @@ export function HeaderNavigation() {
         })}
       </nav>
       <Link
-        className={`account-link ${pathname === '/login' ? 'active' : ''}`}
-        href="/login"
-        aria-current={pathname === '/login' ? 'page' : undefined}
+        className={`account-link ${pathname === '/login' || isManagePath ? 'active' : ''}`}
+        href={isManagePath ? '/manage' : '/login'}
+        aria-current={pathname === '/login' || isManagePath ? 'page' : undefined}
       >
-        로그인
+        {isManagePath ? '관리' : '로그인'}
       </Link>
     </>
   );
