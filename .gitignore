@@ -5,16 +5,19 @@
 
 # JavaScript / frontend output
 node_modules/
+.pnpm-store/
 .next/
 .vinext/
 dist/
 coverage/
+*.tsbuildinfo
 
 # Java / Spring Boot output
 .gradle/
 build/
 out/
 *.class
+.tools/
 
 # IDE and OS files
 .idea/
@@ -26,5 +29,6 @@ Thumbs.db
 # Local packaging and temporary artifacts
 site-package.tar.gz
 .site-git-backup/
+/site/
 *.tmp
 *.log

@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.0
+문서 버전: v1.1
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -38,7 +38,7 @@ places-plates/
 └── README.md
 ```
 
-현재 `site/`에 있는 디자인 목업은 개발 착수 시 `frontend/`로 옮기고, 같은 시점에 `backend/` Spring Boot 프로젝트를 생성한다. 목업을 옮기기 전까지는 기존 미리보기 배포 구조를 유지한다.
+기존 디자인 목업은 Sprint 0에서 `frontend/` Next.js 애플리케이션으로 이전했다. 공개된 기존 미리보기는 유지하며 이후 개발과 배포의 기준 소스는 `frontend/`로 통일한다.
 
 ## 3. 프론트엔드 구조
 
@@ -187,7 +187,7 @@ backend/src/test/java/com/placesplates/
 
 ## 8. 개발 착수 시 적용 순서
 
-1. 현재 목업을 `frontend/` Next.js 프로젝트로 이전한다.
+1. `frontend/` Next.js 프로젝트에서 기존 목업을 기준 화면으로 유지한다.
 2. `backend/` Spring Boot + Gradle 프로젝트를 생성한다.
 3. 루트 README와 전체 실행·검증 스크립트를 추가한다.
 4. 프론트·백엔드 각각의 환경설정 예시와 Git 제외 규칙을 만든다.

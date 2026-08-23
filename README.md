@@ -4,7 +4,7 @@
 
 ## Current deliverables
 
-- `site/`: 상호작용 가능한 Next.js 디자인 목업
+- `frontend/`: 상호작용 가능한 Next.js·TypeScript 웹 애플리케이션
 - `PLACES_AND_PLATES_PRODUCT_DESIGN.html`: 제품·UX 설계서
 - `PROJECT_STRUCTURE.md`: Next.js 프론트엔드와 Spring Boot 백엔드 구조
 - `DEVELOPMENT_SCHEDULE.md`: 스프린트·커밋 계획
