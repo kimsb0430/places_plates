@@ -32,6 +32,7 @@ server:
 places-plates:
   security:
     allowed-origins: ${FRONTEND_ORIGINS:http://localhost:3000,http://localhost:3100}
+    database-row-security-enabled: true
   bootstrap-admin:
     enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
     email: ${ADMIN_EMAIL:}

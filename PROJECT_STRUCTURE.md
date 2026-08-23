@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.7
+문서 버전: v1.8
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -125,7 +125,7 @@ backend/src/main/java/com/placesplates/
 │   ├── common/                  # BaseEntity·공통 응답
 │   ├── config/                  # CORS·JPA·웹 설정
 │   ├── error/                   # ErrorCode·전역 예외 처리
-│   └── security/                # Spring Security 설정
+│   └── security/                # Spring Security와 요청별 DB 소유자 컨텍스트
 └── infra/
     ├── googlemaps/              # Google Places 서버 연동
     ├── image/                   # EXIF 제거·리사이즈·워터마크
@@ -193,6 +193,8 @@ backend/src/test/java/com/placesplates/
 - `backend` 비밀값은 운영 환경에서만 주입하며 저장소에 커밋하지 않는다.
 - 데이터베이스 비밀번호, 저장소 비밀키, 관리자 비밀번호는 프론트엔드에 전달하지 않는다.
 - 운영 세션 쿠키는 `HttpOnly`, `Secure`, `SameSite=None`으로 설정하고 CORS는 실제 프론트 도메인만 허용한다.
+- `/api/v1/public/**`는 `PUBLIC`, 나머지 보호 API는 인증 사용자의 UUID를 가진 `OWNER` DB 모드로 실행한다.
+- PostgreSQL RLS는 운영에서 항상 활성화하며 H2 테스트 프로필만 DB 엔진 차이 때문에 비활성화한다.
 - `.env.example`에는 값이 없는 변수명과 설명만 남긴다.
 
 ## 8. 개발 착수 시 적용 순서

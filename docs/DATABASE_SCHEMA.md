@@ -1,6 +1,6 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.1
+문서 버전: v1.2
 작성일: 2026-08-23
 
 ## 1. 적용 범위
@@ -44,8 +44,21 @@ PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 | `db/migration/common/V1__create_owner_scoped_schema.sql` | 모든 DB | 테이블·외래키·검사 제약·공통 인덱스 |
 | `db/migration/postgresql/V2__add_postgis_and_partial_indexes.sql` | PostgreSQL | PostGIS 위치 컬럼·GiST·공개 부분 인덱스·카테고리 트리거 |
 | `db/migration/common/V3__add_account_role.sql` | 모든 DB | 관리자·일반 회원 역할 컬럼과 검사 제약 |
+| `db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql` | PostgreSQL | 소유자·공개 모드 함수와 12개 개인 데이터 테이블의 강제 RLS 정책 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
+
+### PostgreSQL 행 수준 보안
+
+- 보호 API 요청은 트랜잭션 시작 시 `app.current_user_id=<인증 사용자 UUID>`, `app.request_mode=OWNER`를 설정한다.
+- 공개 API 요청은 사용자 UUID를 비우고 `app.request_mode=PUBLIC`을 설정한다.
+- 프로필·여행·장소·게시물·전용 상세·태그 관계·사진·사진 자산·업로드 테이블은 `ENABLE`과 `FORCE ROW LEVEL SECURITY`를 모두 적용한다.
+- `OWNER` 모드는 직접 `owner_user_id`를 비교하거나 부모 테이블의 소유자를 확인한다.
+- `PUBLIC` 모드는 전체 공개·게시 완료 행과 안전 검사를 통과한 공개 사진 자산만 읽을 수 있다.
+- 임시 업로드, 정제 마스터와 다른 사용자의 초안은 공개 정책이 없으므로 조회 결과에 포함되지 않는다.
+- `app_users`는 로그인 시 이메일로 계정을 찾아야 하므로 RLS 대상에서 제외하고 인증 Repository 외의 접근과 API 노출을 금지한다.
+
+RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공개 API DTO는 `visited_on`, 정확한 좌표, 비공개 저장 키를 선택하지 않고 공개 연월·허용 좌표·공개 자산만 명시적으로 투영해야 한다.
 
 ## 4. 주요 무결성 규칙
 
@@ -110,6 +123,8 @@ DATABASE_PASSWORD=<database-password>
 ```
 
 실제 값은 Git에 저장하지 않는다. 애플리케이션 시작 시 Flyway가 마이그레이션을 적용하고 Hibernate는 `ddl-auto=validate`로 결과만 검증한다.
+
+GitHub Actions는 `postgis/postgis:17-3.5` 서비스에서 전체 PostgreSQL 마이그레이션을 실행하고, 두 소유자와 공개 모드의 게시물·사진 자산·업로드 격리를 실제 엔진으로 검증한다. 로컬에 PostgreSQL이 없는 경우 H2 검증은 수행되지만 PostgreSQL RLS 통합 테스트는 건너뛴다.
 
 ## 8. 규모 증가 후 재검토
 

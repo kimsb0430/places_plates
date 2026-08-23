@@ -61,6 +61,19 @@ class AuthenticationControllerTests {
 	}
 
 	@Test
+	void publicApiBoundaryDoesNotRequireAuthentication() throws Exception {
+		mockMvc.perform(get("/api/v1/public/missing"))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void ownerApiBoundaryRequiresAuthentication() throws Exception {
+		mockMvc.perform(get("/api/v1/manage/missing"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
+	}
+
+	@Test
 	void loginRestoresSessionAndLogoutInvalidatesIt() throws Exception {
 		CsrfSession csrfSession = getCsrfSession();
 		String sessionIdBeforeLogin = csrfSession.session().getId();
