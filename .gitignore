@@ -1,0 +1,30 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript / frontend output
+node_modules/
+.next/
+.vinext/
+dist/
+coverage/
+
+# Java / Spring Boot output
+.gradle/
+build/
+out/
+*.class
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local packaging and temporary artifacts
+site-package.tar.gz
+.site-git-backup/
+*.tmp
+*.log

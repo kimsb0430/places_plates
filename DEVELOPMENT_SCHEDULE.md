@@ -1,0 +1,336 @@
+# Places & Plates 개발 일정 및 커밋 계획
+
+문서 버전: v1.4
+작성일: 2026-08-23
+개발 시작일: 2026-08-24
+목표 공개일: 2026-10-09
+
+## 1. 일정 가정
+
+- 개발 인원: 1명
+- 작업 시간: 주 5일, 하루 4~6시간
+- 기술 방향: `frontend/` Next.js + TypeScript, `backend/` Java + Spring Boot + Gradle, PostgreSQL + 객체 저장소, Google Maps JavaScript API + Places API (New)
+- 저장소 방향: 한 Git 저장소 안의 프론트엔드·백엔드 모노레포, 두 애플리케이션은 독립 빌드·배포
+- 배포 방향: 정적·서버 렌더링 프론트엔드와 Spring Boot API 서버를 분리 배포하고 PostgreSQL·객체 저장소는 관리형 서비스를 사용
+- 개발 용량 배분: 기능 70%, 품질·보안 20%, 예상 밖 작업 10%
+- 모든 신규 게시물과 사진은 기본적으로 비공개 상태에서 시작한다.
+- 지도·장소 검색은 Google Maps Platform의 SKU별 월 10,000건 무료 한도 안에서 시작하며 초기 지도 예산은 월 0원을 목표로 한다.
+- 모든 개인 데이터에는 v1부터 소유자 ID를 저장하고, 향후 회원마다 독립된 페이지를 만들 수 있게 한다.
+
+예상 일정은 구현 과정에서 발견되는 이미지 처리 제약과 Google Cloud 결제·API 키 설정에 따라 1주 정도 변동될 수 있다.
+
+## 2. 릴리스 범위
+
+### Must have — v1 공개 필수
+
+- 관리자 로그인
+- 맛집·여행지 게시물 작성
+- 다중 사진 업로드와 초안 자동 저장
+- 서버 업로드 원본 미보관과 비공개 정제 마스터 생성
+- EXIF·XMP·IPTC 제거
+- 공개용 이미지 축소와 서버 워터마크
+- 전체·맛집·여행지 리스트 탭
+- 게시물 상세 페이지
+- 공개 방문 날짜 월 단위 표시
+- 지도 마커, 묶음 숫자, 현재 지도 영역 게시물 수
+- 리스트·지도 상태 연동
+- 비공개·링크 공유·전체 공개
+- 모바일 반응형 UI
+- 자동 테스트, 배포, 오류 기록
+
+### Should have — v1.1 후보
+
+- 사진 자동 묶기
+- 일괄 메타데이터 편집
+- 연도·지역·태그·평점 필터
+- 동일 장소 방문 이력 개선
+- 이미지 외부 삽입 방지
+- 운영 통계와 비용 알림
+
+### 이번 릴리스에서 제외
+
+- 타인 페이지 공동 편집
+- 소셜 피드·팔로우
+- 여행 예약·결제
+- 사용자별 추적 워터마크
+- 이동 경로 자동 생성
+- 네이티브 모바일 앱
+- 일반 회원가입·사용자별 개인 페이지·커뮤니티 탐색
+
+## 3. 커밋 운영 원칙
+
+1. 한 커밋에는 하나의 의도만 담는다.
+2. 커밋은 가능한 한 0.5~1일 안에 완료할 크기로 나눈다.
+3. 각 커밋은 `lint`, 타입 검사, 관련 테스트를 통과해야 한다.
+4. 데이터베이스 변경은 마이그레이션과 롤백 설명을 함께 포함한다.
+5. 환경변수, API 비밀키, 촬영 원본과 실제 개인정보는 커밋하지 않는다.
+6. 리팩터링과 기능 변경은 가능한 한 다른 커밋으로 분리한다.
+7. 화면 변경 커밋에는 데스크톱·모바일 검증 내용을 남긴다.
+8. `main`에는 검증된 커밋만 합치고 기능 브랜치는 짧게 유지한다.
+9. 모든 작업은 최신 `main`에서 만든 `codex/<scope>` 브랜치에 커밋하고 pull request로 제출한다.
+10. 저장소 소유자가 검토 후 **Rebase and merge**하며 작업 브랜치에서 `main`으로 직접 push하지 않는다.
+11. 커밋 제목은 `YYYY/MM/DD <type>: <English> | <한국어> | <日本語>` 형식을 사용한다.
+
+권장 커밋 형식:
+
+```text
+feat: add restaurant and destination category tabs
+fix: delete temporary originals after sanitized image verification
+test: verify published images contain no EXIF metadata
+docs: record map count semantics and launch checklist
+chore: configure linting and CI checks
+refactor: separate place and visit query services
+```
+
+권장 브랜치 형식:
+
+```text
+feat/project-foundation
+feat/photo-upload
+feat/image-processing
+feat/post-editor
+feat/public-exploration
+feat/map-exploration
+chore/production-deployment
+```
+
+## 4. 전체 일정
+
+| 구간 | 날짜 | 목표 | 예상 커밋 |
+|---|---|---|---:|
+| Sprint 0 | 08-24 ~ 08-25 | 저장소·프로젝트 기반 | 4개 |
+| Sprint 1 | 08-26 ~ 09-01 | UI 기반·DB·인증 | 6개 |
+| Sprint 2 | 09-02 ~ 09-08 | 업로드·이미지 보호 파이프라인 | 7개 |
+| Sprint 3 | 09-09 ~ 09-15 | 게시물 작성·장소·공개 | 6개 |
+| Sprint 4 | 09-16 ~ 09-22 | 공개 리스트·상세 화면 | 5개 |
+| Sprint 5 | 09-23 ~ 09-29 | 지도·숫자 집계·상태 연동 | 5개 |
+| Sprint 6 | 09-30 ~ 10-06 | 보안·접근성·성능·배포 | 6개 |
+| Launch buffer | 10-07 ~ 10-09 | 회귀 수정·운영 전환·공개 | 2~4개 |
+
+총 예상 커밋: 41~43개
+
+## 5. Sprint 0 — 저장소와 프로젝트 기반
+
+기간: 2026-08-24 ~ 2026-08-25
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C01 | `docs: add product specification and development roadmap` | 설계서와 일정 문서를 저장소에 추가 | 문서 링크와 버전이 맞고 민감 정보가 없음 |
+| C02 | `chore: initialize frontend nextjs application` | `frontend/` Next.js·TypeScript 프로젝트와 도메인 폴더 초기화 | 로컬 개발 서버와 production build 성공 |
+| C03 | `chore: initialize backend spring boot application` | `backend/` Spring Boot·Gradle·도메인 패키지 초기화 | 애플리케이션 기동과 기본 테스트 성공 |
+| C04 | `ci: add monorepo verification workflow` | 프론트 lint·타입·빌드와 백엔드 테스트·빌드 자동 검사 | 변경된 애플리케이션의 GitHub Actions 검증 성공 |
+
+Sprint 종료 게이트:
+
+- 빈 페이지가 로컬과 미리보기 배포에서 열린다.
+- 비밀키와 사진 원본이 Git에 포함되지 않는다.
+- PR 검증이 실패한 코드는 `main`에 합치지 않는다.
+
+## 6. Sprint 1 — UI 기반, 데이터 모델과 인증
+
+기간: 2026-08-26 ~ 2026-09-01
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C05 | `feat: add design tokens and responsive application shell` | 색상·타이포·레이아웃·반응형 셸 | 390px·1440px에서 가로 넘침 없음 |
+| C06 | `feat: add public navigation and empty states` | 홈·리스트·지도·로그인 기본 라우트 | 각 라우트와 빈 상태가 정상 표시 |
+| C07 | `feat: add owner scoped database schema and migrations` | profile, trip, place, post, photo_asset, tag 테이블과 owner_id | 새 환경에서 마이그레이션 재현 가능 |
+| C08 | `feat: add administrator authentication flow` | 관리자 로그인·로그아웃·세션 복구 | 비로그인 사용자는 관리 화면 접근 불가 |
+| C09 | `feat: enforce owner scoped row level security policies` | 공개 상태와 소유자 기준 접근 정책 | 다른 계정의 비공개 데이터·정제 마스터·초안 조회 차단 |
+| C10 | `test: cover authentication and data access policies` | 인증·권한 자동 테스트 | 권한 상승과 비공개 데이터 누출 테스트 통과 |
+
+Sprint 종료 게이트:
+
+- 관리자와 공개 방문자의 권한이 분리된다.
+- 데이터 모델에 맛집·여행지 대표 카테고리가 존재한다.
+- 공개 API로 비공개 사진 경로나 EXIF 좌표를 조회할 수 없다.
+
+## 7. Sprint 2 — 사진 업로드와 이미지 보호
+
+기간: 2026-09-02 ~ 2026-09-08
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C11 | `feat: add resumable temporary photo uploads` | 다중 사진 임시 업로드, 진행률, 실패 재시도 | 최대 100장 상태를 개별 확인하고 만료 시간을 추적 가능 |
+| C12 | `feat: create private drafts when uploads begin` | 업로드 즉시 비공개 초안 생성 | 브라우저 종료 후 작성 재개 가능 |
+| C13 | `feat: queue image processing jobs after upload` | 이미지 처리 상태와 재시도 큐 | 중복 처리 없이 실패 작업 재실행 가능 |
+| C14 | `feat: create sanitized masters without image metadata` | 방향 보정·재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거 | 정제 마스터와 공개본에서 민감 메타데이터 0건 |
+| C15 | `feat: generate responsive image variants and thumbnails` | 썸네일·카드·상세용 이미지 생성 | 화면별로 적합한 크기 선택 |
+| C16 | `feat: burn places and plates watermarks into public images` | `Places & Plates` 서버 합성 워터마크와 정책 버전 | CSS 제거 후에도 표준 문구 유지 |
+| C17 | `feat: verify images and purge temporary originals` | 정제본·공개본 검사, 임시 원본 삭제·만료 정리와 자동 테스트 | 처리 완료 후 원본 잔존 0건, 실패 이미지는 게시 차단 |
+
+Sprint 종료 게이트:
+
+- 휴대폰·PC의 원본 파일은 변경되지 않고 서버의 임시 원본은 처리 완료 후 삭제된다.
+- 공개 이미지에는 위치·촬영 시각·카메라 정보가 남지 않는다.
+- 이미지 처리 실패 시 원본이 대신 노출되지 않으며 만료 후 삭제된다.
+
+위험과 대응:
+
+- HEIC 처리 라이브러리가 운영 환경에서 동작하지 않으면 v1에서는 업로드 후 JPEG 변환 안내를 제공한다.
+- 이미지 워커의 메모리 사용량이 높으면 동시 처리 수를 제한하고 큐를 사용한다.
+
+## 8. Sprint 3 — 게시물 작성과 공개 관리
+
+기간: 2026-09-09 ~ 2026-09-15
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C18 | `feat: add common post editor fields and autosave` | 제목·날짜·한줄평·본문 자동 저장 | 필수 3개 항목만으로 초안 저장 가능 |
+| C19 | `feat: add restaurant category fields` | 평점·메뉴·가격대·대기시간·재방문 | 맛집 선택 시에만 전용 항목 표시 |
+| C20 | `feat: add destination category fields` | 소요시간·추천시간·볼거리·여행 팁 | 여행지 선택 시에만 전용 항목 표시 |
+| C21 | `feat: connect posts with google places and coordinates` | Places API (New) 검색·Google Maps 링크·직접 좌표 | Place ID와 좌표를 저장하고 검색 실패 시 자유 장소 저장 가능 |
+| C22 | `feat: add photo ordering cover selection and alt text` | 대표 사진·정렬·대체 텍스트 | 키보드로 사진 순서와 대표 사진 변경 가능 |
+| C23 | `feat: add private link and public publishing states` | 공개 범위와 게시 전 검사 | 안전 검사 미통과 사진이 있으면 공개 차단 |
+
+Sprint 종료 게이트:
+
+- 맛집 또는 여행지 게시물을 처음부터 끝까지 작성할 수 있다.
+- 작성 중 브라우저를 닫아도 입력 내용이 복구된다.
+- 게시 전 공개 이미지 검사와 필수 입력 검증이 실행된다.
+
+## 9. Sprint 4 — 공개 리스트와 상세 페이지
+
+기간: 2026-09-16 ~ 2026-09-22
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C24 | `feat: add all restaurant and destination list tabs` | 전체·맛집·여행지 탭과 합계 | 카테고리 합계가 공개 게시물 수와 일치 |
+| C25 | `feat: add readable post cards and sorting` | 카드·최신순·오래된순 | 한 카드에서 대표 사진과 핵심 정보 확인 |
+| C26 | `feat: add category aware post detail pages` | 공통·맛집·여행지 상세 레이아웃과 공개 방문월 | 사진과 개인 기록이 먼저 표시되고 공개 날짜에는 일자가 노출되지 않음 |
+| C27 | `feat: add place details and repeat visit history` | 같은 장소의 여러 게시물 표시 | 장소 페이지에서 방문 기록 수와 링크 확인 |
+| C28 | `test: cover category lists post details and visibility` | 목록·상세·공개 범위 테스트 | 비공개·링크 게시물이 전체 목록에 노출되지 않음 |
+
+Sprint 종료 게이트:
+
+- 사용자가 카테고리 탭에서 게시물을 한 개씩 열람할 수 있다.
+- 모바일과 데스크톱에서 본문 가독성과 사진 비율이 유지된다.
+- 모든 공개 썸네일과 상세 사진에 보호 정책이 적용된다.
+
+## 10. Sprint 5 — 지도 탐색과 게시물 수
+
+기간: 2026-09-23 ~ 2026-09-29
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C29 | `feat: add category styled map markers` | 맛집·여행지 마커 색상과 아이콘 | 카테고리 필터와 마커가 일치 |
+| C30 | `feat: cluster nearby posts and show post counts` | 지도 확대 수준별 마커 묶음 | 묶음 숫자와 포함 게시물 수 일치 |
+| C31 | `feat: count posts within the current map bounds` | 현재 화면 게시물 합계 | 지도 이동 후 500ms 안에 숫자 갱신 |
+| C32 | `feat: add map first split view and synchronize selection` | PC 지도 70%·축소 목록 30%, 모바일 지도+가로 카드, 양방향 선택 | 필터·검색·지도 위치·선택 상태가 유지되고 리스트 탭의 기존 카드 구성은 변경되지 않음 |
+| C33 | `test: cover map counts filtering and repeat visits` | 지도 집계와 재방문 테스트 | 전체·영역·묶음·장소별 숫자 정확성 검증 |
+
+Sprint 종료 게이트:
+
+- 전체·맛집·여행지 필터가 리스트와 지도에 동시에 반영된다.
+- 지도 축소 시 묶음 숫자, 확대 시 개별 장소가 표시된다.
+- 동일 장소의 여러 게시물을 한 마커 카드에서 확인할 수 있다.
+
+## 11. Sprint 6 — 보안, 접근성, 성능과 배포
+
+기간: 2026-09-30 ~ 2026-10-06
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C34 | `feat: deter image context menu dragging and hotlinking` | 우클릭·드래그 억제와 외부 삽입 방지 | 원본 보호와 별개인 보조 억제 기능으로 동작 |
+| C35 | `fix: harden public responses and security headers` | 비밀정보 제거, CSP·보안 헤더 | 공개 HTML·API·로그에 원본 키 없음 |
+| C36 | `perf: lazy load maps and optimize public images` | 지도 지연 로딩·이미지 최적화 | 목록 진입만으로 지도 과금 호출이 발생하지 않음 |
+| C37 | `fix: improve keyboard navigation and accessible labels` | 키보드·포커스·대체 텍스트 | 핵심 흐름이 키보드로 완료 가능 |
+| C38 | `test: add end to end upload publish and browse flows` | 업로드→게시→목록→지도 E2E | 데스크톱·모바일 핵심 시나리오 통과 |
+| C39 | `ci: add production deployment and smoke tests` | Vercel 운영 배포와 배포 후 검사 | 배포 실패 시 운영 버전 유지, 성공 후 smoke test 통과 |
+
+Sprint 종료 게이트:
+
+- 공개 페이지에서 임시 업로드 경로와 촬영 메타데이터가 검출되지 않는다.
+- Google Maps API 키가 운영 도메인과 허용 API로 제한되고 월 9,000회 지도 로드 운영 한도와 예산 알림이 설정된다.
+- 데이터베이스 백업과 복구 절차가 문서화된다.
+- 핵심 페이지의 모바일·데스크톱 smoke test가 통과한다.
+
+## 12. Launch buffer — 공개 준비
+
+기간: 2026-10-07 ~ 2026-10-09
+
+| ID | 예상 커밋 | 작업 내용 | 완료 조건 |
+|---|---|---|---|
+| C40 | `fix: resolve release candidate regression findings` | 릴리스 후보 회귀 수정 | P0·P1 결함 0건 |
+| C41 | `docs: add operations backup and incident runbook` | 운영·백업·비용·장애 대응 문서 | 다른 환경에서도 복구 절차 수행 가능 |
+| C42 | `chore: configure production domain budgets and alerts` | 도메인·예산·사용량 알림 | API 서버·PostgreSQL·객체 저장소·Google Maps·프론트 호스팅 예산 경고 설정 |
+| C43 | `chore: release places and plates v1` | 운영 배포와 버전 태그 | 공개 URL에서 출시 점검표 통과 |
+
+출시를 미뤄야 하는 조건:
+
+- 임시 업로드 경로나 정제 마스터 경로가 공개 응답에 포함됨
+- 공개 파생본에서 GPS·카메라 정보가 검출됨
+- 이미지 처리 실패 시 원본이 노출됨
+- 비로그인 사용자가 초안이나 비공개 사진에 접근 가능함
+- 지도 또는 카테고리 게시물 수가 실제 데이터와 일치하지 않음
+- 데이터 백업과 복원 방법이 검증되지 않음
+
+## 13. 의존성 순서
+
+```text
+저장소·CI
+   ↓
+데이터 모델·인증·권한
+   ↓
+비공개 업로드·이미지 처리
+   ↓
+게시물 편집·공개 정책
+   ↓
+리스트·상세
+   ↓
+지도·숫자 집계·상태 연동
+   ↓
+보안·접근성·성능
+   ↓
+운영 배포
+```
+
+외부 의존성:
+
+| 의존성 | 필요한 시점 | 대응 |
+|---|---|---|
+| PostgreSQL·객체 저장소 | Sprint 1 시작 전 | 무료 또는 최저 요금 관리형 서비스로 개발하고 공개 전 운영 플랜 판단 |
+| Google Cloud 프로젝트·결제 계정·API 키 | Sprint 3 장소 연결 전 | Maps JavaScript API와 Places API (New)만 허용하고 HTTP 리퍼러 제한·월 9,000회 운영 한도 설정 |
+| 이미지 워커 환경 | Sprint 2 시작 전 | 로컬 처리 프로토타입 후 운영 환경 선택 |
+| 워터마크 스타일 | Sprint 2 C16 전 | 문구는 `Places & Plates`로 확정, 기본 투명도·모서리 위치만 시각 검증 |
+| 도메인 | Sprint 6 후반 | 이름 확정 후 구매, 그전에는 미리보기 URL 사용 |
+
+## 14. 각 커밋의 완료 정의
+
+커밋을 완료로 판단하려면 다음 조건을 모두 만족해야 한다.
+
+- [ ] 커밋 메시지가 변경 목적을 설명한다.
+- [ ] 관련 코드와 테스트가 같은 커밋에 포함된다.
+- [ ] lint와 타입 검사가 통과한다.
+- [ ] 관련 단위·통합 테스트가 통과한다.
+- [ ] 데이터베이스 변경에는 마이그레이션이 있다.
+- [ ] 환경변수와 비밀키가 커밋되지 않았다.
+- [ ] 실제 촬영 원본이나 개인정보가 fixture에 포함되지 않았다.
+- [ ] 처리 완료 또는 만료된 임시 업로드 원본이 서버에 남지 않았다.
+- [ ] 사용자 화면 변경은 390px와 1440px에서 확인했다.
+- [ ] 설계 결정이 바뀌었다면 문서도 함께 갱신했다.
+
+## 15. 출시 후 다음 단계
+
+### Now — v1 출시까지
+
+- 안전한 업로드·게시·열람의 핵심 루프
+- 맛집·여행지 리스트와 지도 탐색
+- 원본 미보관·메타데이터 제거·워터마크 보호
+
+### Next — 출시 후 1~3개월
+
+- 실제 사용 데이터 기반 입력 흐름 개선
+- 사진 자동 묶기와 일괄 편집
+- 연도·지역·태그·평점 필터
+- 지도 성능과 비용 최적화
+- 백업 내보내기
+
+### Later — 3개월 이후
+
+- 일반 회원가입과 사용자별 독립 페이지
+- 공개 프로필·게시물 탐색과 링크 공유
+- 본인 기록만 편집 가능한 계정별 권한 정책 확장
+- 이동 경로와 여행 통계
+- 사용자별 공유 워터마크
+- 네이티브 모바일 입력 경험
