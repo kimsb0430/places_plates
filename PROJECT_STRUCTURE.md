@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.6
+문서 버전: v1.7
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -51,10 +51,8 @@ frontend/src/
 │   ├── posts/page.tsx           # 공개 기록 목록
 │   ├── map/page.tsx             # 공개 기록 지도
 │   ├── login/page.tsx           # 관리자 로그인 진입점
+│   ├── manage/page.tsx          # 세션 확인 후 표시하는 관리 진입점
 │   ├── not-found.tsx            # 공통 404 빈 상태
-│   ├── (manage)/
-│   │   ├── manage/posts/page.tsx
-│   │   └── manage/posts/[postId]/edit/page.tsx
 │   └── layout.tsx
 ├── domain/
 │   ├── auth/
@@ -106,8 +104,10 @@ backend/src/main/java/com/placesplates/
 │   ├── auth/
 │   │   ├── controller/
 │   │   ├── service/
+│   │   ├── repository/
+│   │   ├── entity/
 │   │   ├── dto/
-│   │   └── exception/
+│   │   └── config/
 │   ├── profile/
 │   │   ├── controller/
 │   │   ├── service/
@@ -159,7 +159,7 @@ backend/src/main/resources/
 
 | 도메인 | 주요 책임 | API 예시 |
 |---|---|---|
-| auth | 로그인·토큰·현재 사용자 | `/api/v1/auth/**` |
+| auth | CSRF 발급·로그인·서버 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
 | post | 맛집·여행지 게시물과 공개 범위 | `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
@@ -191,7 +191,8 @@ backend/src/test/java/com/placesplates/
 - `backend/src/main/resources/application-local.yml`은 로컬 전용이며 Git에 추가하지 않는다. 추적되는 `application-local.example.yml`을 복사하고 실제 값은 환경변수로 주입한다.
 - Google Maps 브라우저 키는 HTTP 리퍼러와 Maps JavaScript API·Places API로 제한한다.
 - `backend` 비밀값은 운영 환경에서만 주입하며 저장소에 커밋하지 않는다.
-- 데이터베이스 비밀번호, 저장소 비밀키, JWT 서명키는 프론트엔드에 전달하지 않는다.
+- 데이터베이스 비밀번호, 저장소 비밀키, 관리자 비밀번호는 프론트엔드에 전달하지 않는다.
+- 운영 세션 쿠키는 `HttpOnly`, `Secure`, `SameSite=None`으로 설정하고 CORS는 실제 프론트 도메인만 허용한다.
 - `.env.example`에는 값이 없는 변수명과 설명만 남긴다.
 
 ## 8. 개발 착수 시 적용 순서
@@ -203,3 +204,4 @@ backend/src/test/java/com/placesplates/
 5. 프로필·게시물·장소·사진의 소유자 중심 데이터 모델부터 연결한다.
 
 데이터베이스 관계, 제약조건, 인덱스와 마이그레이션 실행 규칙은 `docs/DATABASE_SCHEMA.md`를 기준으로 한다.
+관리자 계정 준비, 세션·CSRF 계약과 환경별 쿠키 설정은 `docs/AUTHENTICATION.md`를 기준으로 한다.
