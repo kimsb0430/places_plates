@@ -1,7 +1,7 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.8
-작성일: 2026-08-23
+문서 버전: v1.9
+작성일: 2026-08-24
 
 ## 1. 구조 결정
 
@@ -130,7 +130,7 @@ backend/src/main/java/com/placesplates/
     ├── googlemaps/              # Google Places 서버 연동
     ├── image/                   # EXIF 제거·리사이즈·워터마크
     ├── storage/                 # 정제 마스터·공개 이미지 저장소
-    └── persistence/             # 복잡한 조회 구현
+    └── persistence/             # 복잡한 조회·운영 DB 프로비저닝
 ```
 
 ```text
@@ -195,6 +195,9 @@ backend/src/test/java/com/placesplates/
 - 운영 세션 쿠키는 `HttpOnly`, `Secure`, `SameSite=None`으로 설정하고 CORS는 실제 프론트 도메인만 허용한다.
 - `/api/v1/public/**`는 `PUBLIC`, 나머지 보호 API는 인증 사용자의 UUID를 가진 `OWNER` DB 모드로 실행한다.
 - PostgreSQL RLS는 운영에서 항상 활성화하며 H2 테스트 프로필만 DB 엔진 차이 때문에 비활성화한다.
+- Supabase 운영 DB는 관리자 역할로 Flyway를 별도 실행하고, Spring Boot 런타임은 `SUPERUSER`·`BYPASSRLS` 권한이 없는 `placesplates_app`만 사용한다.
+- Supabase `anon`·`authenticated` Data API 역할에는 백엔드 소유 `public` 테이블 권한을 부여하지 않는다.
+- 운영 애플리케이션은 `FLYWAY_ENABLED=false`로 실행해 관리자 DB 자격 증명을 호스팅 환경에 저장하지 않는다.
 - `.env.example`에는 값이 없는 변수명과 설명만 남긴다.
 
 ## 8. 개발 착수 시 적용 순서
@@ -206,4 +209,5 @@ backend/src/test/java/com/placesplates/
 5. 프로필·게시물·장소·사진의 소유자 중심 데이터 모델부터 연결한다.
 
 데이터베이스 관계, 제약조건, 인덱스와 마이그레이션 실행 규칙은 `docs/DATABASE_SCHEMA.md`를 기준으로 한다.
+Supabase 연결·역할 분리·최초 프로비저닝은 `docs/SUPABASE_DATABASE.md`를 기준으로 한다.
 관리자 계정 준비, 세션·CSRF 계약과 환경별 쿠키 설정은 `docs/AUTHENTICATION.md`를 기준으로 한다.

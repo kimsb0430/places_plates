@@ -83,6 +83,7 @@ jobs:
         run: >-
           psql -h localhost -U postgres -d placesplates_test -v ON_ERROR_STOP=1
           -c "CREATE ROLE placesplates_test LOGIN PASSWORD 'local_ci_password'"
+          -c "CREATE ROLE placesplates_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
           -c "ALTER DATABASE placesplates_test OWNER TO placesplates_test"
           -c "ALTER SCHEMA public OWNER TO placesplates_test"
       - name: Test and build
