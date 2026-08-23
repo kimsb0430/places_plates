@@ -39,6 +39,9 @@ jobs:
         run: pnpm typecheck
       - name: Build
         run: pnpm build
+      - name: Scan public artifact
+        shell: pwsh
+        run: ..\scripts\check-public-artifact.ps1 -Path .\dist
 
   backend:
     name: Backend
