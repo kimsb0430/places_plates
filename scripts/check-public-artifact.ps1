@@ -5,10 +5,22 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $frontendRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot 'frontend'))
 $artifactRoot = (Resolve-Path -LiteralPath $Path).Path
-$expectedRoot = [System.IO.Path]::GetFullPath((Join-Path $frontendRoot 'dist'))
+$allowedRoots = @(
+    [System.IO.Path]::GetFullPath((Join-Path $frontendRoot 'dist')),
+    [System.IO.Path]::GetFullPath((Join-Path $frontendRoot '.next'))
+)
 
-if (-not $artifactRoot.Equals($expectedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Public artifact path must be frontend/dist.'
+if (-not ($allowedRoots | Where-Object {
+    $artifactRoot.Equals($_, [System.StringComparison]::OrdinalIgnoreCase)
+})) {
+    throw 'Public artifact path must be frontend/dist or frontend/.next.'
+}
+
+if ($artifactRoot.EndsWith('.next', [System.StringComparison]::OrdinalIgnoreCase)) {
+    $routesManifest = Join-Path $artifactRoot 'routes-manifest.json'
+    if (-not (Test-Path -LiteralPath $routesManifest -PathType Leaf)) {
+        throw 'Next.js artifact is missing routes-manifest.json.'
+    }
 }
 
 $secretPatterns = @(

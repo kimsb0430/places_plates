@@ -15,10 +15,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
     pnpm typecheck
     if ($LASTEXITCODE -ne 0) { throw 'Frontend type check failed.' }
+    pnpm build:vercel
+    if ($LASTEXITCODE -ne 0) { throw 'Vercel Next.js build failed.' }
+    & (Join-Path $PSScriptRoot 'check-public-artifact.ps1') -Path (Join-Path $frontendRoot '.next')
+    if ($LASTEXITCODE -ne 0) { throw 'Vercel artifact scan failed.' }
     pnpm build
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Sites Vinext build failed.' }
     & (Join-Path $PSScriptRoot 'check-public-artifact.ps1') -Path (Join-Path $frontendRoot 'dist')
-    if ($LASTEXITCODE -ne 0) { throw 'Public artifact scan failed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Sites artifact scan failed.' }
 }
 finally {
     Pop-Location

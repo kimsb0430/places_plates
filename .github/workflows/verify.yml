@@ -37,9 +37,14 @@ jobs:
         run: pnpm lint
       - name: Type check
         run: pnpm typecheck
-      - name: Build
+      - name: Build Vercel Next.js artifact
+        run: pnpm build:vercel
+      - name: Scan Vercel artifact
+        shell: pwsh
+        run: ..\scripts\check-public-artifact.ps1 -Path .\.next
+      - name: Build Sites Vinext artifact
         run: pnpm build
-      - name: Scan public artifact
+      - name: Scan Sites artifact
         shell: pwsh
         run: ..\scripts\check-public-artifact.ps1 -Path .\dist
 

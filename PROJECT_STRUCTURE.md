@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.2
+문서 버전: v1.3
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -39,6 +39,8 @@ places-plates/
 ```
 
 기존 디자인 목업은 Sprint 0에서 `frontend/` Next.js 애플리케이션으로 이전했다. 공개된 기존 미리보기는 유지하며 이후 개발과 배포의 기준 소스는 `frontend/`로 통일한다.
+
+프론트엔드는 동일한 App Router 소스에서 두 배포 산출물을 만든다. Vercel은 `pnpm build:vercel`로 표준 `.next` 산출물을 만들고, 기존 OpenAI Sites 미리보기는 `pnpm build`로 Vinext `dist` 산출물을 만든다. 두 산출물은 CI에서 각각 빌드하고 비밀정보를 검사한다.
 
 ## 3. 프론트엔드 구조
 
