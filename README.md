@@ -53,3 +53,11 @@ cd backend
 ```
 
 같은 검증은 pull request와 `main` push에서 GitHub Actions로 자동 실행된다.
+
+프론트엔드 배포 빌드는 대상에 따라 분리한다.
+
+```powershell
+cd frontend
+pnpm build:vercel  # Vercel용 표준 Next.js .next 산출물
+pnpm build         # OpenAI Sites용 Vinext dist 산출물
+```
