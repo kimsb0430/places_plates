@@ -134,9 +134,9 @@ Sprint 종료 게이트:
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
+| C07 | `feat: add owner scoped database schema and migrations` | profile, trip, place, post, photo_asset, tag 테이블과 owner_id | 새 환경에서 마이그레이션 재현 가능 |
 | C05 | `feat: add design tokens and responsive application shell` | 색상·타이포·레이아웃·반응형 셸 | 390px·1440px에서 가로 넘침 없음 |
 | C06 | `feat: add public navigation and empty states` | 홈·리스트·지도·로그인 기본 라우트 | 각 라우트와 빈 상태가 정상 표시 |
-| C07 | `feat: add owner scoped database schema and migrations` | profile, trip, place, post, photo_asset, tag 테이블과 owner_id | 새 환경에서 마이그레이션 재현 가능 |
 | C08 | `feat: add administrator authentication flow` | 관리자 로그인·로그아웃·세션 복구 | 비로그인 사용자는 관리 화면 접근 불가 |
 | C09 | `feat: enforce owner scoped row level security policies` | 공개 상태와 소유자 기준 접근 정책 | 다른 계정의 비공개 데이터·정제 마스터·초안 조회 차단 |
 | C10 | `test: cover authentication and data access policies` | 인증·권한 자동 테스트 | 권한 상승과 비공개 데이터 누출 테스트 통과 |
@@ -146,6 +146,8 @@ Sprint 종료 게이트:
 - 관리자와 공개 방문자의 권한이 분리된다.
 - 데이터 모델에 맛집·여행지 대표 카테고리가 존재한다.
 - 공개 API로 비공개 사진 경로나 EXIF 좌표를 조회할 수 없다.
+
+사용자 요청에 따라 Sprint 1은 DB 관계와 조회 인덱스를 먼저 확정한 뒤 UI 기반 작업을 이어간다.
 
 ## 7. Sprint 2 — 사진 업로드와 이미지 보호
 
