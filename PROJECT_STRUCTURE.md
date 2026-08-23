@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.5
+문서 버전: v1.6
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -47,11 +47,11 @@ places-plates/
 ```text
 frontend/src/
 ├── app/                         # Next.js 라우트와 레이아웃
-│   ├── (public)/
-│   │   ├── page.tsx
-│   │   ├── map/page.tsx
-│   │   ├── posts/[postId]/page.tsx
-│   │   └── users/[profileSlug]/page.tsx
+│   ├── page.tsx                 # 공개 홈
+│   ├── posts/page.tsx           # 공개 기록 목록
+│   ├── map/page.tsx             # 공개 기록 지도
+│   ├── login/page.tsx           # 관리자 로그인 진입점
+│   ├── not-found.tsx            # 공통 404 빈 상태
 │   ├── (manage)/
 │   │   ├── manage/posts/page.tsx
 │   │   └── manage/posts/[postId]/edit/page.tsx
@@ -91,6 +91,7 @@ app → domain → shared
 - `shared`가 `domain` 또는 `app`을 참조하는 역방향 의존은 금지한다.
 - 백엔드 응답 타입과 화면 전용 상태를 분리한다.
 - 공통 헤더·본문·푸터는 `shared/ui/application-shell.tsx`에서 조립하고 모든 공개 라우트가 같은 셸을 사용한다.
+- 현재 경로 표시는 `shared/ui/public-navigation.tsx`, 데이터가 없는 안내 화면은 `shared/ui/empty-state.tsx`를 공통으로 사용한다.
 - 색상·타이포·간격·모서리·그림자·모션은 `shared/styles/tokens.css`를 기준으로 하며 화면 컴포넌트는 의미 기반 토큰을 우선 사용한다.
 - 지원 최소 너비는 320px이며 사용자 화면 변경은 390px와 1440px에서 가로 넘침을 확인한다.
 

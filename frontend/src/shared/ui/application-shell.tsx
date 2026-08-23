@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { HeaderNavigation } from './public-navigation';
 
 interface ApplicationShellProps {
   children: ReactNode;
 }
-
-const navigationItems = [
-  { href: '/#archive', label: '기록', isCurrent: true },
-  { href: '/#map-panel', label: '지도', isCurrent: false },
-  { href: '/#journeys', label: '여행', isCurrent: false },
-] as const;
 
 export function ApplicationShell({ children }: ApplicationShellProps) {
   return (
@@ -22,21 +17,7 @@ export function ApplicationShell({ children }: ApplicationShellProps) {
           <span className="brand-mark" aria-hidden="true">P</span>
           <span>Places <i>&amp;</i> Plates</span>
         </Link>
-        <nav className="main-nav" aria-label="주요 메뉴">
-          {navigationItems.map((item) => (
-            <Link
-              className={item.isCurrent ? 'active' : undefined}
-              href={item.href}
-              aria-current={item.isCurrent ? 'page' : undefined}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <button className="round-button" type="button" aria-label="검색">
-          ⌕
-        </button>
+        <HeaderNavigation />
       </header>
       <main className="app-main" id="main-content" tabIndex={-1}>
         {children}
