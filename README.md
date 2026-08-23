@@ -25,6 +25,7 @@
 - [Project structure](./PROJECT_STRUCTURE.md)
 - [Development schedule](./DEVELOPMENT_SCHEDULE.md)
 - [Contribution workflow](./CONTRIBUTING.md)
+- [Commit and deployment checklist](./docs/DEPLOYMENT_CHECKLIST.md)
 
 ## Local development
 

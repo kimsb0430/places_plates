@@ -4,6 +4,9 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $frontendRoot = Join-Path $repositoryRoot 'frontend'
 $backendRoot = Join-Path $repositoryRoot 'backend'
 
+& (Join-Path $PSScriptRoot 'check-secrets.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Secret scan failed.' }
+
 Push-Location $frontendRoot
 try {
     pnpm install --frozen-lockfile
@@ -14,6 +17,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend type check failed.' }
     pnpm build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+    & (Join-Path $PSScriptRoot 'check-public-artifact.ps1') -Path (Join-Path $frontendRoot 'dist')
+    if ($LASTEXITCODE -ne 0) { throw 'Public artifact scan failed.' }
 }
 finally {
     Pop-Location

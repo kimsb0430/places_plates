@@ -2,6 +2,17 @@
 .env
 .env.*
 !.env.example
+secrets/
+credentials/
+*service-account*.json
+google-services.json
+*.pem
+*.key
+*.p12
+*.pfx
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-local.yaml
+backend/src/main/resources/application-local.properties
 
 # JavaScript / frontend output
 node_modules/
@@ -18,6 +29,20 @@ build/
 out/
 *.class
 .tools/
+*.db
+*.sqlite
+*.sqlite3
+
+# Private or camera-original photos
+private-photos/
+raw-photos/
+original-photos/
+*.heic
+*.dng
+*.cr2
+*.cr3
+*.nef
+*.arw
 
 # IDE and OS files
 .idea/
@@ -30,5 +55,9 @@ Thumbs.db
 site-package.tar.gz
 .site-git-backup/
 /site/
+.vercel/
+reports/
+reviews/
+preview-site/
 *.tmp
 *.log

@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v1.1
+문서 버전: v1.2
 작성일: 2026-08-23
 
 ## 1. 구조 결정
@@ -130,7 +130,7 @@ backend/src/main/java/com/placesplates/
 ```text
 backend/src/main/resources/
 ├── application.yml
-├── application-local.yml
+├── application-local.example.yml       # 로컬 설정 복사용 예시
 ├── application-test.yml
 └── db/migration/                # Flyway 데이터베이스 변경 이력
 ```
@@ -180,6 +180,7 @@ backend/src/test/java/com/placesplates/
 ## 7. 환경변수 원칙
 
 - `frontend/.env`: 브라우저에 공개 가능한 Google Maps 키와 백엔드 API 주소만 둔다.
+- `backend/src/main/resources/application-local.yml`은 로컬 전용이며 Git에 추가하지 않는다. 추적되는 `application-local.example.yml`을 복사하고 실제 값은 환경변수로 주입한다.
 - Google Maps 브라우저 키는 HTTP 리퍼러와 Maps JavaScript API·Places API로 제한한다.
 - `backend` 비밀값은 운영 환경에서만 주입하며 저장소에 커밋하지 않는다.
 - 데이터베이스 비밀번호, 저장소 비밀키, JWT 서명키는 프론트엔드에 전달하지 않는다.
