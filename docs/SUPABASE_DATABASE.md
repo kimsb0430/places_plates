@@ -55,6 +55,8 @@ Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조�
 5. 운영 역할이 `SUPERUSER`·`BYPASSRLS`가 아님을 확인
 6. 운영 역할의 세션 테이블 CRUD와 요청 범위가 없는 연결의 게시물 조회 결과 0건 확인
 
+역할 비밀번호 갱신 직후 Session pooler의 인증 정보 전파가 늦으면 `28P01 password authentication failed`가 일시적으로 발생할 수 있다. 프로비저닝 도구는 이 SQL 상태에만 10초 간격으로 최대 4회 재연결하며, 다른 연결·권한 오류는 즉시 실패시킨다. 반복 실패 시 잘못된 비밀번호로 계속 접속하지 말고 Supabase의 **Database Settings → Network Bans**와 Pooler Logs를 확인한다.
+
 ### Spring Boot 운영 환경변수
 
 ```text
@@ -129,6 +131,8 @@ Supabase Dashboardの**Connect → Session pooler**でプロジェクト参照�
 スクリプトは管理者パスワード、新しい`placesplates_app`パスワード（20文字以上）、確認用パスワードをマスク入力で受け取る。値はファイル・コマンドライン・ログへ保存せず、実行プロセスの環境からも終了時に削除する。管理者パスワードが不明な場合は、ユーザー自身がDashboardで再設定してから実行する。
 
 処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V10、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示をまとめて検証する。
+
+Role password更新直後にSession poolerへの認証情報伝播が遅れると、一時的に`28P01 password authentication failed`となる場合がある。Provisioning toolはこのSQL stateだけを10秒間隔で最大4回再接続し、他の接続・権限errorは直ちに失敗させる。繰り返し失敗する場合は誤ったpasswordで接続を続けず、Supabaseの**Database Settings → Network Bans**とPooler Logsを確認する。
 
 ### Spring Boot本番環境変数
 
