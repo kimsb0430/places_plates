@@ -7,7 +7,7 @@
 - Supabase 프로젝트 `placesplates`는 GitHub 저장소와 연결되어 있다.
 - PostgreSQL 리전은 서울이며 무료 `nano` 컴퓨팅을 사용한다.
 - PostGIS 3.3.7은 Supabase의 `extensions` 스키마에 활성화되어 있다.
-- Flyway V1~V6와 애플리케이션 테이블 13개가 운영 DB에 적용되어 있다. C13 배포 전 V7 이미지 처리 작업과 V8 RLS·권한 마이그레이션을 적용하면 테이블 14개, 강제 RLS 테이블 13개가 된다.
+- Flyway V1~V8과 애플리케이션 테이블 14개, 강제 RLS 테이블 13개가 운영 DB에 적용되어 있다. 세션 영속화 배포 전 V9·V10을 적용하면 서버 전용 세션 테이블 2개가 추가되어 전체 테이블은 16개가 된다.
 - `placesplates_app` 역할은 로그인만 허용되며 `SUPERUSER`·`CREATEROLE`·`CREATEDB`·`REPLICATION`·`BYPASSRLS` 권한이 없다.
 - GitHub 연결은 저장소 연동일 뿐이며 Spring Boot의 Flyway 마이그레이션을 자동 실행하지 않는다.
 - 프론트엔드는 Supabase Database·Data API를 직접 사용하지 않는다. 사진 제어 권한은 Spring Boot에서 받고, 사진 본문만 단기 서명 토큰으로 비공개 Storage TUS 엔드포인트에 직접 전송한다.
@@ -23,6 +23,8 @@ public 테이블                anon/authenticated Data API 권한 없음
 ```
 
 Supabase 관리자 자격 증명을 실행 중인 백엔드에 저장하지 않는다. 운영 Spring Boot에는 `placesplates_app`의 접속 정보만 주입하고 `FLYWAY_ENABLED=false`로 둔다. 스키마 변경은 검증된 마이그레이션을 별도 실행한 뒤 애플리케이션을 배포한다.
+
+`spring_session`과 `spring_session_attributes`는 Spring Session JDBC가 사용하는 서버 인증 인프라다. 사용자 소유 행이 아니므로 RLS를 적용하지 않고, `placesplates_app`의 CRUD만 허용하며 `PUBLIC`·`anon`·`authenticated` 권한은 제거한다. 브라우저와 Supabase Data API는 이 테이블에 직접 접근하지 않는다.
 
 서명 토큰을 사용하는 브라우저 TUS 요청은 일반 인증 경로인 `/upload/resumable`이 아니라 `/upload/resumable/sign`으로 전송한다. 브라우저에는 `x-signature`만 전달하고 서비스 역할 키는 전달하지 않는다.
 
@@ -47,11 +49,11 @@ Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조�
 프로비저닝은 다음을 한 번에 수행한다.
 
 1. `placesplates_app` 로그인 역할 생성 또는 비밀번호 교체
-2. Flyway V1~V8 적용
-3. PostGIS·마이그레이션 이력·13개 강제 RLS 테이블 확인
-4. Supabase `anon`·`authenticated` 역할의 백엔드 테이블 권한 제거 확인
+2. Flyway V1~V10 적용
+3. PostGIS·마이그레이션 이력·애플리케이션 테이블 14개·세션 테이블 2개·13개 강제 RLS 테이블 확인
+4. Supabase `anon`·`authenticated` 역할의 애플리케이션·세션 테이블 권한 제거 확인
 5. 운영 역할이 `SUPERUSER`·`BYPASSRLS`가 아님을 확인
-6. 요청 범위가 없는 연결에서 게시물 조회 결과가 0건인지 확인
+6. 운영 역할의 세션 테이블 CRUD와 요청 범위가 없는 연결의 게시물 조회 결과 0건 확인
 
 ### Spring Boot 운영 환경변수
 
@@ -79,6 +81,8 @@ Supabase Dashboard의 **Storage → New bucket**에서 `temporary-uploads` 비�
 - Table Editor의 `public` 스키마에서 애플리케이션 테이블을 확인한다.
 - Database → Migrations 대신 `flyway_schema_history`를 Flyway 이력의 기준으로 사용한다.
 - Database → Roles에서 `placesplates_app`의 `SUPERUSER`와 `BYPASSRLS`가 꺼져 있어야 한다.
+- `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD할 수 있고 `anon`·`authenticated`는 조회할 수 없어야 한다.
+- 로그인 후 Cloud Run 리비전이 교체되어도 같은 쿠키로 세션이 복구되고, 로그아웃 후 세션 행과 속성 행이 제거되어야 한다.
 - 운영 배포 전 비로그인 공개 모드와 두 소유자 계정의 격리 테스트를 실행한다.
 - 스키마 마이그레이션은 자동 역실행하지 않는다. 실패 시 애플리케이션 배포를 중단하고 Flyway 실패 원인을 수정하며, 데이터가 생긴 뒤의 복구는 Supabase 백업 또는 새 프로젝트 복원을 사용한다.
 
@@ -91,7 +95,7 @@ Supabase Dashboard의 **Storage → New bucket**에서 `temporary-uploads` 비�
 - Supabaseの`placesplates`プロジェクトはGitHubリポジトリへ接続済みである。
 - PostgreSQLはソウルリージョンの無料`nano`コンピュートを使用する。
 - PostGIS 3.3.7はSupabaseの`extensions`スキーマで有効化済みである。
-- Flyway V1〜V6とアプリケーションテーブル13個は本番DBへ適用済みである。C13配備前にV7画像処理ジョブとV8 RLS・権限migrationを適用すると、テーブル14個、強制RLSテーブル13個となる。
+- Flyway V1〜V8、アプリケーションテーブル14個、強制RLSテーブル13個は本番DBへ適用済みである。session永続化の配備前にV9・V10を適用すると、サーバー専用sessionテーブル2個が追加され、全体は16テーブルとなる。
 - `placesplates_app`はログインだけが許可され、`SUPERUSER`・`CREATEROLE`・`CREATEDB`・`REPLICATION`・`BYPASSRLS`権限を持たない。
 - GitHub接続だけではSpring BootのFlywayマイグレーションは自動実行されない。
 - フロントエンドはSupabase Database・Data APIへ直接接続しない。写真制御権限はSpring Bootから取得し、写真本文だけを短期署名トークンで非公開Storage TUSエンドポイントへ直接送信する。
@@ -108,6 +112,8 @@ publicテーブル               anon/authenticated Data API権限なし
 
 Supabase管理者資格情報を実行中のバックエンドへ保存しない。本番Spring Bootには`placesplates_app`の接続情報だけを注入し、`FLYWAY_ENABLED=false`にする。スキーマ変更は検証済みマイグレーションを別途実行してからアプリケーションを配備する。
 
+`spring_session`と`spring_session_attributes`はSpring Session JDBC用のサーバー認証基盤である。ユーザー所有行ではないためRLSは適用せず、`placesplates_app`のCRUDだけを許可して`PUBLIC`・`anon`・`authenticated`権限を除去する。ブラウザとSupabase Data APIから直接アクセスしない。
+
 署名トークンを使用するブラウザTUSリクエストは、通常認証用の`/upload/resumable`ではなく`/upload/resumable/sign`へ送信する。ブラウザには`x-signature`だけを渡し、サービスロールキーは渡さない。
 
 ### 初回プロビジョニング
@@ -122,7 +128,7 @@ Supabase Dashboardの**Connect → Session pooler**でプロジェクト参照�
 
 スクリプトは管理者パスワード、新しい`placesplates_app`パスワード（20文字以上）、確認用パスワードをマスク入力で受け取る。値はファイル・コマンドライン・ログへ保存せず、実行プロセスの環境からも終了時に削除する。管理者パスワードが不明な場合は、ユーザー自身がDashboardで再設定してから実行する。
 
-処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V8、PostGIS・マイグレーション履歴・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、リクエスト範囲なしでの0件表示をまとめて検証する。
+処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V10、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示をまとめて検証する。
 
 ### Spring Boot本番環境変数
 
@@ -150,6 +156,8 @@ Supabase Dashboardの**Storage → New bucket**で非公開`temporary-uploads`�
 - Table Editorの`public`スキーマでアプリケーションテーブルを確認する。
 - Flyway履歴の基準は`flyway_schema_history`とする。
 - `placesplates_app`の`SUPERUSER`と`BYPASSRLS`が無効であることを確認する。
+- `placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`anon`・`authenticated`からは参照できないことを確認する。
+- Login後にCloud Run revisionを交換しても同じCookieで認証を復元でき、logout後にsessionと属性行が削除されることを確認する。
 - 本番配備前に公開モードと二所有者の分離テストを実行する。
 - スキーママイグレーションは自動で逆実行しない。失敗時はアプリ配備を止めて原因を修正し、データ作成後の復旧にはSupabaseバックアップまたは新規プロジェクトへの復元を使用する。
 

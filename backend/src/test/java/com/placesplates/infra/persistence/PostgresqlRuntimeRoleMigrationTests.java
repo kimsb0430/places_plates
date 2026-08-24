@@ -21,6 +21,8 @@ class PostgresqlRuntimeRoleMigrationTests {
 			.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO placesplates_app;")
 			.contains("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO placesplates_app;")
 			.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE image_processing_jobs TO placesplates_app;")
+			.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE spring_session TO placesplates_app;")
+			.contains("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE spring_session_attributes TO placesplates_app;")
 			.doesNotContain("BYPASSRLS")
 			.doesNotContain("SUPERUSER");
 	}
@@ -39,11 +41,17 @@ class PostgresqlRuntimeRoleMigrationTests {
 		assertThat(migration).contains(
 			"REVOKE ALL PRIVILEGES ON TABLE image_processing_jobs FROM %I"
 		);
+		assertThat(migration)
+			.contains("REVOKE ALL PRIVILEGES ON TABLE spring_session FROM PUBLIC;")
+			.contains("REVOKE ALL PRIVILEGES ON TABLE spring_session_attributes FROM PUBLIC;")
+			.contains("REVOKE ALL PRIVILEGES ON TABLE spring_session FROM %I")
+			.contains("REVOKE ALL PRIVILEGES ON TABLE spring_session_attributes FROM %I");
 	}
 
 	private String readMigration() throws IOException {
 		return readMigration("db/migration/postgresql/V5__grant_runtime_role_and_restrict_data_api.sql")
-			+ readMigration("db/migration/postgresql/V8__secure_image_processing_jobs.sql");
+			+ readMigration("db/migration/postgresql/V8__secure_image_processing_jobs.sql")
+			+ readMigration("db/migration/postgresql/V10__secure_jdbc_session_store.sql");
 	}
 
 	private String readMigration(String path) throws IOException {

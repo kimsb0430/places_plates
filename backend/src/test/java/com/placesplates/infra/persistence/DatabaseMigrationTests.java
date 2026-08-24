@@ -30,7 +30,9 @@ class DatabaseMigrationTests {
 		"UPLOAD_ITEMS",
 		"PHOTOS",
 		"PHOTO_ASSETS",
-		"IMAGE_PROCESSING_JOBS"
+		"IMAGE_PROCESSING_JOBS",
+		"SPRING_SESSION",
+		"SPRING_SESSION_ATTRIBUTES"
 	);
 
 	@Autowired
@@ -209,6 +211,42 @@ class DatabaseMigrationTests {
 			postId,
 			uploadItemId
 		)).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void deletingJdbcSessionAlsoDeletesItsAttributes() {
+		String primaryId = UUID.randomUUID().toString();
+		jdbcTemplate.update(
+			"""
+			INSERT INTO spring_session (
+			    primary_id, session_id, creation_time, last_access_time,
+			    max_inactive_interval, expiry_time
+			) VALUES (?, ?, ?, ?, ?, ?)
+			""",
+			primaryId,
+			UUID.randomUUID().toString(),
+			1L,
+			1L,
+			1_800,
+			1_801_000L
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO spring_session_attributes (session_primary_id, attribute_name, attribute_bytes)
+			VALUES (?, ?, ?)
+			""",
+			primaryId,
+			"test-attribute",
+			new byte[] {1}
+		);
+
+		jdbcTemplate.update("DELETE FROM spring_session WHERE primary_id = ?", primaryId);
+
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM spring_session_attributes WHERE session_primary_id = ?",
+			Integer.class,
+			primaryId
+		)).isZero();
 	}
 
 	private UUID createUser() {

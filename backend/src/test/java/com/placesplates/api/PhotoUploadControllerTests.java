@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +31,8 @@ import com.placesplates.domain.photo.service.ImageProcessingJobService;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
+
+import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -99,7 +100,7 @@ class PhotoUploadControllerTests {
 		AuthenticatedSession authenticated = login();
 
 		mockMvc.perform(post("/api/v1/manage/photo-uploads")
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
@@ -109,7 +110,7 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$.draftPostId").isNotEmpty());
 
 		mockMvc.perform(get("/api/v1/manage/drafts")
-				.session(authenticated.session()))
+				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].category").value("DESTINATION"));
 	}
@@ -118,7 +119,7 @@ class PhotoUploadControllerTests {
 	void createsTracksRetriesAndCompletesMultipleUploads() throws Exception {
 		AuthenticatedSession authenticated = login();
 		MvcResult createResult = mockMvc.perform(post("/api/v1/manage/photo-uploads")
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
@@ -146,7 +147,7 @@ class PhotoUploadControllerTests {
 		String secondItemId = JsonPath.read(createBody, "$.items[1].id");
 
 		mockMvc.perform(post(itemPath(batchId, firstItemId, "progress"))
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"uploadedBytes\":512}"))
@@ -154,7 +155,7 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$.uploadedBytes").value(512));
 
 		mockMvc.perform(post(itemPath(batchId, secondItemId, "failure"))
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"failureCode\":\"NETWORK_ERROR\"}"))
@@ -162,21 +163,21 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$.status").value("FAILED"));
 
 		mockMvc.perform(post(itemPath(batchId, secondItemId, "retry"))
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.attemptCount").value(2))
 			.andExpect(jsonPath("$.uploadTicket.token").value("signed-token"));
 
 		mockMvc.perform(post(itemPath(batchId, firstItemId, "complete"))
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("PROCESSING"))
 			.andExpect(jsonPath("$.uploadedBytes").value(1024));
 
 		mockMvc.perform(post(itemPath(batchId, firstItemId, "complete"))
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("PROCESSING"));
@@ -187,7 +188,7 @@ class PhotoUploadControllerTests {
 
 		mockMvc.perform(get("/api/v1/manage/image-processing-jobs")
 				.param("draftPostId", draftPostId)
-				.session(authenticated.session()))
+				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].id").value(processingJob.getId().toString()))
 			.andExpect(jsonPath("$[0].draftPostId").value(draftPostId))
@@ -205,7 +206,7 @@ class PhotoUploadControllerTests {
 		);
 
 		mockMvc.perform(post("/api/v1/manage/image-processing-jobs/{jobId}/retry", claimedJob.id())
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("PENDING"))
@@ -213,13 +214,13 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$.lastFailureCode").value("METADATA_DECODER_UNAVAILABLE"));
 
 		mockMvc.perform(get("/api/v1/manage/photo-uploads/{batchId}", batchId)
-				.session(authenticated.session()))
+				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.items[0].uploadTicket").doesNotExist())
 			.andExpect(jsonPath("$.items[0].status").value("PROCESSING"));
 
 		mockMvc.perform(get("/api/v1/manage/drafts")
-				.session(authenticated.session()))
+				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].id").value(draftPostId))
 			.andExpect(jsonPath("$[0].category").value("RESTAURANT"))
@@ -228,7 +229,7 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$[0].status").value("DRAFT"));
 
 		mockMvc.perform(get("/api/v1/manage/drafts/{draftPostId}", draftPostId)
-				.session(authenticated.session()))
+				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.id").value(draftPostId));
 	}
@@ -238,7 +239,7 @@ class PhotoUploadControllerTests {
 		AuthenticatedSession authenticated = login();
 
 		mockMvc.perform(post("/api/v1/manage/photo-uploads")
-				.session(authenticated.session())
+				.cookie(authenticated.cookie())
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
@@ -253,25 +254,32 @@ class PhotoUploadControllerTests {
 			.andExpect(status().isOk())
 			.andReturn();
 		String csrfBody = csrfResult.getResponse().getContentAsString();
-		MockHttpSession session = (MockHttpSession) csrfResult.getRequest().getSession(false);
+		Cookie csrfCookie = requireSessionCookie(csrfResult);
 		String headerName = JsonPath.read(csrfBody, "$.headerName");
 		String token = JsonPath.read(csrfBody, "$.token");
 
-		mockMvc.perform(post("/api/v1/auth/login")
-				.session(session)
+		MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+				.cookie(csrfCookie)
 				.header(headerName, token)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{"email":"photo-admin@example.test","password":"local-photo-password"}
 					"""))
-			.andExpect(status().isOk());
-		return new AuthenticatedSession(session, headerName, token);
+			.andExpect(status().isOk())
+			.andReturn();
+		return new AuthenticatedSession(requireSessionCookie(loginResult), headerName, token);
+	}
+
+	private Cookie requireSessionCookie(MvcResult result) {
+		Cookie cookie = result.getResponse().getCookie("SESSION");
+		assertThat(cookie).isNotNull();
+		return cookie;
 	}
 
 	private static String itemPath(String batchId, String itemId, String action) {
 		return "/api/v1/manage/photo-uploads/" + batchId + "/items/" + itemId + "/" + action;
 	}
 
-	private record AuthenticatedSession(MockHttpSession session, String headerName, String token) {
+	private record AuthenticatedSession(Cookie cookie, String headerName, String token) {
 	}
 }
