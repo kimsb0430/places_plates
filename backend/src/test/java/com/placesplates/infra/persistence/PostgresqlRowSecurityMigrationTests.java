@@ -25,7 +25,8 @@ class PostgresqlRowSecurityMigrationTests {
 		"photos",
 		"photo_assets",
 		"upload_batches",
-		"upload_items"
+		"upload_items",
+		"image_processing_jobs"
 	);
 
 	@Test
@@ -61,14 +62,20 @@ class PostgresqlRowSecurityMigrationTests {
 		assertThat(migration)
 			.contains("CREATE POLICY upload_batches_owner_all")
 			.contains("CREATE POLICY upload_items_owner_all")
+			.contains("CREATE POLICY image_processing_jobs_owner_all")
+			.contains("upload_batches.post_id = image_processing_jobs.post_id")
 			.doesNotContain("upload_batches_public")
-			.doesNotContain("upload_items_public");
+			.doesNotContain("upload_items_public")
+			.doesNotContain("image_processing_jobs_public");
 	}
 
 	private String readMigration() throws IOException {
-		ClassPathResource resource = new ClassPathResource(
-			"db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql"
-		);
+		return readMigration("db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql")
+			+ readMigration("db/migration/postgresql/V8__secure_image_processing_jobs.sql");
+	}
+
+	private String readMigration(String path) throws IOException {
+		ClassPathResource resource = new ClassPathResource(path);
 		return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
 	}
 }

@@ -29,7 +29,8 @@ class DatabaseMigrationTests {
 		"UPLOAD_BATCHES",
 		"UPLOAD_ITEMS",
 		"PHOTOS",
-		"PHOTO_ASSETS"
+		"PHOTO_ASSETS",
+		"IMAGE_PROCESSING_JOBS"
 	);
 
 	@Autowired
@@ -159,6 +160,54 @@ class DatabaseMigrationTests {
 			OffsetDateTime.now().plusHours(1),
 			1_024,
 			2_048
+		)).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void uploadItemCanHaveOnlyOneImageProcessingJob() {
+		UUID userId = createUser();
+		UUID postId = UUID.randomUUID();
+		UUID batchId = UUID.randomUUID();
+		UUID uploadItemId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO posts (id, owner_user_id, category, title) VALUES (?, ?, 'RESTAURANT', ?)",
+			postId,
+			userId,
+			"processing draft"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO upload_batches (id, owner_user_id, post_id, expires_at) VALUES (?, ?, ?, ?)",
+			batchId,
+			userId,
+			postId,
+			OffsetDateTime.now().plusHours(1)
+		);
+		jdbcTemplate.update(
+			"INSERT INTO upload_items (id, upload_batch_id, expires_at) VALUES (?, ?, ?)",
+			uploadItemId,
+			batchId,
+			OffsetDateTime.now().plusHours(1)
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO image_processing_jobs (id, owner_user_id, post_id, upload_item_id)
+			VALUES (?, ?, ?, ?)
+			""",
+			UUID.randomUUID(),
+			userId,
+			postId,
+			uploadItemId
+		);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO image_processing_jobs (id, owner_user_id, post_id, upload_item_id)
+			VALUES (?, ?, ?, ?)
+			""",
+			UUID.randomUUID(),
+			userId,
+			postId,
+			uploadItemId
 		)).isInstanceOf(DataIntegrityViolationException.class);
 	}
 

@@ -1,6 +1,6 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.4
+문서 버전: v1.5
 작성일: 2026-08-24
 
 ## 1. 적용 범위
@@ -32,6 +32,8 @@ TAG.id ───────────────── POST_TAG.tag_id
 POST.id ──────────────── PHOTO.post_id
 POST.id ──────────────── UPLOAD_BATCH.post_id
 UPLOAD_BATCH.id ──────── UPLOAD_ITEM.upload_batch_id
+POST.id ──────────────── IMAGE_PROCESSING_JOB.post_id
+UPLOAD_ITEM.id ───────── IMAGE_PROCESSING_JOB.upload_item_id (UNIQUE)
 PHOTO.id ─────────────── UPLOAD_ITEM.result_photo_id
 PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 ```
@@ -47,6 +49,9 @@ PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 | `db/migration/common/V3__add_account_role.sql` | 모든 DB | 관리자·일반 회원 역할 컬럼과 검사 제약 |
 | `db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql` | PostgreSQL | 소유자·공개 모드 함수와 12개 개인 데이터 테이블의 강제 RLS 정책 |
 | `db/migration/postgresql/V5__grant_runtime_role_and_restrict_data_api.sql` | PostgreSQL | 제한된 런타임 역할 권한과 Supabase Data API의 백엔드 테이블 접근 차단 |
+| `db/migration/common/V6__track_resumable_upload_progress.sql` | 모든 DB | TUS 업로드 진행률·재시도·실패 원인과 만료 인덱스 |
+| `db/migration/common/V7__create_image_processing_jobs.sql` | 모든 DB | 업로드 항목별 단일 이미지 처리 작업과 재시도 상태·인덱스 |
+| `db/migration/postgresql/V8__secure_image_processing_jobs.sql` | PostgreSQL | 이미지 처리 작업 강제 RLS·런타임 권한·Data API 차단 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -75,6 +80,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 정제 마스터는 항상 비공개 자산이다.
 - 완료된 업로드 항목에는 임시 원본 저장 경로가 남을 수 없다.
 - `upload_items`는 비공개 업로드 화면을 위해 파일 표시명·MIME·선언 크기·업로드 바이트·시도 횟수·실패 코드·24시간 만료를 추적한다. 객체 키는 원래 파일명 대신 소유자·묶음·항목 UUID로 생성한다.
+- `image_processing_jobs.upload_item_id`는 UNIQUE이며 업로드 완료 요청이 반복되어도 처리 작업은 하나만 생성한다. 작업은 최대 5회까지 처리 시도 횟수, 다음 실행 시각, 마지막 실패 코드를 추적하고 소유자 RLS 밖으로 노출되지 않는다.
 
 ## 5. 조회 인덱스
 
@@ -89,6 +95,8 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 사용자별 업로드 묶음: `upload_batches(owner_user_id, created_at DESC)`
 - 업로드 묶음별 파일 상태: `upload_items(upload_batch_id, processing_status)`
 - 만료 정리 대상: `upload_items(expires_at, processing_status)`
+- 처리 가능한 작업 조회: `image_processing_jobs(owner_user_id, status, next_attempt_at)`
+- 초안별 처리 작업: `image_processing_jobs(post_id, created_at DESC)`
 
 ### PostgreSQL 전용 인덱스
 

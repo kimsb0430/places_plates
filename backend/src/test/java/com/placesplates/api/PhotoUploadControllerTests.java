@@ -1,5 +1,6 @@
 package com.placesplates.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -7,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,8 @@ import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
+import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
+import com.placesplates.domain.photo.service.ImageProcessingJobService;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
@@ -45,6 +50,12 @@ class PhotoUploadControllerTests {
 	private UploadBatchRepository uploadBatchRepository;
 
 	@Autowired
+	private ImageProcessingJobRepository imageProcessingJobRepository;
+
+	@Autowired
+	private ImageProcessingJobService imageProcessingJobService;
+
+	@Autowired
 	private DraftPostRepository draftPostRepository;
 
 	@Autowired
@@ -55,6 +66,7 @@ class PhotoUploadControllerTests {
 
 	@BeforeEach
 	void setUp() {
+		imageProcessingJobRepository.deleteAll();
 		uploadBatchRepository.deleteAll();
 		draftPostRepository.deleteAll();
 		accountRepository.deleteAll();
@@ -162,6 +174,43 @@ class PhotoUploadControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("PROCESSING"))
 			.andExpect(jsonPath("$.uploadedBytes").value(1024));
+
+		mockMvc.perform(post(itemPath(batchId, firstItemId, "complete"))
+				.session(authenticated.session())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("PROCESSING"));
+
+		assertThat(imageProcessingJobRepository.count()).isEqualTo(1);
+		var processingJob = imageProcessingJobRepository.findByUploadItemId(UUID.fromString(firstItemId))
+			.orElseThrow();
+
+		mockMvc.perform(get("/api/v1/manage/image-processing-jobs")
+				.param("draftPostId", draftPostId)
+				.session(authenticated.session()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(processingJob.getId().toString()))
+			.andExpect(jsonPath("$[0].draftPostId").value(draftPostId))
+			.andExpect(jsonPath("$[0].uploadItemId").value(firstItemId))
+			.andExpect(jsonPath("$[0].status").value("PENDING"))
+			.andExpect(jsonPath("$[0].attemptCount").value(0))
+			.andExpect(jsonPath("$[0].canRetry").value(false));
+
+		var claimedJob = imageProcessingJobService.claimNextJob(processingJob.getOwnerUserId())
+			.orElseThrow();
+		imageProcessingJobService.failJob(
+			processingJob.getOwnerUserId(),
+			claimedJob.id(),
+			"metadata decoder unavailable"
+		);
+
+		mockMvc.perform(post("/api/v1/manage/image-processing-jobs/{jobId}/retry", claimedJob.id())
+				.session(authenticated.session())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("PENDING"))
+			.andExpect(jsonPath("$.attemptCount").value(1))
+			.andExpect(jsonPath("$.lastFailureCode").value("METADATA_DECODER_UNAVAILABLE"));
 
 		mockMvc.perform(get("/api/v1/manage/photo-uploads/{batchId}", batchId)
 				.session(authenticated.session()))

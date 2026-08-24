@@ -52,15 +52,18 @@ public class PhotoUploadService {
 
 	private final UploadBatchRepository uploadBatchRepository;
 	private final DraftPostRepository draftPostRepository;
+	private final ImageProcessingJobService imageProcessingJobService;
 	private final TemporaryUploadSigner uploadSigner;
 
 	public PhotoUploadService(
 		UploadBatchRepository uploadBatchRepository,
 		DraftPostRepository draftPostRepository,
+		ImageProcessingJobService imageProcessingJobService,
 		TemporaryUploadSigner uploadSigner
 	) {
 		this.uploadBatchRepository = uploadBatchRepository;
 		this.draftPostRepository = draftPostRepository;
+		this.imageProcessingJobService = imageProcessingJobService;
 		this.uploadSigner = uploadSigner;
 	}
 
@@ -156,8 +159,12 @@ public class PhotoUploadService {
 
 	@Transactional
 	public UploadItemResponse complete(UUID ownerUserId, UUID batchId, UUID itemId) {
-		UploadBatch batch = getOwnedBatch(ownerUserId, batchId);
+		UploadBatch batch = getLockedOwnedBatch(ownerUserId, batchId);
 		UploadItem item = getItem(batch, itemId);
+		if (item.isUploaded()) {
+			enqueueProcessingJob(ownerUserId, batch, item);
+			return UploadItemResponse.from(item, null);
+		}
 		ensureActive(item);
 		ensureUploading(item);
 		String storageKey = ensureStorageKey(ownerUserId, batchId, item);
@@ -175,6 +182,7 @@ public class PhotoUploadService {
 			throw invalidState("PHOTO_UPLOAD_OBJECT_MISMATCH", "업로드된 사진의 크기를 확인할 수 없습니다.");
 		}
 		item.markUploaded();
+		enqueueProcessingJob(ownerUserId, batch, item);
 		batch.refreshStatus();
 		return UploadItemResponse.from(item, null);
 	}
@@ -186,6 +194,22 @@ public class PhotoUploadService {
 				"PHOTO_UPLOAD_BATCH_NOT_FOUND",
 				"사진 업로드 묶음을 찾을 수 없습니다."
 			));
+	}
+
+	private UploadBatch getLockedOwnedBatch(UUID ownerUserId, UUID batchId) {
+		return uploadBatchRepository.findLockedWithItemsByIdAndOwnerUserId(batchId, ownerUserId)
+			.orElseThrow(() -> new PhotoUploadException(
+				HttpStatus.NOT_FOUND,
+				"PHOTO_UPLOAD_BATCH_NOT_FOUND",
+				"사진 업로드 묶음을 찾을 수 없습니다."
+			));
+	}
+
+	private void enqueueProcessingJob(UUID ownerUserId, UploadBatch batch, UploadItem item) {
+		if (batch.getPostId() == null) {
+			throw invalidState("PHOTO_UPLOAD_DRAFT_REQUIRED", "사진을 처리할 비공개 초안이 필요합니다.");
+		}
+		imageProcessingJobService.enqueueIfAbsent(ownerUserId, batch.getPostId(), item.getId());
 	}
 
 	private UploadItem getItem(UploadBatch batch, UUID itemId) {

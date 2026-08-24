@@ -25,7 +25,7 @@
 - 운영 API의 `FRONTEND_ORIGINS`를 실제 프론트 도메인으로 제한하고 세션 쿠키에 `HttpOnly`, `Secure`, `SameSite=None`이 적용됐는지 확인한다.
 - 최초 관리자 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 운영 환경변수에서 제거한다.
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
-- 운영 PostgreSQL에서 V1~V6 이력과 `FORCE ROW LEVEL SECURITY`가 12개 개인 데이터 테이블에 적용됐는지 확인한다.
+- 운영 PostgreSQL에서 V1~V8 이력과 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
 - Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/project.toml`의 `GOOGLE_RUNTIME_VERSION=21`이 적용되는지 빌드 로그에서 확인한다.
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
@@ -62,7 +62,7 @@
 - 本番APIの`FRONTEND_ORIGINS`を実際のフロントエンドドメインに限定し、セッションCookieに`HttpOnly`、`Secure`、`SameSite=None`が適用されていることを確認する。
 - 初回管理者の作成確認後、`ADMIN_BOOTSTRAP_ENABLED=false`へ変更し、`ADMIN_PASSWORD`を本番環境変数から削除する。
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
-- 本番PostgreSQLでV1〜V6履歴と`FORCE ROW LEVEL SECURITY`が12個の個人データテーブルへ適用されたことを確認する。
+- 本番PostgreSQLでV1〜V8履歴と`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
 - Cloud Runソースデプロイのビルドルートを`backend`に指定し、`backend/project.toml`の`GOOGLE_RUNTIME_VERSION=21`がビルドログへ反映されることを確認する。
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
