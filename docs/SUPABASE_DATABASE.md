@@ -24,6 +24,8 @@ public 테이블                anon/authenticated Data API 권한 없음
 
 Supabase 관리자 자격 증명을 실행 중인 백엔드에 저장하지 않는다. 운영 Spring Boot에는 `placesplates_app`의 접속 정보만 주입하고 `FLYWAY_ENABLED=false`로 둔다. 스키마 변경은 검증된 마이그레이션을 별도 실행한 뒤 애플리케이션을 배포한다.
 
+서명 토큰을 사용하는 브라우저 TUS 요청은 일반 인증 경로인 `/upload/resumable`이 아니라 `/upload/resumable/sign`으로 전송한다. 브라우저에는 `x-signature`만 전달하고 서비스 역할 키는 전달하지 않는다.
+
 ### 최초 프로비저닝
 
 Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조값과 풀러 호스트를 확인한다. 무료 프로젝트 또는 IPv4 네트워크에서는 Session pooler 5432를 사용한다.
@@ -105,6 +107,8 @@ publicテーブル               anon/authenticated Data API権限なし
 ```
 
 Supabase管理者資格情報を実行中のバックエンドへ保存しない。本番Spring Bootには`placesplates_app`の接続情報だけを注入し、`FLYWAY_ENABLED=false`にする。スキーマ変更は検証済みマイグレーションを別途実行してからアプリケーションを配備する。
+
+署名トークンを使用するブラウザTUSリクエストは、通常認証用の`/upload/resumable`ではなく`/upload/resumable/sign`へ送信する。ブラウザには`x-signature`だけを渡し、サービスロールキーは渡さない。
 
 ### 初回プロビジョニング
 
