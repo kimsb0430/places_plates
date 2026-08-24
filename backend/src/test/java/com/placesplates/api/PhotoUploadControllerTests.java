@@ -59,7 +59,7 @@ class PhotoUploadControllerTests {
 		));
 		when(uploadSigner.issue(anyString()))
 			.thenAnswer(invocation -> new SignedUploadTicket(
-				"https://storage.example.test/upload/resumable",
+				"https://storage.example.test/upload/resumable/sign",
 				"signed-token",
 				"temporary-uploads",
 				invocation.getArgument(0)
@@ -95,6 +95,8 @@ class PhotoUploadControllerTests {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.status").value("UPLOADING"))
 			.andExpect(jsonPath("$.items.length()").value(2))
+			.andExpect(jsonPath("$.items[0].uploadTicket.endpoint")
+				.value("https://storage.example.test/upload/resumable/sign"))
 			.andExpect(jsonPath("$.items[0].uploadTicket.token").value("signed-token"))
 			.andReturn();
 

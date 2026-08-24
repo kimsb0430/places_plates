@@ -31,7 +31,7 @@
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 최초 관리자 계정은 `ADMIN_PASSWORD` Secret Manager 참조로 한 번만 생성하고 로그인 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`와 비밀번호 참조 제거 상태로 다시 배포한다.
 - Supabase Storage에 비공개 `temporary-uploads` 버킷을 만들고 `SUPABASE_STORAGE_API_URL`, `SUPABASE_TEMPORARY_UPLOAD_BUCKET`을 일반 환경변수로, `SUPABASE_STORAGE_SERVICE_ROLE_KEY`를 Secret Manager 참조로 주입한다. 서비스 역할 키는 Vercel에 설정하지 않는다.
-- 브라우저 네트워크에서 사진 본문은 TUS 6MB 청크로 Storage에 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
+- 브라우저 네트워크에서 사진 본문은 서명 전용 `/storage/v1/upload/resumable/sign`에 `x-signature`와 함께 TUS 6MB 청크로 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
 
@@ -68,7 +68,7 @@
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
 - 初回管理者は`ADMIN_PASSWORD`をSecret Manager参照として一度だけ作成し、ログイン確認後に`ADMIN_BOOTSTRAP_ENABLED=false`とパスワード参照削除の状態で再配備する。
 - Supabase Storageへ非公開`temporary-uploads`バケットを作成し、Storage API URLとバケット名は通常環境変数、サービスロールキーはSecret Manager参照としてCloud Runだけへ注入する。Vercelには保存しない。
-- 写真本文がTUSの6MBチャンクでStorageへ送信され、制御・進捗・完了要求はSpring Boot APIだけへ送信されることを確認する。
+- 写真本文が`x-signature`付きで署名専用`/storage/v1/upload/resumable/sign`へTUSの6MBチャンクとして送信され、制御・進捗・完了要求はSpring Boot APIだけへ送信されることを確認する。
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。
 

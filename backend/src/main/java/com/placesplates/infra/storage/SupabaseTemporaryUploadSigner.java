@@ -59,7 +59,7 @@ public class SupabaseTemporaryUploadSigner implements TemporaryUploadSigner {
 		if (!StringUtils.hasText(token)) {
 			throw new StorageAccessException("Storage did not return an upload token");
 		}
-		return new SignedUploadTicket(storageApiUrl + "/upload/resumable", token, bucket, objectKey);
+		return new SignedUploadTicket(storageApiUrl + "/upload/resumable/sign", token, bucket, objectKey);
 	}
 
 	@Override
