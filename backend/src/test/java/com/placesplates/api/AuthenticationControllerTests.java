@@ -17,7 +17,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,6 +24,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
+
+import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -78,29 +79,26 @@ class AuthenticationControllerTests {
 	@Test
 	void loginRestoresSessionAndLogoutInvalidatesIt() throws Exception {
 		CsrfSession csrfSession = getCsrfSession();
-		String sessionIdBeforeLogin = csrfSession.session().getId();
-		mockMvc.perform(post("/api/v1/auth/login")
-				.session(csrfSession.session())
-				.header(csrfSession.headerName(), csrfSession.token())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"email":"administrator@example.test","password":"local-test-password"}
-					"""))
+		String sessionIdBeforeLogin = csrfSession.cookie().getValue();
+		MvcResult loginResult = performLogin(csrfSession, ADMIN_EMAIL, ADMIN_PASSWORD)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.email").value(ADMIN_EMAIL))
-			.andExpect(jsonPath("$.role").value("ADMIN"));
-		assertThat(csrfSession.session().getId()).isNotEqualTo(sessionIdBeforeLogin);
+			.andExpect(jsonPath("$.role").value("ADMIN"))
+			.andReturn();
+		Cookie authenticatedCookie = requireSessionCookie(loginResult);
+		assertThat(authenticatedCookie.getValue()).isNotEqualTo(sessionIdBeforeLogin);
+		CsrfSession authenticatedSession = csrfSession.withCookie(authenticatedCookie);
 
-		mockMvc.perform(get("/api/v1/auth/session").session(csrfSession.session()))
+		mockMvc.perform(get("/api/v1/auth/session").cookie(authenticatedSession.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.email").value(ADMIN_EMAIL));
 
 		mockMvc.perform(post("/api/v1/auth/logout")
-				.session(csrfSession.session())
-				.header(csrfSession.headerName(), csrfSession.token()))
+				.cookie(authenticatedSession.cookie())
+				.header(authenticatedSession.headerName(), authenticatedSession.token()))
 			.andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/v1/auth/session"))
+		mockMvc.perform(get("/api/v1/auth/session").cookie(authenticatedSession.cookie()))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
 	}
@@ -112,7 +110,7 @@ class AuthenticationControllerTests {
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
 
-		mockMvc.perform(get("/api/v1/auth/session").session(csrfSession.session()))
+		mockMvc.perform(get("/api/v1/auth/session").cookie(csrfSession.cookie()))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
 	}
@@ -149,15 +147,13 @@ class AuthenticationControllerTests {
 
 	@Test
 	void logoutWithoutCsrfTokenDoesNotInvalidateAuthenticatedSession() throws Exception {
-		CsrfSession csrfSession = getCsrfSession();
-		performLogin(csrfSession, ADMIN_EMAIL, ADMIN_PASSWORD)
-			.andExpect(status().isOk());
+		CsrfSession authenticatedSession = loginSuccessfully();
 
-		mockMvc.perform(post("/api/v1/auth/logout").session(csrfSession.session()))
+		mockMvc.perform(post("/api/v1/auth/logout").cookie(authenticatedSession.cookie()))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
-		mockMvc.perform(get("/api/v1/auth/session").session(csrfSession.session()))
+		mockMvc.perform(get("/api/v1/auth/session").cookie(authenticatedSession.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.email").value(ADMIN_EMAIL));
 	}
@@ -179,10 +175,24 @@ class AuthenticationControllerTests {
 			.andReturn();
 		String responseBody = result.getResponse().getContentAsString();
 		return new CsrfSession(
-			(MockHttpSession) result.getRequest().getSession(false),
+			requireSessionCookie(result),
 			JsonPath.read(responseBody, "$.headerName"),
 			JsonPath.read(responseBody, "$.token")
 		);
+	}
+
+	private CsrfSession loginSuccessfully() throws Exception {
+		CsrfSession csrfSession = getCsrfSession();
+		MvcResult loginResult = performLogin(csrfSession, ADMIN_EMAIL, ADMIN_PASSWORD)
+			.andExpect(status().isOk())
+			.andReturn();
+		return csrfSession.withCookie(requireSessionCookie(loginResult));
+	}
+
+	private Cookie requireSessionCookie(MvcResult result) {
+		Cookie cookie = result.getResponse().getCookie("SESSION");
+		assertThat(cookie).isNotNull();
+		return cookie;
 	}
 
 	private org.springframework.test.web.servlet.ResultActions performLogin(
@@ -191,7 +201,7 @@ class AuthenticationControllerTests {
 		String password
 	) throws Exception {
 		return mockMvc.perform(post("/api/v1/auth/login")
-			.session(csrfSession.session())
+			.cookie(csrfSession.cookie())
 			.header(csrfSession.headerName(), csrfSession.token())
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
@@ -199,6 +209,10 @@ class AuthenticationControllerTests {
 				""".formatted(email, password)));
 	}
 
-	private record CsrfSession(MockHttpSession session, String headerName, String token) {
+	private record CsrfSession(Cookie cookie, String headerName, String token) {
+
+		private CsrfSession withCookie(Cookie nextCookie) {
+			return new CsrfSession(nextCookie, headerName, token);
+		}
 	}
 }

@@ -1,7 +1,7 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.5
-작성일: 2026-08-24
+문서 버전: v1.6
+작성일: 2026-08-25
 
 ## 1. 적용 범위
 
@@ -11,6 +11,7 @@
 - 모든 개인 기록은 `owner_user_id`를 통해 소유자 경계를 가진다.
 - 업로드 원본은 임시 경로에만 존재하며 처리 완료 후 경로와 실제 파일을 제거한다.
 - 정확한 방문일은 비공개 데이터이고 공개 응답에는 연도와 월만 제공한다.
+- 로그인 세션은 Spring Session JDBC 표준 테이블에 저장하며 리비전과 인스턴스 수명에 의존하지 않는다.
 
 ## 2. 핵심 관계
 
@@ -36,6 +37,8 @@ POST.id ──────────────── IMAGE_PROCESSING_JOB.po
 UPLOAD_ITEM.id ───────── IMAGE_PROCESSING_JOB.upload_item_id (UNIQUE)
 PHOTO.id ─────────────── UPLOAD_ITEM.result_photo_id
 PHOTO.id ─────────────── PHOTO_ASSET.photo_id
+
+SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 ```
 
 `POST.category`는 `RESTAURANT` 또는 `DESTINATION` 중 하나다. PostgreSQL 트리거가 카테고리와 전용 상세 테이블의 불일치를 차단한다.
@@ -52,6 +55,8 @@ PHOTO.id ─────────────── PHOTO_ASSET.photo_id
 | `db/migration/common/V6__track_resumable_upload_progress.sql` | 모든 DB | TUS 업로드 진행률·재시도·실패 원인과 만료 인덱스 |
 | `db/migration/common/V7__create_image_processing_jobs.sql` | 모든 DB | 업로드 항목별 단일 이미지 처리 작업과 재시도 상태·인덱스 |
 | `db/migration/postgresql/V8__secure_image_processing_jobs.sql` | PostgreSQL | 이미지 처리 작업 강제 RLS·런타임 권한·Data API 차단 |
+| `db/migration/common/V9__create_jdbc_session_store.sql` | 모든 DB | Spring Session JDBC 표준 세션·속성 테이블과 조회 인덱스 |
+| `db/migration/postgresql/V10__secure_jdbc_session_store.sql` | PostgreSQL | 런타임 역할 세션 CRUD와 PUBLIC·Data API 접근 차단 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -64,6 +69,7 @@ Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경�
 - `PUBLIC` 모드는 전체 공개·게시 완료 행과 안전 검사를 통과한 공개 사진 자산만 읽을 수 있다.
 - 임시 업로드, 정제 마스터와 다른 사용자의 초안은 공개 정책이 없으므로 조회 결과에 포함되지 않는다.
 - `app_users`는 로그인 시 이메일로 계정을 찾아야 하므로 RLS 대상에서 제외하고 인증 Repository 외의 접근과 API 노출을 금지한다.
+- `spring_session`과 `spring_session_attributes`는 서버 내부 인프라 테이블이라 소유자 RLS를 적용하지 않는다. 대신 `placesplates_app`만 CRUD할 수 있고 `PUBLIC`·`anon`·`authenticated`에는 권한을 부여하지 않는다.
 
 RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공개 API DTO는 `visited_on`, 정확한 좌표, 비공개 저장 키를 선택하지 않고 공개 연월·허용 좌표·공개 자산만 명시적으로 투영해야 한다.
 
@@ -81,6 +87,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 완료된 업로드 항목에는 임시 원본 저장 경로가 남을 수 없다.
 - `upload_items`는 비공개 업로드 화면을 위해 파일 표시명·MIME·선언 크기·업로드 바이트·시도 횟수·실패 코드·24시간 만료를 추적한다. 객체 키는 원래 파일명 대신 소유자·묶음·항목 UUID로 생성한다.
 - `image_processing_jobs.upload_item_id`는 UNIQUE이며 업로드 완료 요청이 반복되어도 처리 작업은 하나만 생성한다. 작업은 최대 5회까지 처리 시도 횟수, 다음 실행 시각, 마지막 실패 코드를 추적하고 소유자 RLS 밖으로 노출되지 않는다.
+- 세션 속성은 `spring_session.primary_id`를 외래키로 참조하며 세션 삭제 시 함께 삭제된다. 만료 세션은 Spring Session JDBC 정리 작업이 `expiry_time`을 기준으로 제거한다.
 
 ## 5. 조회 인덱스
 
@@ -97,6 +104,9 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 만료 정리 대상: `upload_items(expires_at, processing_status)`
 - 처리 가능한 작업 조회: `image_processing_jobs(owner_user_id, status, next_attempt_at)`
 - 초안별 처리 작업: `image_processing_jobs(post_id, created_at DESC)`
+- 세션 쿠키 조회: `spring_session(session_id)` UNIQUE
+- 만료 세션 정리: `spring_session(expiry_time)`
+- 사용자별 세션 조회: `spring_session(principal_name)`
 
 ### PostgreSQL 전용 인덱스
 
@@ -136,6 +146,8 @@ DATABASE_PASSWORD=<database-password>
 ```
 
 실제 값은 Git에 저장하지 않는다. 로컬 개발은 애플리케이션 시작 시 Flyway를 적용한다. Supabase 운영 DB는 `scripts/provision-supabase-database.ps1`에서 관리자 연결로 Flyway를 실행하고, 런타임은 제한된 `placesplates_app` 연결과 `FLYWAY_ENABLED=false`를 사용한다. 세부 절차는 `docs/SUPABASE_DATABASE.md`를 기준으로 한다.
+
+Spring Session의 자체 스키마 자동 생성은 `spring.session.jdbc.initialize-schema=never`로 끄고 V9 Flyway 이력을 단일 기준으로 사용한다.
 
 GitHub Actions는 `postgis/postgis:17-3.5` 서비스에서 전체 PostgreSQL 마이그레이션을 실행하고, 두 소유자와 공개 모드의 게시물·사진 자산·업로드 격리를 실제 엔진으로 검증한다. 로컬에 PostgreSQL이 없는 경우 H2 검증은 수행되지만 PostgreSQL RLS 통합 테스트는 건너뛴다.
 

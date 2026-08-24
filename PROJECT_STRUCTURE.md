@@ -1,7 +1,7 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.2
-작성일: 2026-08-24
+문서 버전: v2.3
+작성일: 2026-08-25
 
 ## 1. 구조 결정
 
@@ -12,6 +12,7 @@ Places & Plates는 하나의 Git 저장소 안에서 프론트엔드와 백엔�
 - 두 프로젝트 모두 기술 계층만 나열하지 않고 `post`, `place`, `photo`, `profile` 같은 도메인 중심으로 구성한다.
 - 프론트엔드는 Spring Boot 자체를 사용하지 않지만, `controller → service → repository`처럼 책임이 드러나는 폴더 규칙을 적용한다.
 - 프론트엔드의 인증·게시물·저장소 제어 요청은 백엔드 REST API만 호출한다. 사진 본문만 백엔드가 발급한 단기 서명 토큰으로 Supabase Storage TUS 엔드포인트에 직접 전송해 Cloud Run 프록시 비용과 시간 제한을 피한다.
+- 로그인 세션은 Spring Session JDBC로 운영 PostgreSQL에 저장해 Cloud Run 리비전 교체와 최대 2개 인스턴스 사이에서도 복구한다.
 
 ## 2. 저장소 전체 구조
 
@@ -163,7 +164,7 @@ backend/src/main/resources/
 
 | 도메인 | 주요 책임 | API 예시 |
 |---|---|---|
-| auth | CSRF 발급·로그인·서버 세션·로그아웃 | `/api/v1/auth/**` |
+| auth | CSRF 발급·로그인·PostgreSQL 지속 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
 | post | 맛집·여행지 게시물, 업로드 시작 초안과 공개 범위 | `/api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
@@ -198,6 +199,7 @@ backend/src/test/java/com/placesplates/
 - Supabase Storage 서비스 역할 키는 Cloud Run Secret Manager에만 저장하며, 백엔드는 소유자와 객체 키를 검증한 뒤 단기 업로드 토큰만 반환한다.
 - 데이터베이스 비밀번호, 저장소 비밀키, 관리자 비밀번호는 프론트엔드에 전달하지 않는다.
 - 운영 세션 쿠키는 `HttpOnly`, `Secure`, `SameSite=None`으로 설정하고 CORS는 실제 프론트 도메인만 허용한다.
+- `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES`는 Spring Boot만 접근하는 인프라 테이블이다. 소유자 RLS는 적용하지 않고 `placesplates_app`에만 CRUD를 허용하며 Supabase `anon`·`authenticated`와 `PUBLIC` 권한은 제거한다.
 - `/api/v1/public/**`는 `PUBLIC`, 나머지 보호 API는 인증 사용자의 UUID를 가진 `OWNER` DB 모드로 실행한다.
 - PostgreSQL RLS는 운영에서 항상 활성화하며 H2 테스트 프로필만 DB 엔진 차이 때문에 비활성화한다.
 - Supabase 운영 DB는 관리자 역할로 Flyway를 별도 실행하고, Spring Boot 런타임은 `SUPERUSER`·`BYPASSRLS` 권한이 없는 `placesplates_app`만 사용한다.

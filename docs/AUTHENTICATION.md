@@ -1,12 +1,12 @@
 # Places & Plates 관리자 인증
 
-문서 버전: v1.2
-작성일: 2026-08-24
+문서 버전: v1.3
+작성일: 2026-08-25
 
 ## 1. 인증 방식
 
 - Spring Security가 DB의 `app_users` 관리자 계정을 BCrypt 해시로 검증한다.
-- 로그인 성공 시 서버 세션을 만들고 브라우저에는 `HttpOnly` 세션 쿠키만 보낸다.
+- 로그인 성공 시 Spring Session JDBC가 PostgreSQL에 서버 세션을 저장하고 브라우저에는 `HttpOnly` 세션 쿠키만 보낸다.
 - 로그인 직전에 발급된 세션 ID는 인증 성공 시 교체해 세션 고정 공격을 방지한다.
 - 로그인과 로그아웃 요청은 `/api/v1/auth/csrf`에서 받은 CSRF 토큰이 있어야 처리한다.
 - 프론트엔드는 세션 쿠키나 비밀번호를 JavaScript 저장소에 별도로 보관하지 않는다.
@@ -58,41 +58,56 @@ SESSION_COOKIE_SAME_SITE=none
 
 `FRONTEND_ORIGINS`에는 와일드카드를 사용하지 않고 실제 프론트 도메인만 허용한다. 프론트의 `NEXT_PUBLIC_API_BASE_URL`에는 HTTPS API 주소를 넣는다.
 
-## 5. 운영 확인
+## 5. PostgreSQL 세션 저장소
+
+- Flyway V9가 Spring Session JDBC 표준 `spring_session`·`spring_session_attributes` 테이블과 조회·만료 정리 인덱스를 만든다.
+- `spring.session.jdbc.initialize-schema=never`로 두어 애플리케이션이 운영 스키마를 임의 생성하지 않으며, 검증된 Flyway 마이그레이션을 먼저 적용한다.
+- Flyway V10은 `placesplates_app`에 두 테이블의 CRUD만 허용하고 `PUBLIC`·`anon`·`authenticated` 접근을 제거한다. 이 테이블은 사용자 소유 행이 아닌 서버 인증 인프라이므로 RLS 대신 역할 권한으로 차단한다.
+- 세션과 직렬화된 인증 속성은 API 응답이나 로그에 노출하지 않는다. 로그아웃하면 해당 세션과 속성이 외래키 연쇄 삭제된다.
+- Cloud Run 리비전 교체나 여러 인스턴스 간 요청에서도 같은 세션 쿠키를 PostgreSQL에서 복구한다. 만료 시간은 `server.servlet.session.timeout`을 따른다.
+
+## 6. 운영 확인
 
 - 공개 페이지는 로그인 없이 접근할 수 있어야 한다.
 - 비로그인 `/manage` 접근은 로그인 화면으로 이동해야 한다.
 - 새로고침 후 관리자 세션이 복구되어야 한다.
+- 로그인 상태에서 Cloud Run 새 리비전을 배포한 뒤에도 `/api/v1/auth/session`이 성공해야 한다.
 - 로그아웃 후 기존 세션으로 `/api/v1/auth/session`에 접근하면 401이어야 한다.
 - 운영 응답의 세션 쿠키에 `HttpOnly`, `Secure`, `SameSite=None`이 적용되어야 한다.
 - 로그인 오류나 서버 로그에 비밀번호·해시·세션 ID·CSRF 토큰이 기록되지 않아야 한다.
 
-## 6. 자동 보안 테스트 범위
+## 7. 자동 보안 테스트 범위
 
 | 경계 | 테스트 수준 | 자동 검증 |
 |---|---|---|
-| 로그인·세션 | Spring MVC 통합 | 일반 회원·정지·탈퇴 계정 차단, 실패한 로그인 후 비인증 유지, 로그인 시 세션 ID 교체 |
+| 로그인·세션 | Spring MVC·JDBC 통합 | 일반 회원·정지·탈퇴 계정 차단, 실패한 로그인 후 비인증 유지, 로그인 시 세션 ID 교체, 새 저장소 인스턴스에서 인증 복구 |
 | CSRF | Spring MVC 통합 | 토큰 없는 로그인·로그아웃 거부, 거부된 로그아웃이 기존 세션을 무효화하지 않음 |
 | 소유자 전달 | 필터 단위 | 인증된 `AdministratorPrincipal.userId`만 DB 범위에 사용하고 요청 헤더의 위조 UUID는 무시 |
 | 공개 범위 | 필터 단위 | 로그인 세션이 있어도 `/api/v1/public/**`는 사용자 UUID 없이 `PUBLIC` 모드 사용 |
-| 행 격리 | PostgreSQL 통합 | 12개 RLS 테이블에서 다른 소유자의 행을 조회할 수 없고 다른 소유자의 게시물을 수정·삭제할 수 없음 |
+| 행 격리 | PostgreSQL 통합 | 13개 RLS 테이블에서 다른 소유자의 행을 조회할 수 없고 다른 소유자의 게시물을 수정·삭제할 수 없음 |
 | 하위 데이터 연결 | PostgreSQL 통합 | 다른 소유자의 사진에 자산을 연결하는 권한 상승 시도 차단 |
 | 공개 쓰기 | PostgreSQL 통합 | 공개 방문자는 공개 게시물을 읽을 수 있지만 수정·삭제할 수 없음 |
-| 운영 역할 | PostgreSQL 통합 | `placesplates_app`이 `SUPERUSER`·`BYPASSRLS` 없이 필요한 애플리케이션 객체 권한만 보유 |
+| 운영 역할 | PostgreSQL 통합 | `placesplates_app`이 `SUPERUSER`·`BYPASSRLS` 없이 필요한 애플리케이션 객체와 세션 테이블 권한만 보유 |
 
-보안 경계 커버리지 목표는 인증 계정 상태 3종(`ACTIVE`·`SUSPENDED`·`DEACTIVATED`)과 RLS 보호 테이블 12개를 모두 자동 검증하는 것이다. PostgreSQL RLS 통합 테스트는 로컬 PostgreSQL이 없으면 건너뛰며, pull request의 PostGIS PostgreSQL 17 서비스에서는 항상 실행한다. 향후 실제 공개 게시물 API가 추가되면 응답 계약 테스트에서 `visited_on`, 비공개 `storage_key`, 원본 파일명과 이미지 메타데이터가 직렬화되지 않는지도 별도로 검증한다.
+보안 경계 커버리지 목표는 인증 계정 상태 3종(`ACTIVE`·`SUSPENDED`·`DEACTIVATED`)과 RLS 보호 테이블 13개를 모두 자동 검증하는 것이다. PostgreSQL RLS 통합 테스트는 로컬 PostgreSQL이 없으면 건너뛰며, pull request의 PostGIS PostgreSQL 17 서비스에서는 항상 실행한다. 향후 실제 공개 게시물 API가 추가되면 응답 계약 테스트에서 `visited_on`, 비공개 `storage_key`, 원본 파일명과 이미지 메타데이터가 직렬화되지 않는지도 별도로 검증한다.
+
+## 日本語 — PostgreSQLセッションストア
+
+- Flyway V9でSpring Session JDBC標準の`spring_session`・`spring_session_attributes`と検索・期限切れ削除用indexを作成し、`spring.session.jdbc.initialize-schema=never`でアプリによる本番schemaの自動生成を止める。
+- Flyway V10は`placesplates_app`へ両テーブルのCRUDだけを付与し、`PUBLIC`・`anon`・`authenticated`のアクセスを除去する。ユーザー所有行ではなくサーバー認証基盤のため、RLSではなくrole権限で保護する。
+- Cloud Runのrevision交換や複数instance間でも同じCookieから認証を復元し、logout時はsession属性も連鎖削除する。session IDと直列化済み属性はAPI・logへ出力しない。
 
 ## 日本語 — 自動セキュリティテスト範囲
 
 | 境界 | テストレベル | 自動検証 |
 |---|---|---|
-| ログイン・セッション | Spring MVC統合 | 一般会員・停止・退会アカウントの拒否、ログイン失敗後の未認証維持、ログイン時のセッションID交換 |
+| ログイン・セッション | Spring MVC・JDBC統合 | 一般会員・停止・退会アカウントの拒否、ログイン失敗後の未認証維持、ログイン時のセッションID交換、新しいrepository instanceからの認証復元 |
 | CSRF | Spring MVC統合 | トークンなしのログイン・ログアウト拒否、拒否されたログアウトで既存セッションを無効化しないこと |
 | 所有者の伝達 | フィルター単体 | 認証済み`AdministratorPrincipal.userId`だけをDBスコープに使い、リクエストヘッダーの偽装UUIDを無視 |
 | 公開スコープ | フィルター単体 | ログイン中でも`/api/v1/public/**`はユーザーUUIDなしの`PUBLIC`モードを使用 |
-| 行分離 | PostgreSQL統合 | 12個のRLSテーブルで他の所有者の行を参照できず、他の所有者の投稿を更新・削除できないこと |
+| 行分離 | PostgreSQL統合 | 13個のRLSテーブルで他の所有者の行を参照できず、他の所有者の投稿を更新・削除できないこと |
 | 子データの関連付け | PostgreSQL統合 | 他の所有者の写真へアセットを関連付ける権限昇格を拒否 |
 | 公開書き込み | PostgreSQL統合 | 公開訪問者は公開投稿を参照できるが更新・削除は不可 |
-| 実行ロール | PostgreSQL統合 | `placesplates_app`が`SUPERUSER`・`BYPASSRLS`なしで必要なアプリケーションオブジェクト権限だけを保持 |
+| 実行ロール | PostgreSQL統合 | `placesplates_app`が`SUPERUSER`・`BYPASSRLS`なしで必要なアプリケーションオブジェクトとセッションテーブル権限だけを保持 |
 
-セキュリティ境界のカバレッジ目標は、認証アカウント状態3種類（`ACTIVE`・`SUSPENDED`・`DEACTIVATED`）とRLS保護テーブル12個をすべて自動検証することである。PostgreSQL RLS統合テストはローカルPostgreSQLがない場合はスキップし、pull requestのPostGIS PostgreSQL 17サービスでは必ず実行する。実際の公開投稿APIを追加するときは、レスポンス契約テストで`visited_on`、非公開`storage_key`、元ファイル名、画像メタデータがシリアライズされないことも別途検証する。
+セキュリティ境界のカバレッジ目標は、認証アカウント状態3種類（`ACTIVE`・`SUSPENDED`・`DEACTIVATED`）とRLS保護テーブル13個をすべて自動検証することである。PostgreSQL RLS統合テストはローカルPostgreSQLがない場合はスキップし、pull requestのPostGIS PostgreSQL 17サービスでは必ず実行する。実際の公開投稿APIを追加するときは、レスポンス契約テストで`visited_on`、非公開`storage_key`、元ファイル名、画像メタデータがシリアライズされないことも別途検証する。

@@ -1,5 +1,6 @@
 package com.placesplates.domain.auth.service;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +18,9 @@ public record AdministratorPrincipal(
 	String passwordHash,
 	String role,
 	boolean isEnabled
-) implements UserDetails {
+) implements UserDetails, Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	public static AdministratorPrincipal from(AdministratorAccount account) {
 		return new AdministratorPrincipal(

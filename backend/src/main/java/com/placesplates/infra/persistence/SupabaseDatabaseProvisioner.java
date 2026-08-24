@@ -14,7 +14,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 8;
+	private static final int EXPECTED_MIGRATION_COUNT = 10;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
 
 	private SupabaseDatabaseProvisioner() {
@@ -109,6 +109,7 @@ public final class SupabaseDatabaseProvisioner {
 			);
 			assertNoSupabaseDataApiPrivilege(connection, "anon");
 			assertNoSupabaseDataApiPrivilege(connection, "authenticated");
+			assertRuntimeSessionTablePrivileges(connection);
 		}
 	}
 
@@ -131,6 +132,32 @@ public final class SupabaseDatabaseProvisioner {
 			}
 
 			assertCount(connection, "SELECT COUNT(*) FROM posts", 0, "rows visible without request scope");
+			assertQuerySucceeds(connection, "SELECT COUNT(*) FROM spring_session");
+		}
+	}
+
+	private static void assertRuntimeSessionTablePrivileges(Connection connection) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"""
+			SELECT has_table_privilege('placesplates_app', 'public.spring_session', 'SELECT')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session', 'INSERT')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session', 'UPDATE')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session', 'DELETE')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session_attributes', 'SELECT')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session_attributes', 'INSERT')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session_attributes', 'UPDATE')
+			   AND has_table_privilege('placesplates_app', 'public.spring_session_attributes', 'DELETE')
+			"""
+		); ResultSet resultSet = statement.executeQuery()) {
+			if (!resultSet.next() || !resultSet.getBoolean(1)) {
+				throw new IllegalStateException("Runtime database role cannot manage JDBC sessions");
+			}
+		}
+	}
+
+	private static void assertQuerySucceeds(Connection connection, String query) throws SQLException {
+		try (Statement statement = connection.createStatement(); ResultSet ignored = statement.executeQuery(query)) {
+			// 実行ロールがセッションテーブルを参照できることだけを検証する。
 		}
 	}
 
@@ -173,9 +200,13 @@ public final class SupabaseDatabaseProvisioner {
 		}
 
 		try (PreparedStatement statement = connection.prepareStatement(
-			"SELECT has_table_privilege(?, 'public.app_users', 'SELECT')"
+			"""
+			SELECT has_table_privilege(?, 'public.app_users', 'SELECT')
+			    OR has_table_privilege(?, 'public.spring_session', 'SELECT')
+			"""
 		)) {
 			statement.setString(1, roleName);
+			statement.setString(2, roleName);
 			try (ResultSet resultSet = statement.executeQuery()) {
 				if (!resultSet.next() || resultSet.getBoolean(1)) {
 					throw new IllegalStateException(roleName + " can read backend-owned application tables");
