@@ -72,6 +72,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과해야 한다.
 - 정제 마스터는 항상 비공개 자산이다.
 - 완료된 업로드 항목에는 임시 원본 저장 경로가 남을 수 없다.
+- `upload_items`는 비공개 업로드 화면을 위해 파일 표시명·MIME·선언 크기·업로드 바이트·시도 횟수·실패 코드·24시간 만료를 추적한다. 객체 키는 원래 파일명 대신 소유자·묶음·항목 UUID로 생성한다.
 
 ## 5. 조회 인덱스
 
@@ -85,6 +86,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 사용자별 사진 처리 상태: `photos(owner_user_id, processing_status)`
 - 사용자별 업로드 묶음: `upload_batches(owner_user_id, created_at DESC)`
 - 업로드 묶음별 파일 상태: `upload_items(upload_batch_id, processing_status)`
+- 만료 정리 대상: `upload_items(expires_at, processing_status)`
 
 ### PostgreSQL 전용 인덱스
 

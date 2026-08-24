@@ -36,6 +36,8 @@ ADMIN_PASSWORD=<at-least-12-character-password>
 
 애플리케이션이 이메일을 소문자로 정규화하고 비밀번호를 BCrypt로 해시해 `ADMIN` 계정을 만든다. 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 제거한다. 기존 계정의 비밀번호는 부팅 과정에서 자동 변경하지 않는다.
 
+운영에서는 실제 Spring Boot 상태 API가 `{"status":"UP"}`인지 먼저 확인한 뒤 Cloud Run의 `ADMIN_PASSWORD`를 Secret Manager 참조로만 주입한다. 계정 생성 리비전이 준비되면 로그인 성공을 확인하고 즉시 부트스트랩을 끈 새 리비전을 배포하며 비밀번호 환경변수 참조를 제거한다. 이메일과 비밀번호를 Git, Cloud Build 인수 또는 일반 환경변수 평문에 넣지 않는다.
+
 ## 4. 환경별 쿠키와 CORS
 
 로컬 개발은 HTTP에서 다음 값을 사용한다.

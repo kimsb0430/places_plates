@@ -136,6 +136,32 @@ class DatabaseMigrationTests {
 		)).isInstanceOf(DataIntegrityViolationException.class);
 	}
 
+	@Test
+	void uploadProgressCannotExceedDeclaredFileSize() {
+		UUID userId = createUser();
+		UUID batchId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO upload_batches (id, owner_user_id, expires_at) VALUES (?, ?, ?)",
+			batchId,
+			userId,
+			OffsetDateTime.now().plusHours(1)
+		);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO upload_items (
+			    id, upload_batch_id, processing_status, expires_at, byte_size, uploaded_bytes
+			) VALUES (?, ?, ?, ?, ?, ?)
+			""",
+			UUID.randomUUID(),
+			batchId,
+			"UPLOADING",
+			OffsetDateTime.now().plusHours(1),
+			1_024,
+			2_048
+		)).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
 	private UUID createUser() {
 		UUID userId = UUID.randomUUID();
 		jdbcTemplate.update(
