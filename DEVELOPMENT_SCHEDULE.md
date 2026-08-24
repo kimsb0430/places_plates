@@ -132,7 +132,7 @@ Sprint 종료 게이트:
 
 기간: 2026-08-26 ~ 2026-09-01
 
-진행 상태: C05~C09 구현·병합 완료, C10 인증·데이터 접근 정책 테스트 pull request 검증 진행 중
+진행 상태: C05~C10 구현·병합 및 운영 API 상태 검사 완료
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -155,9 +155,11 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
+진행 상태: C11 다중 사진 TUS 임시 업로드 pull request 구현·검증 진행 중
+
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
-| C11 | `feat: add resumable temporary photo uploads` | 다중 사진 임시 업로드, 진행률, 실패 재시도 | 최대 100장 상태를 개별 확인하고 만료 시간을 추적 가능 |
+| C11 | `feat: add resumable temporary photo uploads` | 최대 100장, 6MB TUS 청크, 일시정지·재개, 진행률, 실패 재시도, 24시간 만료 추적 | 서명 권한은 백엔드가 발급하고 서비스 역할 키·원래 파일명은 객체 키에 포함되지 않음 |
 | C12 | `feat: create private drafts when uploads begin` | 업로드 즉시 비공개 초안 생성 | 브라우저 종료 후 작성 재개 가능 |
 | C13 | `feat: queue image processing jobs after upload` | 이미지 처리 상태와 재시도 큐 | 중복 처리 없이 실패 작업 재실행 가능 |
 | C14 | `feat: create sanitized masters without image metadata` | 방향 보정·재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거 | 정제 마스터와 공개본에서 민감 메타데이터 0건 |

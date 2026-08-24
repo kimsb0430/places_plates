@@ -41,3 +41,7 @@ places-plates:
     enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
+  storage:
+    api-url: ${SUPABASE_STORAGE_API_URL:}
+    service-role-key: ${SUPABASE_STORAGE_SERVICE_ROLE_KEY:}
+    temporary-bucket: ${SUPABASE_TEMPORARY_UPLOAD_BUCKET:temporary-uploads}

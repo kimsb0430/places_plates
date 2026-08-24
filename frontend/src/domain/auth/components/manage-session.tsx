@@ -8,6 +8,7 @@ import {
   logoutAdministrator,
 } from '../api/authentication-api';
 import type { AdministratorSession } from '../types';
+import { PhotoUploader } from '@/domain/photo/components/photo-uploader';
 
 type SessionState =
   | { status: 'loading' }
@@ -117,14 +118,15 @@ export function ManageSession() {
         <h1 id="manage-title">기록 관리</h1>
         <p>{sessionState.session.email} 계정의 보호된 관리 공간입니다.</p>
       </div>
-      <div className="manage-placeholder">
+      <div className="manage-placeholder manage-account-card">
         <p className="login-status">관리자 세션 활성</p>
         <h2>로그인이 안전하게 연결되었습니다.</h2>
-        <p>게시물 작성과 사진 관리는 다음 개발 단계에서 이 공간에 추가됩니다.</p>
+        <p>사진 업로드는 비공개 임시 영역에서 시작하며 파일별 진행 상태를 확인할 수 있습니다.</p>
         <button type="button" onClick={handleLogout} disabled={isLoggingOut}>
           {isLoggingOut ? '로그아웃 중…' : '로그아웃'}
         </button>
       </div>
+      <PhotoUploader />
     </section>
   );
 }

@@ -7,10 +7,10 @@
 - Supabase 프로젝트 `placesplates`는 GitHub 저장소와 연결되어 있다.
 - PostgreSQL 리전은 서울이며 무료 `nano` 컴퓨팅을 사용한다.
 - PostGIS 3.3.7은 Supabase의 `extensions` 스키마에 활성화되어 있다.
-- Flyway V1~V5와 애플리케이션 테이블 13개가 적용되어 있다.
+- Flyway V1~V5와 애플리케이션 테이블 13개가 운영 DB에 적용되어 있으며, C11 배포 전 V6 업로드 진행률 마이그레이션을 추가 적용한다.
 - `placesplates_app` 역할은 로그인만 허용되며 `SUPERUSER`·`CREATEROLE`·`CREATEDB`·`REPLICATION`·`BYPASSRLS` 권한이 없다.
 - GitHub 연결은 저장소 연동일 뿐이며 Spring Boot의 Flyway 마이그레이션을 자동 실행하지 않는다.
-- 프론트엔드는 Supabase SDK나 Data API를 직접 사용하지 않고 Spring Boot REST API만 호출한다.
+- 프론트엔드는 Supabase Database·Data API를 직접 사용하지 않는다. 사진 제어 권한은 Spring Boot에서 받고, 사진 본문만 단기 서명 토큰으로 비공개 Storage TUS 엔드포인트에 직접 전송한다.
 
 ### 권한 분리
 
@@ -45,7 +45,7 @@ Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조�
 프로비저닝은 다음을 한 번에 수행한다.
 
 1. `placesplates_app` 로그인 역할 생성 또는 비밀번호 교체
-2. Flyway V1~V5 적용
+2. Flyway V1~V6 적용
 3. PostGIS·마이그레이션 이력·12개 강제 RLS 테이블 확인
 4. Supabase `anon`·`authenticated` 역할의 백엔드 테이블 권한 제거 확인
 5. 운영 역할이 `SUPERUSER`·`BYPASSRLS`가 아님을 확인
@@ -61,9 +61,16 @@ DATABASE_MAX_POOL_SIZE=5
 DATABASE_MIN_IDLE=0
 DATABASE_CONNECTION_TIMEOUT=30000
 FLYWAY_ENABLED=false
+SUPABASE_STORAGE_API_URL=https://<project-ref>.storage.supabase.co/storage/v1
+SUPABASE_TEMPORARY_UPLOAD_BUCKET=temporary-uploads
+SUPABASE_STORAGE_SERVICE_ROLE_KEY=<secret-manager-reference>
 ```
 
-관리자 사용자명과 비밀번호는 백엔드 호스팅 환경변수에 추가하지 않는다. Supabase 무료 `nano`의 연결 수를 보호하기 위해 인스턴스당 최대 풀 크기를 5로 시작하고, 백엔드 인스턴스 수가 증가하면 전체 연결 합계를 다시 계산한다.
+관리자 사용자명과 데이터베이스 비밀번호는 백엔드 호스팅 환경변수에 추가하지 않는다. Storage 서비스 역할 키는 데이터베이스 관리자 비밀번호와 다른 비밀이며 Cloud Run Secret Manager에만 저장한다. Supabase 무료 `nano`의 연결 수를 보호하기 위해 인스턴스당 최대 풀 크기를 5로 시작하고, 백엔드 인스턴스 수가 증가하면 전체 연결 합계를 다시 계산한다.
+
+### 임시 사진 버킷
+
+Supabase Dashboard의 **Storage → New bucket**에서 `temporary-uploads` 비공개 버킷을 만든다. 객체 키는 `temporary/<owner-uuid>/<batch-uuid>/<item-uuid>.<safe-extension>` 형태로 생성되며 원래 파일명을 포함하지 않는다. Spring Boot만 서비스 역할 키로 단기 업로드 서명을 발급하고 브라우저에는 서명 토큰·버킷명·UUID 객체명만 반환한다. TUS 업로드 URL과 DB 항목은 24시간 만료를 기준으로 관리하며, C17 정리 작업이 만료 또는 처리 완료 원본을 삭제한다.
 
 ### 검증과 롤백
 
@@ -82,10 +89,10 @@ FLYWAY_ENABLED=false
 - Supabaseの`placesplates`プロジェクトはGitHubリポジトリへ接続済みである。
 - PostgreSQLはソウルリージョンの無料`nano`コンピュートを使用する。
 - PostGIS 3.3.7はSupabaseの`extensions`スキーマで有効化済みである。
-- Flyway V1〜V5とアプリケーションテーブル13個は適用済みである。
+- Flyway V1〜V5とアプリケーションテーブル13個は本番DBへ適用済みであり、C11配備前にV6アップロード進捗マイグレーションを追加適用する。
 - `placesplates_app`はログインだけが許可され、`SUPERUSER`・`CREATEROLE`・`CREATEDB`・`REPLICATION`・`BYPASSRLS`権限を持たない。
 - GitHub接続だけではSpring BootのFlywayマイグレーションは自動実行されない。
-- フロントエンドはSupabase SDKやData APIへ直接接続せず、Spring Boot REST APIだけを呼び出す。
+- フロントエンドはSupabase Database・Data APIへ直接接続しない。写真制御権限はSpring Bootから取得し、写真本文だけを短期署名トークンで非公開Storage TUSエンドポイントへ直接送信する。
 
 ### 権限分離
 
@@ -111,7 +118,7 @@ Supabase Dashboardの**Connect → Session pooler**でプロジェクト参照�
 
 スクリプトは管理者パスワード、新しい`placesplates_app`パスワード（20文字以上）、確認用パスワードをマスク入力で受け取る。値はファイル・コマンドライン・ログへ保存せず、実行プロセスの環境からも終了時に削除する。管理者パスワードが不明な場合は、ユーザー自身がDashboardで再設定してから実行する。
 
-処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V5、PostGIS・マイグレーション履歴・12個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、リクエスト範囲なしでの0件表示をまとめて検証する。
+処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V6、PostGIS・マイグレーション履歴・12個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、リクエスト範囲なしでの0件表示をまとめて検証する。
 
 ### Spring Boot本番環境変数
 
@@ -123,9 +130,16 @@ DATABASE_MAX_POOL_SIZE=5
 DATABASE_MIN_IDLE=0
 DATABASE_CONNECTION_TIMEOUT=30000
 FLYWAY_ENABLED=false
+SUPABASE_STORAGE_API_URL=https://<project-ref>.storage.supabase.co/storage/v1
+SUPABASE_TEMPORARY_UPLOAD_BUCKET=temporary-uploads
+SUPABASE_STORAGE_SERVICE_ROLE_KEY=<secret-manager-reference>
 ```
 
-管理者ユーザー名とパスワードはバックエンドホスティングへ登録しない。無料`nano`の接続数を守るため、インスタンス当たりの最大プールサイズは5から開始し、バックエンドの台数増加時に接続合計を再計算する。
+管理者ユーザー名とDBパスワードはバックエンドホスティングへ登録しない。StorageサービスロールキーはDB管理者パスワードとは別の秘密であり、Cloud Run Secret Managerだけへ保存する。無料`nano`の接続数を守るため、インスタンス当たりの最大プールサイズは5から開始し、バックエンドの台数増加時に接続合計を再計算する。
+
+### 一時写真バケット
+
+Supabase Dashboardの**Storage → New bucket**で非公開`temporary-uploads`バケットを作成する。オブジェクトキーは`temporary/<owner-uuid>/<batch-uuid>/<item-uuid>.<safe-extension>`で生成し、元ファイル名を含めない。Spring Bootだけがサービスロールキーで短期アップロード署名を発行し、ブラウザへは署名トークン・バケット名・UUIDオブジェクト名だけを返す。TUS URLとDB項目は24時間有効とし、C17で期限切れまたは処理済み原本を削除する。
 
 ### 検証とロールバック
 

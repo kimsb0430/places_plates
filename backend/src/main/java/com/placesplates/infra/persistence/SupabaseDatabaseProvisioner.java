@@ -14,7 +14,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 5;
+	private static final int EXPECTED_MIGRATION_COUNT = 6;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 12;
 
 	private SupabaseDatabaseProvisioner() {
