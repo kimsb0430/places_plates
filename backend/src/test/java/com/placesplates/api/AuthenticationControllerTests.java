@@ -10,6 +10,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -106,15 +108,13 @@ class AuthenticationControllerTests {
 	@Test
 	void invalidCredentialsReturnPredictableError() throws Exception {
 		CsrfSession csrfSession = getCsrfSession();
-		mockMvc.perform(post("/api/v1/auth/login")
-				.session(csrfSession.session())
-				.header(csrfSession.headerName(), csrfSession.token())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"email":"administrator@example.test","password":"incorrect-password"}
-					"""))
+		performLogin(csrfSession, ADMIN_EMAIL, "incorrect-password")
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+
+		mockMvc.perform(get("/api/v1/auth/session").session(csrfSession.session()))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
 	}
 
 	@Test
@@ -127,15 +127,39 @@ class AuthenticationControllerTests {
 		);
 		CsrfSession csrfSession = getCsrfSession();
 
-		mockMvc.perform(post("/api/v1/auth/login")
-				.session(csrfSession.session())
-				.header(csrfSession.headerName(), csrfSession.token())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-					{"email":"member@example.test","password":"local-test-password"}
-					"""))
+		performLogin(csrfSession, "member@example.test", ADMIN_PASSWORD)
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"SUSPENDED", "DEACTIVATED"})
+	void inactiveAdministratorCannotLogin(String accountStatus) throws Exception {
+		jdbcTemplate.update(
+			"UPDATE app_users SET status = ? WHERE email = ?",
+			accountStatus,
+			ADMIN_EMAIL
+		);
+		CsrfSession csrfSession = getCsrfSession();
+
+		performLogin(csrfSession, ADMIN_EMAIL, ADMIN_PASSWORD)
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+	}
+
+	@Test
+	void logoutWithoutCsrfTokenDoesNotInvalidateAuthenticatedSession() throws Exception {
+		CsrfSession csrfSession = getCsrfSession();
+		performLogin(csrfSession, ADMIN_EMAIL, ADMIN_PASSWORD)
+			.andExpect(status().isOk());
+
+		mockMvc.perform(post("/api/v1/auth/logout").session(csrfSession.session()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
+
+		mockMvc.perform(get("/api/v1/auth/session").session(csrfSession.session()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.email").value(ADMIN_EMAIL));
 	}
 
 	@Test
@@ -159,6 +183,20 @@ class AuthenticationControllerTests {
 			JsonPath.read(responseBody, "$.headerName"),
 			JsonPath.read(responseBody, "$.token")
 		);
+	}
+
+	private org.springframework.test.web.servlet.ResultActions performLogin(
+		CsrfSession csrfSession,
+		String email,
+		String password
+	) throws Exception {
+		return mockMvc.perform(post("/api/v1/auth/login")
+			.session(csrfSession.session())
+			.header(csrfSession.headerName(), csrfSession.token())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+				{"email":"%s","password":"%s"}
+				""".formatted(email, password)));
 	}
 
 	private record CsrfSession(MockHttpSession session, String headerName, String token) {

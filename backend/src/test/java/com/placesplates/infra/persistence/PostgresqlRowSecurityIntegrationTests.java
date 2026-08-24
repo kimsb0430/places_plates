@@ -127,6 +127,98 @@ class PostgresqlRowSecurityIntegrationTests {
 	}
 
 	@Test
+	void ownerModeHidesEveryOtherOwnersProtectedRow() {
+		OwnerGraph ownerAGraph = createOwnerGraph(createAccount());
+		OwnerGraph ownerBGraph = createOwnerGraph(createAccount());
+
+		setDatabaseContext(ownerAGraph.ownerId(), "OWNER");
+
+		assertOwnerIsolation("profiles", "user_id", ownerAGraph.ownerId(), ownerBGraph.ownerId());
+		assertOwnerIsolation("trips", "id", ownerAGraph.tripId(), ownerBGraph.tripId());
+		assertOwnerIsolation("places", "id", ownerAGraph.placeId(), ownerBGraph.placeId());
+		assertOwnerIsolation("posts", "id", ownerAGraph.restaurantPostId(), ownerBGraph.restaurantPostId());
+		assertOwnerIsolation(
+			"restaurant_details",
+			"post_id",
+			ownerAGraph.restaurantPostId(),
+			ownerBGraph.restaurantPostId()
+		);
+		assertOwnerIsolation(
+			"destination_details",
+			"post_id",
+			ownerAGraph.destinationPostId(),
+			ownerBGraph.destinationPostId()
+		);
+		assertOwnerIsolation("tags", "id", ownerAGraph.tagId(), ownerBGraph.tagId());
+		assertOwnerIsolation(
+			"post_tags",
+			"post_id",
+			ownerAGraph.restaurantPostId(),
+			ownerBGraph.restaurantPostId()
+		);
+		assertOwnerIsolation("photos", "id", ownerAGraph.photoId(), ownerBGraph.photoId());
+		assertOwnerIsolation("photo_assets", "id", ownerAGraph.assetId(), ownerBGraph.assetId());
+		assertOwnerIsolation("upload_batches", "id", ownerAGraph.uploadBatchId(), ownerBGraph.uploadBatchId());
+		assertOwnerIsolation("upload_items", "id", ownerAGraph.uploadItemId(), ownerBGraph.uploadItemId());
+	}
+
+	@Test
+	void ownerCannotUpdateOrDeleteAnotherOwnersPost() {
+		UUID ownerA = createAccount();
+		UUID ownerB = createAccount();
+		UUID ownerBPost = createPost(ownerB, "PRIVATE", "DRAFT");
+		setDatabaseContext(ownerA, "OWNER");
+
+		assertThat(jdbcTemplate.update(
+			"UPDATE posts SET title = ? WHERE id = ?",
+			"forged title",
+			ownerBPost
+		)).isZero();
+		assertThat(jdbcTemplate.update("DELETE FROM posts WHERE id = ?", ownerBPost)).isZero();
+
+		setDatabaseContext(ownerB, "OWNER");
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT title FROM posts WHERE id = ?",
+			String.class,
+			ownerBPost
+		)).isEqualTo("private post");
+	}
+
+	@Test
+	void ownerCannotAttachPhotoAssetToAnotherOwnersPhoto() {
+		UUID ownerA = createAccount();
+		OwnerGraph ownerBGraph = createOwnerGraph(createAccount());
+		setDatabaseContext(ownerA, "OWNER");
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed, watermark_applied
+			) VALUES (?, ?, 'THUMBNAIL', 'PRIVATE', ?, 'image/webp', 320, 240, 100, TRUE, TRUE)
+			""",
+			UUID.randomUUID(),
+			ownerBGraph.photoId(),
+			"private/forged-" + UUID.randomUUID() + ".webp"
+		)).isInstanceOf(DataAccessException.class);
+	}
+
+	@Test
+	void publicModeCannotModifyPublishedRows() {
+		UUID ownerId = createAccount();
+		UUID publicPostId = createPost(ownerId, "PUBLIC", "PUBLISHED");
+		setDatabaseContext(null, "PUBLIC");
+
+		assertThat(findVisiblePostIds()).containsExactly(publicPostId);
+		assertThat(jdbcTemplate.update(
+			"UPDATE posts SET title = ? WHERE id = ?",
+			"forged public title",
+			publicPostId
+		)).isZero();
+		assertThat(jdbcTemplate.update("DELETE FROM posts WHERE id = ?", publicPostId)).isZero();
+	}
+
+	@Test
 	void runtimeRoleCannotBypassRlsAndReceivesOnlyApplicationObjectPrivileges() {
 		assertThat(jdbcTemplate.queryForObject(
 			"SELECT NOT rolsuper AND NOT rolbypassrls FROM pg_roles WHERE rolname = 'placesplates_app'",
@@ -195,6 +287,144 @@ class PostgresqlRowSecurityIntegrationTests {
 		return postId;
 	}
 
+	private OwnerGraph createOwnerGraph(UUID ownerId) {
+		setDatabaseContext(ownerId, "OWNER");
+		String idPart = ownerId.toString();
+		UUID tripId = UUID.randomUUID();
+		UUID placeId = UUID.randomUUID();
+		UUID restaurantPostId = UUID.randomUUID();
+		UUID destinationPostId = UUID.randomUUID();
+		UUID tagId = UUID.randomUUID();
+		UUID photoId = UUID.randomUUID();
+		UUID assetId = UUID.randomUUID();
+		UUID uploadBatchId = UUID.randomUUID();
+		UUID uploadItemId = UUID.randomUUID();
+
+		jdbcTemplate.update(
+			"INSERT INTO profiles (user_id, slug, display_name) VALUES (?, ?, ?)",
+			ownerId,
+			"profile-" + idPart,
+			"test profile"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO trips (id, owner_user_id, title, slug) VALUES (?, ?, ?, ?)",
+			tripId,
+			ownerId,
+			"test trip",
+			"trip-" + idPart
+		);
+		jdbcTemplate.update(
+			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
+			placeId,
+			ownerId,
+			"test place"
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO posts (id, owner_user_id, trip_id, place_id, category, title)
+			VALUES (?, ?, ?, ?, 'RESTAURANT', ?)
+			""",
+			restaurantPostId,
+			ownerId,
+			tripId,
+			placeId,
+			"restaurant draft"
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO posts (id, owner_user_id, trip_id, place_id, category, title)
+			VALUES (?, ?, ?, ?, 'DESTINATION', ?)
+			""",
+			destinationPostId,
+			ownerId,
+			tripId,
+			placeId,
+			"destination draft"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO restaurant_details (post_id, rating) VALUES (?, 4.5)",
+			restaurantPostId
+		);
+		jdbcTemplate.update(
+			"INSERT INTO destination_details (post_id, highlights) VALUES (?, ?)",
+			destinationPostId,
+			"private highlights"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO tags (id, owner_user_id, tag_type, name, slug) VALUES (?, ?, 'USER', ?, ?)",
+			tagId,
+			ownerId,
+			"test tag",
+			"tag-" + idPart
+		);
+		jdbcTemplate.update(
+			"INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)",
+			restaurantPostId,
+			tagId
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO photos (id, owner_user_id, post_id, processing_status)
+			VALUES (?, ?, ?, 'READY')
+			""",
+			photoId,
+			ownerId,
+			restaurantPostId
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed, watermark_applied
+			) VALUES (?, ?, 'SANITIZED_MASTER', 'PRIVATE', ?, 'image/webp', 1600, 1200, 1000, TRUE, FALSE)
+			""",
+			assetId,
+			photoId,
+			"private/" + assetId + ".webp"
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO upload_batches (id, owner_user_id, post_id, expires_at)
+			VALUES (?, ?, ?, ?)
+			""",
+			uploadBatchId,
+			ownerId,
+			restaurantPostId,
+			OffsetDateTime.now().plusHours(1)
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO upload_items (id, upload_batch_id, temporary_storage_key, expires_at)
+			VALUES (?, ?, ?, ?)
+			""",
+			uploadItemId,
+			uploadBatchId,
+			"temporary/" + uploadItemId + ".jpg",
+			OffsetDateTime.now().plusHours(1)
+		);
+
+		return new OwnerGraph(
+			ownerId,
+			tripId,
+			placeId,
+			restaurantPostId,
+			destinationPostId,
+			tagId,
+			photoId,
+			assetId,
+			uploadBatchId,
+			uploadItemId
+		);
+	}
+
+	private void assertOwnerIsolation(String tableName, String idColumn, UUID ownId, UUID otherOwnerId) {
+		List<UUID> visibleIds = jdbcTemplate.queryForList(
+			"SELECT " + idColumn + " FROM " + tableName + " ORDER BY " + idColumn,
+			UUID.class
+		);
+		assertThat(visibleIds).contains(ownId).doesNotContain(otherOwnerId);
+	}
+
 	private void setDatabaseContext(UUID ownerId, String requestMode) {
 		jdbcTemplate.queryForMap(
 			"""
@@ -209,5 +439,19 @@ class PostgresqlRowSecurityIntegrationTests {
 
 	private List<UUID> findVisiblePostIds() {
 		return jdbcTemplate.queryForList("SELECT id FROM posts ORDER BY id", UUID.class);
+	}
+
+	private record OwnerGraph(
+		UUID ownerId,
+		UUID tripId,
+		UUID placeId,
+		UUID restaurantPostId,
+		UUID destinationPostId,
+		UUID tagId,
+		UUID photoId,
+		UUID assetId,
+		UUID uploadBatchId,
+		UUID uploadItemId
+	) {
 	}
 }
