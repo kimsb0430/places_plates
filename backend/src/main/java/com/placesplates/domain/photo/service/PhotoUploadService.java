@@ -26,6 +26,7 @@ import com.placesplates.domain.photo.entity.UploadItemStatus;
 import com.placesplates.domain.photo.exception.PhotoUploadException;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
 import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.StorageAccessException;
@@ -66,7 +67,10 @@ public class PhotoUploadService {
 	@Transactional
 	public UploadBatchResponse createBatch(UUID ownerUserId, CreateUploadBatchRequest request) {
 		OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plus(UPLOAD_EXPIRY);
-		DraftPost draft = draftPostRepository.save(DraftPost.create(ownerUserId, request.category()));
+		PostCategory category = request.category() == null
+			? PostCategory.DESTINATION
+			: request.category();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(ownerUserId, category));
 		UploadBatch batch = UploadBatch.create(ownerUserId, expiresAt);
 		batch.assignPost(draft.getId());
 		for (UploadFileRequest file : request.files()) {

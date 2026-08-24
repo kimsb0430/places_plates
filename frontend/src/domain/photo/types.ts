@@ -30,7 +30,7 @@ export interface UploadItem {
 
 export interface UploadBatch {
   id: string;
-  draftPostId: string;
+  draftPostId?: string;
   status: string;
   expiresAt: string;
   items: UploadItem[];

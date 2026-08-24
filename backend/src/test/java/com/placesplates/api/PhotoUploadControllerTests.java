@@ -83,6 +83,26 @@ class PhotoUploadControllerTests {
 	}
 
 	@Test
+	void createsDestinationDraftForLegacyUploadRequestWithoutCategory() throws Exception {
+		AuthenticatedSession authenticated = login();
+
+		mockMvc.perform(post("/api/v1/manage/photo-uploads")
+				.session(authenticated.session())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"files":[{"clientFileName":"legacy.jpg","mimeType":"image/jpeg","byteSize":1024}]}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.draftPostId").isNotEmpty());
+
+		mockMvc.perform(get("/api/v1/manage/drafts")
+				.session(authenticated.session()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].category").value("DESTINATION"));
+	}
+
+	@Test
 	void createsTracksRetriesAndCompletesMultipleUploads() throws Exception {
 		AuthenticatedSession authenticated = login();
 		MvcResult createResult = mockMvc.perform(post("/api/v1/manage/photo-uploads")

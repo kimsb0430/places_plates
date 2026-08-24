@@ -83,10 +83,12 @@ export function PhotoUploader() {
         3,
         (upload) => startUpload(batch.id, upload),
       );
-      if (results.every(Boolean)) {
+      if (results.every(Boolean) && batch.draftPostId) {
         setMessage('업로드가 완료되었습니다. 비공개 초안을 여는 중입니다.');
         router.push(`/manage/drafts/${batch.draftPostId}`);
         router.refresh();
+      } else if (results.every(Boolean)) {
+        setMessage('업로드는 완료됐지만 초안 서버 배포가 아직 반영되지 않았습니다. 잠시 후 다시 시도해주세요.');
       }
     } catch (error) {
       setMessage(apiMessage(error));
