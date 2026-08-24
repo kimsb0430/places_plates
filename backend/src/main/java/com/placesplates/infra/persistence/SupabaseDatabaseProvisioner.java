@@ -16,6 +16,8 @@ public final class SupabaseDatabaseProvisioner {
 	private static final String RUNTIME_ROLE = "placesplates_app";
 	private static final int EXPECTED_MIGRATION_COUNT = 10;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
+	private static final int RUNTIME_VERIFICATION_ATTEMPTS = 4;
+	private static final long RUNTIME_VERIFICATION_RETRY_DELAY_MILLIS = 10_000L;
 
 	private SupabaseDatabaseProvisioner() {
 	}
@@ -26,7 +28,7 @@ public final class SupabaseDatabaseProvisioner {
 		prepareRuntimeRole(configuration);
 		MigrateResult migrationResult = migrateDatabase(configuration);
 		verifyAdminState(configuration);
-		verifyRuntimeState(configuration);
+		verifyRuntimeStateWithRetry(configuration);
 
 		System.out.printf(
 			"PASS: Supabase database provisioned; %d migration(s) applied in this run.%n",
@@ -134,6 +136,40 @@ public final class SupabaseDatabaseProvisioner {
 			assertCount(connection, "SELECT COUNT(*) FROM posts", 0, "rows visible without request scope");
 			assertQuerySucceeds(connection, "SELECT COUNT(*) FROM spring_session");
 		}
+	}
+
+	private static void verifyRuntimeStateWithRetry(ProvisioningConfiguration configuration) throws SQLException {
+		for (int attempt = 1; attempt <= RUNTIME_VERIFICATION_ATTEMPTS; attempt++) {
+			try {
+				verifyRuntimeState(configuration);
+				return;
+			}
+			catch (SQLException exception) {
+				if (!isPasswordAuthenticationFailure(exception) || attempt == RUNTIME_VERIFICATION_ATTEMPTS) {
+					throw exception;
+				}
+				waitForPoolerCredentialPropagation(exception);
+			}
+		}
+	}
+
+	private static void waitForPoolerCredentialPropagation(SQLException authenticationFailure) throws SQLException {
+		try {
+			Thread.sleep(RUNTIME_VERIFICATION_RETRY_DELAY_MILLIS);
+		}
+		catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			SQLException interrupted = new SQLException(
+				"Interrupted while waiting for database pooler credential propagation",
+				exception
+			);
+			interrupted.addSuppressed(authenticationFailure);
+			throw interrupted;
+		}
+	}
+
+	static boolean isPasswordAuthenticationFailure(SQLException exception) {
+		return "28P01".equals(exception.getSQLState());
 	}
 
 	private static void assertRuntimeSessionTablePrivileges(Connection connection) throws SQLException {

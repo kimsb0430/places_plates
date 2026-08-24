@@ -27,6 +27,7 @@
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
 - 운영 PostgreSQL에서 V1~V10 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다.
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
+- 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
 - Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/project.toml`의 `GOOGLE_RUNTIME_VERSION=21`이 적용되는지 빌드 로그에서 확인한다.
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
@@ -66,6 +67,7 @@
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
 - 本番PostgreSQLでV1〜V10履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
+- Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
 - Cloud Runソースデプロイのビルドルートを`backend`に指定し、`backend/project.toml`の`GOOGLE_RUNTIME_VERSION=21`がビルドログへ反映されることを確認する。
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
