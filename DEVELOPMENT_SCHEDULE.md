@@ -1,6 +1,6 @@
 # Places & Plates 개발 일정 및 커밋 계획
 
-문서 버전: v1.7
+문서 버전: v1.8
 작성일: 2026-08-24
 개발 시작일: 2026-08-24
 목표 공개일: 2026-10-09
@@ -155,12 +155,12 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
-진행 상태: C11 다중 사진 TUS 임시 업로드 병합·운영 배포 완료, 서명 전용 TUS 엔드포인트 회귀 수정·전체 검증 완료
+진행 상태: C11 다중 사진 TUS 임시 업로드와 서명 전용 엔드포인트 운영 검증 완료, C12 업로드 시작 시 비공개 초안 생성·완료 후 초안 이동·관리 화면 재진입 구현 완료
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
 | C11 | `feat: add resumable temporary photo uploads` | 최대 100장, 6MB TUS 청크, 일시정지·재개, 진행률, 실패 재시도, 24시간 만료 추적 | 서명 권한은 백엔드가 발급하고 서비스 역할 키·원래 파일명은 객체 키에 포함되지 않음 |
-| C12 | `feat: create private drafts when uploads begin` | 업로드 즉시 비공개 초안 생성 | 브라우저 종료 후 작성 재개 가능 |
+| C12 | `feat: create private drafts when uploads begin` | 맛집·여행지 선택 후 업로드 즉시 비공개 초안을 만들고 업로드 묶음과 연결 | 완료 시 초안으로 자동 이동하고 관리 화면에서 초안을 다시 열 수 있음 |
 | C13 | `feat: queue image processing jobs after upload` | 이미지 처리 상태와 재시도 큐 | 중복 처리 없이 실패 작업 재실행 가능 |
 | C14 | `feat: create sanitized masters without image metadata` | 방향 보정·재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거 | 정제 마스터와 공개본에서 민감 메타데이터 0건 |
 | C15 | `feat: generate responsive image variants and thumbnails` | 썸네일·카드·상세용 이미지 생성 | 화면별로 적합한 크기 선택 |

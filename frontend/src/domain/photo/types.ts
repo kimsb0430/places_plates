@@ -6,6 +6,8 @@ export type UploadItemStatus =
   | 'FAILED'
   | 'EXPIRED';
 
+export type PostCategory = 'RESTAURANT' | 'DESTINATION';
+
 export interface UploadTicket {
   endpoint: string;
   token: string;
@@ -28,6 +30,7 @@ export interface UploadItem {
 
 export interface UploadBatch {
   id: string;
+  draftPostId: string;
   status: string;
   expiresAt: string;
   items: UploadItem[];

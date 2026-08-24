@@ -8,6 +8,7 @@ import com.placesplates.domain.photo.entity.UploadBatch;
 
 public record UploadBatchResponse(
 	UUID id,
+	UUID draftPostId,
 	String status,
 	OffsetDateTime expiresAt,
 	List<UploadItemResponse> items
@@ -15,6 +16,7 @@ public record UploadBatchResponse(
 	public static UploadBatchResponse from(UploadBatch batch, List<UploadItemResponse> items) {
 		return new UploadBatchResponse(
 			batch.getId(),
+			batch.getPostId(),
 			batch.getStatus().name(),
 			batch.getExpiresAt(),
 			List.copyOf(items)

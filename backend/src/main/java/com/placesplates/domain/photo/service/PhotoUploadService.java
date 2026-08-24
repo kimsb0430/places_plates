@@ -25,6 +25,8 @@ import com.placesplates.domain.photo.entity.UploadItem;
 import com.placesplates.domain.photo.entity.UploadItemStatus;
 import com.placesplates.domain.photo.exception.PhotoUploadException;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
+import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.StorageAccessException;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
@@ -48,20 +50,25 @@ public class PhotoUploadService {
 	);
 
 	private final UploadBatchRepository uploadBatchRepository;
+	private final DraftPostRepository draftPostRepository;
 	private final TemporaryUploadSigner uploadSigner;
 
 	public PhotoUploadService(
 		UploadBatchRepository uploadBatchRepository,
+		DraftPostRepository draftPostRepository,
 		TemporaryUploadSigner uploadSigner
 	) {
 		this.uploadBatchRepository = uploadBatchRepository;
+		this.draftPostRepository = draftPostRepository;
 		this.uploadSigner = uploadSigner;
 	}
 
 	@Transactional
 	public UploadBatchResponse createBatch(UUID ownerUserId, CreateUploadBatchRequest request) {
 		OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plus(UPLOAD_EXPIRY);
+		DraftPost draft = draftPostRepository.save(DraftPost.create(ownerUserId, request.category()));
 		UploadBatch batch = UploadBatch.create(ownerUserId, expiresAt);
+		batch.assignPost(draft.getId());
 		for (UploadFileRequest file : request.files()) {
 			String mimeType = normalizeMimeType(file.mimeType());
 			batch.addItem(UploadItem.create(

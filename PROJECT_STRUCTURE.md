@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.0
+문서 버전: v2.1
 작성일: 2026-08-24
 
 ## 1. 구조 결정
@@ -55,6 +55,7 @@ frontend/src/
 │   ├── map/page.tsx             # 공개 기록 지도
 │   ├── login/page.tsx           # 관리자 로그인 진입점
 │   ├── manage/page.tsx          # 세션 확인 후 표시하는 관리 진입점
+│   ├── manage/drafts/[draftPostId]/page.tsx # 업로드와 연결된 비공개 초안
 │   ├── not-found.tsx            # 공통 404 빈 상태
 │   └── layout.tsx
 ├── domain/
@@ -164,9 +165,9 @@ backend/src/main/resources/
 |---|---|---|
 | auth | CSRF 발급·로그인·서버 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
-| post | 맛집·여행지 게시물과 공개 범위 | `/api/v1/posts/**` |
+| post | 맛집·여행지 게시물, 업로드 시작 초안과 공개 범위 | `/api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
-| photo | 임시 업로드·정제·삭제 상태 | `/api/v1/photos/**` |
+| photo | 초안과 연결된 임시 업로드·정제·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
 | map | 지도 경계·마커·묶음 숫자 조회 | `/api/v1/map/posts` |
 

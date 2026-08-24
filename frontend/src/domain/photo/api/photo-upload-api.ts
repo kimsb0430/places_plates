@@ -2,6 +2,7 @@ import type {
   UploadBatch,
   UploadFileDescriptor,
   UploadItem,
+  PostCategory,
 } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
@@ -71,8 +72,11 @@ async function mutate<T>(path: string, body?: unknown): Promise<T> {
   });
 }
 
-export function createUploadBatch(files: UploadFileDescriptor[]): Promise<UploadBatch> {
-  return mutate<UploadBatch>('/api/v1/manage/photo-uploads', { files });
+export function createUploadBatch(
+  category: PostCategory,
+  files: UploadFileDescriptor[],
+): Promise<UploadBatch> {
+  return mutate<UploadBatch>('/api/v1/manage/photo-uploads', { category, files });
 }
 
 export function recordUploadProgress(

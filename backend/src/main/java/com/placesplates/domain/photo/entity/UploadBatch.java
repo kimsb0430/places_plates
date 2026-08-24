@@ -69,6 +69,11 @@ public class UploadBatch {
 		touch();
 	}
 
+	public void assignPost(UUID postId) {
+		this.postId = postId;
+		touch();
+	}
+
 	public void refreshStatus() {
 		if (items.stream().allMatch(item -> item.getStatus() == UploadItemStatus.EXPIRED)) {
 			status = UploadBatchStatus.EXPIRED;
@@ -92,6 +97,10 @@ public class UploadBatch {
 
 	public UUID getOwnerUserId() {
 		return ownerUserId;
+	}
+
+	public UUID getPostId() {
+		return postId;
 	}
 
 	public UploadBatchStatus getStatus() {
