@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.placesplates.domain.photo.exception.ImageProcessingJobException;
 import com.placesplates.domain.photo.exception.PhotoUploadException;
 import com.placesplates.domain.post.exception.DraftPostException;
 
@@ -27,6 +28,14 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(PhotoUploadException.class)
 	public ResponseEntity<ApiErrorResponse> handlePhotoUploadException(PhotoUploadException exception) {
+		return ResponseEntity.status(exception.getStatus())
+			.body(new ApiErrorResponse(exception.getCode(), exception.getMessage()));
+	}
+
+	@ExceptionHandler(ImageProcessingJobException.class)
+	public ResponseEntity<ApiErrorResponse> handleImageProcessingJobException(
+		ImageProcessingJobException exception
+	) {
 		return ResponseEntity.status(exception.getStatus())
 			.body(new ApiErrorResponse(exception.getCode(), exception.getMessage()));
 	}

@@ -160,6 +160,12 @@ class PostgresqlRowSecurityIntegrationTests {
 		assertOwnerIsolation("photo_assets", "id", ownerAGraph.assetId(), ownerBGraph.assetId());
 		assertOwnerIsolation("upload_batches", "id", ownerAGraph.uploadBatchId(), ownerBGraph.uploadBatchId());
 		assertOwnerIsolation("upload_items", "id", ownerAGraph.uploadItemId(), ownerBGraph.uploadItemId());
+		assertOwnerIsolation(
+			"image_processing_jobs",
+			"id",
+			ownerAGraph.imageProcessingJobId(),
+			ownerBGraph.imageProcessingJobId()
+		);
 	}
 
 	@Test
@@ -204,6 +210,25 @@ class PostgresqlRowSecurityIntegrationTests {
 	}
 
 	@Test
+	void ownerCannotQueueAnotherOwnersUploadItem() {
+		UUID ownerA = createAccount();
+		OwnerGraph ownerBGraph = createOwnerGraph(createAccount());
+		UUID ownerAPost = createPost(ownerA, "PRIVATE", "DRAFT");
+		setDatabaseContext(ownerA, "OWNER");
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO image_processing_jobs (id, owner_user_id, post_id, upload_item_id)
+			VALUES (?, ?, ?, ?)
+			""",
+			UUID.randomUUID(),
+			ownerA,
+			ownerAPost,
+			ownerBGraph.uploadItemId()
+		)).isInstanceOf(DataAccessException.class);
+	}
+
+	@Test
 	void publicModeCannotModifyPublishedRows() {
 		UUID ownerId = createAccount();
 		UUID publicPostId = createPost(ownerId, "PUBLIC", "PUBLISHED");
@@ -230,6 +255,10 @@ class PostgresqlRowSecurityIntegrationTests {
 		)).isTrue();
 		assertThat(jdbcTemplate.queryForObject(
 			"SELECT has_table_privilege('placesplates_app', 'public.posts', 'DELETE')",
+			Boolean.class
+		)).isTrue();
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT has_table_privilege('placesplates_app', 'public.image_processing_jobs', 'SELECT')",
 			Boolean.class
 		)).isTrue();
 	}
@@ -299,6 +328,7 @@ class PostgresqlRowSecurityIntegrationTests {
 		UUID assetId = UUID.randomUUID();
 		UUID uploadBatchId = UUID.randomUUID();
 		UUID uploadItemId = UUID.randomUUID();
+		UUID imageProcessingJobId = UUID.randomUUID();
 
 		jdbcTemplate.update(
 			"INSERT INTO profiles (user_id, slug, display_name) VALUES (?, ?, ?)",
@@ -402,6 +432,16 @@ class PostgresqlRowSecurityIntegrationTests {
 			"temporary/" + uploadItemId + ".jpg",
 			OffsetDateTime.now().plusHours(1)
 		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO image_processing_jobs (id, owner_user_id, post_id, upload_item_id)
+			VALUES (?, ?, ?, ?)
+			""",
+			imageProcessingJobId,
+			ownerId,
+			restaurantPostId,
+			uploadItemId
+		);
 
 		return new OwnerGraph(
 			ownerId,
@@ -413,7 +453,8 @@ class PostgresqlRowSecurityIntegrationTests {
 			photoId,
 			assetId,
 			uploadBatchId,
-			uploadItemId
+			uploadItemId,
+			imageProcessingJobId
 		);
 	}
 
@@ -451,7 +492,8 @@ class PostgresqlRowSecurityIntegrationTests {
 		UUID photoId,
 		UUID assetId,
 		UUID uploadBatchId,
-		UUID uploadItemId
+		UUID uploadItemId,
+		UUID imageProcessingJobId
 	) {
 	}
 }

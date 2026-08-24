@@ -1,6 +1,6 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.1
+문서 버전: v2.2
 작성일: 2026-08-24
 
 ## 1. 구조 결정
@@ -167,7 +167,7 @@ backend/src/main/resources/
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
 | post | 맛집·여행지 게시물, 업로드 시작 초안과 공개 범위 | `/api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
-| photo | 초안과 연결된 임시 업로드·정제·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/photos/**` |
+| photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
 | map | 지도 경계·마커·묶음 숫자 조회 | `/api/v1/map/posts` |
 

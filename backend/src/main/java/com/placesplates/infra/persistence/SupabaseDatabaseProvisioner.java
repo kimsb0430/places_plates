@@ -14,8 +14,8 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 6;
-	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 12;
+	private static final int EXPECTED_MIGRATION_COUNT = 8;
+	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
 
 	private SupabaseDatabaseProvisioner() {
 	}
@@ -93,7 +93,7 @@ public final class SupabaseDatabaseProvisioner {
 				  AND table_metadata.relname IN (
 				      'profiles', 'trips', 'places', 'posts', 'restaurant_details',
 				      'destination_details', 'tags', 'post_tags', 'photos', 'photo_assets',
-				      'upload_batches', 'upload_items'
+				      'upload_batches', 'upload_items', 'image_processing_jobs'
 				  )
 				  AND table_metadata.relrowsecurity = TRUE
 				  AND table_metadata.relforcerowsecurity = TRUE
