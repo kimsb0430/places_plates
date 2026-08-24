@@ -27,6 +27,8 @@
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
 - 운영 PostgreSQL에서 V1~V5 이력과 `FORCE ROW LEVEL SECURITY`가 12개 개인 데이터 테이블에 적용됐는지 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
+- Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/project.toml`의 `GOOGLE_RUNTIME_VERSION=21`이 적용되는지 빌드 로그에서 확인한다.
+- 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
 
@@ -59,6 +61,8 @@
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
 - 本番PostgreSQLでV1〜V5履歴と`FORCE ROW LEVEL SECURITY`が12個の個人データテーブルへ適用されたことを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
+- Cloud Runソースデプロイのビルドルートを`backend`に指定し、`backend/project.toml`の`GOOGLE_RUNTIME_VERSION=21`がビルドログへ反映されることを確認する。
+- 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。
 
