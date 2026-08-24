@@ -9,6 +9,7 @@ import {
 } from '../api/authentication-api';
 import type { AdministratorSession } from '../types';
 import { PhotoUploader } from '@/domain/photo/components/photo-uploader';
+import { DraftList } from '@/domain/post/components/draft-list';
 
 type SessionState =
   | { status: 'loading' }
@@ -126,6 +127,7 @@ export function ManageSession() {
           {isLoggingOut ? '로그아웃 중…' : '로그아웃'}
         </button>
       </div>
+      <DraftList />
       <PhotoUploader />
     </section>
   );

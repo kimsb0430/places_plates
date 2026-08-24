@@ -1,6 +1,6 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.3
+문서 버전: v1.4
 작성일: 2026-08-24
 
 ## 1. 적용 범위
@@ -30,6 +30,7 @@ POST.id ──────────────── DESTINATION_DETAIL.post
 POST.id ──────────────── POST_TAG.post_id
 TAG.id ───────────────── POST_TAG.tag_id
 POST.id ──────────────── PHOTO.post_id
+POST.id ──────────────── UPLOAD_BATCH.post_id
 UPLOAD_BATCH.id ──────── UPLOAD_ITEM.upload_batch_id
 PHOTO.id ─────────────── UPLOAD_ITEM.result_photo_id
 PHOTO.id ─────────────── PHOTO_ASSET.photo_id
@@ -66,6 +67,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 이메일과 프로필·여행·태그 주소명은 소문자로 저장한다.
 - 계정 역할은 `ADMIN` 또는 향후 커뮤니티 회원을 위한 `MEMBER` 중 하나다.
 - 게시물 대표 카테고리는 맛집 또는 여행지 중 정확히 하나다.
+- 사진 업로드 묶음을 만들 때 `PRIVATE`·`DRAFT` 게시물을 먼저 생성하고 `upload_batches.post_id`로 연결한다.
 - 공개 게시물은 장소, 공개 방문 연월, 게시 시각을 가져야 한다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.
 - 한 게시물의 대표 사진은 최대 한 장이다.

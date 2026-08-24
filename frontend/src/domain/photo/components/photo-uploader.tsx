@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Upload } from 'tus-js-client';
 import {
@@ -10,7 +12,7 @@ import {
   reportUploadFailure,
   retryUpload,
 } from '../api/photo-upload-api';
-import type { UploadItem, UploadTicket } from '../types';
+import type { PostCategory, UploadItem, UploadTicket } from '../types';
 
 const MAX_FILE_COUNT = 100;
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
@@ -35,7 +37,10 @@ interface ClientUpload {
 }
 
 export function PhotoUploader() {
+  const router = useRouter();
+  const [category, setCategory] = useState<PostCategory>();
   const [batchId, setBatchId] = useState<string>();
+  const [draftPostId, setDraftPostId] = useState<string>();
   const [expiresAt, setExpiresAt] = useState<string>();
   const [uploads, setUploads] = useState<ClientUpload[]>([]);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -44,6 +49,10 @@ export function PhotoUploader() {
 
   async function handleFiles(files: File[]) {
     setMessage(undefined);
+    if (!category) {
+      setMessage('먼저 맛집 또는 여행지 중 기록 종류를 선택해주세요.');
+      return;
+    }
     const validationMessage = validateFiles(files);
     if (validationMessage) {
       setMessage(validationMessage);
@@ -52,12 +61,13 @@ export function PhotoUploader() {
 
     setIsPreparing(true);
     try {
-      const batch = await createUploadBatch(files.map((file) => ({
+      const batch = await createUploadBatch(category, files.map((file) => ({
         clientFileName: file.name,
         mimeType: file.type || inferMimeType(file.name),
         byteSize: file.size,
       })));
       setBatchId(batch.id);
+      setDraftPostId(batch.draftPostId);
       setExpiresAt(batch.expiresAt);
       const nextUploads = batch.items.map((item, index): ClientUpload => ({
         id: item.id,
@@ -68,7 +78,16 @@ export function PhotoUploader() {
         ticket: item.uploadTicket ?? undefined,
       }));
       setUploads(nextUploads);
-      await runWithConcurrency(nextUploads, 3, (upload) => startUpload(batch.id, upload));
+      const results = await runWithConcurrency(
+        nextUploads,
+        3,
+        (upload) => startUpload(batch.id, upload),
+      );
+      if (results.every(Boolean)) {
+        setMessage('업로드가 완료되었습니다. 비공개 초안을 여는 중입니다.');
+        router.push(`/manage/drafts/${batch.draftPostId}`);
+        router.refresh();
+      }
     } catch (error) {
       setMessage(apiMessage(error));
     } finally {
@@ -76,18 +95,18 @@ export function PhotoUploader() {
     }
   }
 
-  async function startUpload(activeBatchId: string, clientUpload: ClientUpload): Promise<void> {
+  async function startUpload(activeBatchId: string, clientUpload: ClientUpload): Promise<boolean> {
     const ticket = clientUpload.ticket;
     if (!ticket) {
       updateUpload(clientUpload.id, {
         status: 'FAILED',
         errorMessage: '업로드 권한이 만료되었습니다. 다시 시도해주세요.',
       });
-      return;
+      return false;
     }
 
     let lastReportedPercent = 0;
-    await new Promise<void>((resolve) => {
+    return new Promise<boolean>((resolve) => {
       const upload = new Upload(clientUpload.file, {
         endpoint: ticket.endpoint,
         chunkSize: CHUNK_SIZE,
@@ -118,7 +137,7 @@ export function PhotoUploader() {
           });
           void reportUploadFailure(activeBatchId, clientUpload.id, 'NETWORK_ERROR')
             .catch(() => undefined);
-          resolve();
+          resolve(false);
         },
         onSuccess() {
           void completeUpload(activeBatchId, clientUpload.id)
@@ -129,14 +148,15 @@ export function PhotoUploader() {
                 ticket: undefined,
                 errorMessage: undefined,
               });
+              resolve(true);
             })
             .catch((error: unknown) => {
               updateUpload(clientUpload.id, {
                 status: 'FAILED',
                 errorMessage: apiMessage(error),
               });
-            })
-            .finally(resolve);
+              resolve(false);
+            });
         },
       });
       uploadInstances.current.set(clientUpload.id, upload);
@@ -145,7 +165,7 @@ export function PhotoUploader() {
           upload.resumeFromPreviousUpload(previousUploads[0]);
         }
         upload.start();
-      });
+      }).catch(() => upload.start());
     });
   }
 
@@ -182,7 +202,17 @@ export function PhotoUploader() {
         errorMessage: undefined,
       } satisfies ClientUpload;
       updateUpload(clientUpload.id, nextUpload);
-      await startUpload(batchId, nextUpload);
+      const completed = await startUpload(batchId, nextUpload);
+      const otherUploadsComplete = uploads.every((upload) => (
+        upload.id === clientUpload.id
+        || upload.status === 'PROCESSING'
+        || upload.status === 'COMPLETED'
+      ));
+      if (completed && otherUploadsComplete && draftPostId) {
+        setMessage('업로드가 완료되었습니다. 비공개 초안을 여는 중입니다.');
+        router.push(`/manage/drafts/${draftPostId}`);
+        router.refresh();
+      }
     } catch (error) {
       updateUpload(clientUpload.id, { errorMessage: apiMessage(error) });
     }
@@ -197,6 +227,8 @@ export function PhotoUploader() {
   const completedCount = uploads.filter((upload) => (
     upload.status === 'PROCESSING' || upload.status === 'COMPLETED'
   )).length;
+  const allUploadsComplete = uploads.length > 0 && completedCount === uploads.length;
+  const categoryLocked = isPreparing || uploads.length > 0;
 
   return (
     <section className="photo-uploader" aria-labelledby="photo-upload-title">
@@ -209,19 +241,43 @@ export function PhotoUploader() {
         {uploads.length > 0 && <strong>{completedCount} / {uploads.length}</strong>}
       </div>
 
+      <fieldset className="photo-category-fieldset">
+        <legend>어떤 기록인가요?</legend>
+        <div className="photo-category-options">
+          <button
+            type="button"
+            aria-pressed={category === 'RESTAURANT'}
+            disabled={categoryLocked}
+            onClick={() => setCategory('RESTAURANT')}
+          >
+            <strong>맛집</strong>
+            <span>식당과 메뉴 기록</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={category === 'DESTINATION'}
+            disabled={categoryLocked}
+            onClick={() => setCategory('DESTINATION')}
+          >
+            <strong>여행지</strong>
+            <span>장소와 여행 기록</span>
+          </button>
+        </div>
+      </fieldset>
+
       <label className="photo-drop-zone">
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
           multiple
-          disabled={isPreparing}
+          disabled={isPreparing || !category}
           onChange={(event) => {
             const files = Array.from(event.target.files ?? []);
             event.target.value = '';
             void handleFiles(files);
           }}
         />
-        <span>{isPreparing ? '업로드 준비 중…' : '사진 선택하기'}</span>
+        <span>{isPreparing ? '업로드 준비 중…' : category ? '사진 선택하기' : '기록 종류를 먼저 선택해주세요'}</span>
         <small>사진당 최대 30MB · 임시 원본은 24시간 후 만료</small>
       </label>
 
@@ -233,6 +289,13 @@ export function PhotoUploader() {
             timeStyle: 'short',
           }).format(new Date(expiresAt))}
         </p>
+      )}
+
+      {allUploadsComplete && draftPostId && (
+        <div className="photo-upload-complete" role="status">
+          <p>모든 사진이 업로드됐고 비공개 초안으로 저장되었습니다.</p>
+          <Link href={`/manage/drafts/${draftPostId}`}>초안 열기 <span>→</span></Link>
+        </div>
       )}
 
       {uploads.length > 0 && (
@@ -327,18 +390,21 @@ function apiMessage(error: unknown): string {
   return '사진 업로드 중 문제가 발생했습니다.';
 }
 
-async function runWithConcurrency<T>(
+async function runWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
-  worker: (item: T) => Promise<void>,
-): Promise<void> {
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
   let nextIndex = 0;
+  const results = new Array<R>(items.length);
   const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (nextIndex < items.length) {
-      const item = items[nextIndex];
+      const index = nextIndex;
+      const item = items[index];
       nextIndex += 1;
-      await worker(item);
+      results[index] = await worker(item);
     }
   });
   await Promise.all(runners);
+  return results;
 }

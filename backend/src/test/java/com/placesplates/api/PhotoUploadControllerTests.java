@@ -24,6 +24,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
+import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
 
@@ -44,6 +45,9 @@ class PhotoUploadControllerTests {
 	private UploadBatchRepository uploadBatchRepository;
 
 	@Autowired
+	private DraftPostRepository draftPostRepository;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@MockitoBean
@@ -52,6 +56,7 @@ class PhotoUploadControllerTests {
 	@BeforeEach
 	void setUp() {
 		uploadBatchRepository.deleteAll();
+		draftPostRepository.deleteAll();
 		accountRepository.deleteAll();
 		accountRepository.save(AdministratorAccount.create(
 			ADMIN_EMAIL,
@@ -72,7 +77,7 @@ class PhotoUploadControllerTests {
 		mockMvc.perform(post("/api/v1/manage/photo-uploads")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"files":[{"clientFileName":"photo.jpg","mimeType":"image/jpeg","byteSize":1024}]}
+					{"category":"RESTAURANT","files":[{"clientFileName":"photo.jpg","mimeType":"image/jpeg","byteSize":1024}]}
 					"""))
 			.andExpect(status().isForbidden());
 	}
@@ -86,6 +91,7 @@ class PhotoUploadControllerTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 					{
+					  "category": "RESTAURANT",
 					  "files": [
 					    {"clientFileName":"first.jpg","mimeType":"image/jpeg","byteSize":1024},
 					    {"clientFileName":"second.png","mimeType":"image/png","byteSize":2048}
@@ -93,6 +99,7 @@ class PhotoUploadControllerTests {
 					}
 					"""))
 			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.draftPostId").isNotEmpty())
 			.andExpect(jsonPath("$.status").value("UPLOADING"))
 			.andExpect(jsonPath("$.items.length()").value(2))
 			.andExpect(jsonPath("$.items[0].uploadTicket.endpoint")
@@ -102,6 +109,7 @@ class PhotoUploadControllerTests {
 
 		String createBody = createResult.getResponse().getContentAsString();
 		String batchId = JsonPath.read(createBody, "$.id");
+		String draftPostId = JsonPath.read(createBody, "$.draftPostId");
 		String firstItemId = JsonPath.read(createBody, "$.items[0].id");
 		String secondItemId = JsonPath.read(createBody, "$.items[1].id");
 
@@ -140,6 +148,20 @@ class PhotoUploadControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.items[0].uploadTicket").doesNotExist())
 			.andExpect(jsonPath("$.items[0].status").value("PROCESSING"));
+
+		mockMvc.perform(get("/api/v1/manage/drafts")
+				.session(authenticated.session()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(draftPostId))
+			.andExpect(jsonPath("$[0].category").value("RESTAURANT"))
+			.andExpect(jsonPath("$[0].title").value("새 맛집 기록"))
+			.andExpect(jsonPath("$[0].visibility").value("PRIVATE"))
+			.andExpect(jsonPath("$[0].status").value("DRAFT"));
+
+		mockMvc.perform(get("/api/v1/manage/drafts/{draftPostId}", draftPostId)
+				.session(authenticated.session()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(draftPostId));
 	}
 
 	@Test
@@ -151,7 +173,7 @@ class PhotoUploadControllerTests {
 				.header(authenticated.headerName(), authenticated.token())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-					{"files":[{"clientFileName":"notes.txt","mimeType":"text/plain","byteSize":1024}]}
+					{"category":"DESTINATION","files":[{"clientFileName":"notes.txt","mimeType":"text/plain","byteSize":1024}]}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("PHOTO_UPLOAD_UNSUPPORTED_TYPE"));
