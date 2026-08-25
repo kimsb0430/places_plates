@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $dockerfilePath = Join-Path $repositoryRoot 'backend\Dockerfile'
 $dockerignorePath = Join-Path $repositoryRoot 'backend\.dockerignore'
+$cloudBuildPath = Join-Path $repositoryRoot 'backend\cloudbuild.yaml'
 $legacyBuildpackPath = Join-Path $repositoryRoot 'backend\project.toml'
 
 if (-not (Test-Path -LiteralPath $dockerfilePath -PathType Leaf)) {
@@ -15,6 +16,10 @@ if (Test-Path -LiteralPath $legacyBuildpackPath) {
 
 if (-not (Test-Path -LiteralPath $dockerignorePath -PathType Leaf)) {
     throw 'Cloud Run .dockerignore is missing.'
+}
+
+if (-not (Test-Path -LiteralPath $cloudBuildPath -PathType Leaf)) {
+    throw 'Cloud Run Cloud Build configuration is missing.'
 }
 
 $dockerfile = Get-Content -LiteralPath $dockerfilePath -Raw
@@ -44,6 +49,22 @@ $requiredIgnorePatterns = @(
 foreach ($requiredIgnorePattern in $requiredIgnorePatterns) {
     if (-not (($dockerignore -split "`r?`n") -contains $requiredIgnorePattern)) {
         throw "Cloud Run .dockerignore contract is missing: $requiredIgnorePattern"
+    }
+}
+
+$cloudBuild = Get-Content -LiteralPath $cloudBuildPath -Raw
+$requiredCloudBuildPatterns = @(
+    'name: gcr.io/cloud-builders/docker',
+    'dir: backend',
+    '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}',
+    'name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim',
+    '--image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}',
+    '--region=${_DEPLOY_REGION}'
+)
+
+foreach ($requiredCloudBuildPattern in $requiredCloudBuildPatterns) {
+    if (-not $cloudBuild.Contains($requiredCloudBuildPattern)) {
+        throw "Cloud Run Cloud Build contract is missing: $requiredCloudBuildPattern"
     }
 }
 
