@@ -29,7 +29,7 @@
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
 - 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
-- Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/Dockerfile`이 Java 21 실행 이미지와 `liblcms2-2`를 설치하는지 확인한다. 배포 이미지에서 `liblcms2.so.2`가 조회되고 애플리케이션이 UID 10001 비루트 사용자로 실행되어야 한다.
+- Cloud Build 트리거 유형은 `Cloud Build 구성 파일(YAML 또는 JSON)`, 위치는 `저장소`, 파일 경로는 `backend/cloudbuild.yaml`로 지정한다. 인라인 Buildpacks 구성은 Dockerfile을 무시하므로 사용하지 않는다. 구성 파일은 `backend` 컨텍스트에서 `backend/Dockerfile`로 이미지를 빌드·푸시하고 기존 Cloud Run 서비스 이미지를 갱신해야 한다. 배포 이미지에서 `liblcms2.so.2`가 조회되고 애플리케이션이 UID 10001 비루트 사용자로 실행되어야 한다.
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 최초 관리자 계정은 `ADMIN_PASSWORD` Secret Manager 참조로 한 번만 생성하고 로그인 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`와 비밀번호 참조 제거 상태로 다시 배포한다.
 - Supabase Storage에 비공개 `temporary-uploads` 버킷을 만들고 `SUPABASE_STORAGE_API_URL`, `SUPABASE_TEMPORARY_UPLOAD_BUCKET`을 일반 환경변수로, `SUPABASE_STORAGE_SERVICE_ROLE_KEY`를 Secret Manager 참조로 주입한다. 서비스 역할 키는 Vercel에 설정하지 않는다.
@@ -71,7 +71,7 @@
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
 - Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
-- Cloud Runソースデプロイのbuild rootを`backend`に指定し、`backend/Dockerfile`がJava 21 runtime imageと`liblcms2-2`を導入することを確認する。配備imageで`liblcms2.so.2`を参照でき、applicationがUID 10001の非root userとして実行されなければならない。
+- Cloud Build trigger typeを`Cloud Build構成ファイル（YAMLまたはJSON）`、locationをrepository、file pathを`backend/cloudbuild.yaml`へ設定する。Dockerfileを無視するinline Buildpacks構成は使用しない。構成fileは`backend` contextで`backend/Dockerfile`からimageをbuild・pushし、既存Cloud Run serviceのimageを更新しなければならない。配備imageで`liblcms2.so.2`を参照でき、applicationがUID 10001の非root userとして実行されることを確認する。
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
 - 初回管理者は`ADMIN_PASSWORD`をSecret Manager参照として一度だけ作成し、ログイン確認後に`ADMIN_BOOTSTRAP_ENABLED=false`とパスワード参照削除の状態で再配備する。
 - Supabase Storageへ非公開`temporary-uploads`バケットを作成し、Storage API URLとバケット名は通常環境変数、サービスロールキーはSecret Manager参照としてCloud Runだけへ注入する。Vercelには保存しない。

@@ -31,6 +31,7 @@ places-plates/
 │   ├── build.gradle.kts
 │   ├── Dockerfile                # Java 21·LCMS2를 포함한 Cloud Run 실행 이미지
 │   ├── .dockerignore             # 컨테이너 빌드 제외 대상
+│   ├── cloudbuild.yaml           # Docker 이미지 빌드·푸시·Cloud Run 배포
 │   ├── settings.gradle.kts
 │   └── gradlew
 ├── docs/                        # 제품·API·운영 문서
@@ -45,7 +46,7 @@ places-plates/
 
 프론트엔드는 동일한 App Router 소스에서 두 배포 산출물을 만든다. Vercel은 `pnpm build:vercel`로 표준 `.next` 산출물을 만들고, 기존 OpenAI Sites 미리보기는 `pnpm build`로 Vinext `dist` 산출물을 만든다. 두 산출물은 CI에서 각각 빌드하고 비밀정보를 검사한다.
 
-Cloud Run 소스 배포는 저장소의 `backend/`를 빌드 루트로 사용하고 `backend/Dockerfile`을 배포 기준으로 삼는다. 빌드 단계와 실행 단계 모두 Java 21을 사용하며, 실행 이미지에는 Java ImageIO의 ICC 색상 프로필 처리에 필요한 `liblcms2.so.2`를 제공하는 `liblcms2-2` 패키지를 명시적으로 설치한다. 애플리케이션은 UID 10001 비루트 사용자로 실행하고 CI에서 실제 이미지를 빌드해 라이브러리와 실행 사용자를 확인한다.
+Cloud Run 배포는 저장소의 `backend/cloudbuild.yaml`을 Cloud Build 트리거 구성 파일로 사용한다. 이 구성은 `backend/`를 Docker 빌드 컨텍스트로 지정하고 `backend/Dockerfile`로 이미지를 빌드·푸시한 뒤 기존 Cloud Run 서비스 이미지만 갱신한다. 빌드 단계와 실행 단계 모두 Java 21을 사용하며, 실행 이미지에는 Java ImageIO의 ICC 색상 프로필 처리에 필요한 `liblcms2.so.2`를 제공하는 `liblcms2-2` 패키지를 명시적으로 설치한다. 애플리케이션은 UID 10001 비루트 사용자로 실행하고 CI에서 실제 이미지를 빌드해 라이브러리와 실행 사용자를 확인한다. Cloud Build 트리거가 인라인 Buildpacks 구성을 사용하면 Dockerfile을 무시하므로 금지한다.
 
 ## 3. 프론트엔드 구조
 
