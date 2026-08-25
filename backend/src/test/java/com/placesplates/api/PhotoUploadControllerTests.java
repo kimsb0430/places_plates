@@ -3,13 +3,18 @@ package com.placesplates.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.util.UUID;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,15 +26,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.mockito.ArgumentCaptor;
 
 import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
 import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
+import com.placesplates.domain.photo.repository.PhotoAssetRepository;
+import com.placesplates.domain.photo.repository.PhotoRepository;
+import com.placesplates.domain.photo.repository.UploadItemRepository;
 import com.placesplates.domain.photo.service.ImageProcessingJobService;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
+import com.placesplates.infra.storage.PrivatePhotoStorage;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
 
 import jakarta.servlet.http.Cookie;
@@ -54,6 +64,15 @@ class PhotoUploadControllerTests {
 	private ImageProcessingJobRepository imageProcessingJobRepository;
 
 	@Autowired
+	private UploadItemRepository uploadItemRepository;
+
+	@Autowired
+	private PhotoAssetRepository photoAssetRepository;
+
+	@Autowired
+	private PhotoRepository photoRepository;
+
+	@Autowired
 	private ImageProcessingJobService imageProcessingJobService;
 
 	@Autowired
@@ -65,10 +84,15 @@ class PhotoUploadControllerTests {
 	@MockitoBean
 	private TemporaryUploadSigner uploadSigner;
 
+	@MockitoBean
+	private PrivatePhotoStorage privatePhotoStorage;
+
 	@BeforeEach
 	void setUp() {
 		imageProcessingJobRepository.deleteAll();
 		uploadBatchRepository.deleteAll();
+		photoAssetRepository.deleteAll();
+		photoRepository.deleteAll();
 		draftPostRepository.deleteAll();
 		accountRepository.deleteAll();
 		accountRepository.save(AdministratorAccount.create(
@@ -83,6 +107,61 @@ class PhotoUploadControllerTests {
 				invocation.getArgument(0)
 			));
 		when(uploadSigner.objectMatches(anyString(), anyLong())).thenReturn(true);
+	}
+
+	@Test
+	void sanitizesCompletedUploadIntoPrivateMaster() throws Exception {
+		byte[] source = createJpeg();
+		when(privatePhotoStorage.downloadTemporary(anyString())).thenReturn(source);
+		AuthenticatedSession authenticated = login();
+		MvcResult createResult = mockMvc.perform(post("/api/v1/manage/photo-uploads")
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"category":"DESTINATION","files":[{"clientFileName":"private-name.jpg","mimeType":"image/jpeg","byteSize":%d}]}
+					""".formatted(source.length)))
+			.andExpect(status().isCreated())
+			.andReturn();
+		String body = createResult.getResponse().getContentAsString();
+		String batchId = JsonPath.read(body, "$.id");
+		String itemId = JsonPath.read(body, "$.items[0].id");
+
+		mockMvc.perform(post(itemPath(batchId, itemId, "complete"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk());
+
+		MvcResult sanitizeResult = mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.photoId").isNotEmpty())
+			.andExpect(jsonPath("$.failureCode").doesNotExist())
+			.andReturn();
+
+		UUID photoId = UUID.fromString(JsonPath.read(
+			sanitizeResult.getResponse().getContentAsString(),
+			"$.photoId"
+		));
+		assertThat(uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow().getResultPhotoId())
+			.isEqualTo(photoId);
+		assertThat(photoRepository.count()).isEqualTo(1);
+		assertThat(photoAssetRepository.count()).isEqualTo(1);
+		assertThat(imageProcessingJobRepository.findByUploadItemId(UUID.fromString(itemId)).orElseThrow().getStatus())
+			.hasToString("COMPLETED");
+
+		ArgumentCaptor<String> storageKey = ArgumentCaptor.forClass(String.class);
+		verify(privatePhotoStorage).storeSanitizedMaster(
+			storageKey.capture(),
+			org.mockito.ArgumentMatchers.any(byte[].class),
+			org.mockito.ArgumentMatchers.eq("image/jpeg")
+		);
+		assertThat(storageKey.getValue())
+			.startsWith("sanitized/")
+			.endsWith(".jpg")
+			.doesNotContain("private-name");
 	}
 
 	@Test
@@ -278,6 +357,12 @@ class PhotoUploadControllerTests {
 
 	private static String itemPath(String batchId, String itemId, String action) {
 		return "/api/v1/manage/photo-uploads/" + batchId + "/items/" + itemId + "/" + action;
+	}
+
+	private static byte[] createJpeg() throws Exception {
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ImageIO.write(new BufferedImage(80, 60, BufferedImage.TYPE_INT_RGB), "jpeg", output);
+		return output.toByteArray();
 	}
 
 	private record AuthenticatedSession(Cookie cookie, String headerName, String token) {

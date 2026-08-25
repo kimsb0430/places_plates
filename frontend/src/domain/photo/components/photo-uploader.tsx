@@ -11,6 +11,7 @@ import {
   recordUploadProgress,
   reportUploadFailure,
   retryUpload,
+  sanitizeUpload,
 } from '../api/photo-upload-api';
 import type { PostCategory, UploadItem, UploadTicket } from '../types';
 
@@ -24,7 +25,7 @@ const ACCEPTED_MIME_TYPES = new Set([
   'image/heif',
 ]);
 
-type ClientUploadStatus = UploadItem['status'] | 'PAUSED';
+type ClientUploadStatus = UploadItem['status'] | 'PAUSED' | 'SANITIZED' | 'PROCESSING_FAILED';
 
 interface ClientUpload {
   id: string;
@@ -84,7 +85,7 @@ export function PhotoUploader() {
         (upload) => startUpload(batch.id, upload),
       );
       if (results.every(Boolean) && batch.draftPostId) {
-        setMessage('업로드가 완료되었습니다. 비공개 초안을 여는 중입니다.');
+        setMessage('업로드와 사진 정제가 완료되었습니다. 비공개 초안을 여는 중입니다.');
         router.push(`/manage/drafts/${batch.draftPostId}`);
         router.refresh();
       } else if (results.every(Boolean)) {
@@ -143,10 +144,21 @@ export function PhotoUploader() {
         },
         onSuccess() {
           void completeUpload(activeBatchId, clientUpload.id)
-            .then((item) => {
+            .then(() => sanitizeUpload(activeBatchId, clientUpload.id))
+            .then((result) => {
+              if (result.status === 'FAILED') {
+                updateUpload(clientUpload.id, {
+                  progress: 100,
+                  status: 'PROCESSING_FAILED',
+                  ticket: undefined,
+                  errorMessage: result.message,
+                });
+                resolve(false);
+                return;
+              }
               updateUpload(clientUpload.id, {
                 progress: 100,
-                status: item.status,
+                status: 'SANITIZED',
                 ticket: undefined,
                 errorMessage: undefined,
               });
@@ -211,12 +223,42 @@ export function PhotoUploader() {
         || upload.status === 'COMPLETED'
       ));
       if (completed && otherUploadsComplete && draftPostId) {
-        setMessage('업로드가 완료되었습니다. 비공개 초안을 여는 중입니다.');
+        setMessage('업로드와 사진 정제가 완료되었습니다. 비공개 초안을 여는 중입니다.');
         router.push(`/manage/drafts/${draftPostId}`);
         router.refresh();
       }
     } catch (error) {
       updateUpload(clientUpload.id, { errorMessage: apiMessage(error) });
+    }
+  }
+
+  async function handleProcessingRetry(clientUpload: ClientUpload) {
+    if (!batchId) {
+      return;
+    }
+    updateUpload(clientUpload.id, { status: 'PROCESSING', errorMessage: undefined });
+    try {
+      const result = await sanitizeUpload(batchId, clientUpload.id);
+      if (result.status === 'FAILED') {
+        updateUpload(clientUpload.id, {
+          status: 'PROCESSING_FAILED',
+          errorMessage: result.message,
+        });
+        return;
+      }
+      updateUpload(clientUpload.id, { status: 'SANITIZED', errorMessage: undefined });
+      const otherUploadsComplete = uploads.every((upload) => (
+        upload.id === clientUpload.id || upload.status === 'SANITIZED'
+      ));
+      if (otherUploadsComplete && draftPostId) {
+        router.push(`/manage/drafts/${draftPostId}`);
+        router.refresh();
+      }
+    } catch (error) {
+      updateUpload(clientUpload.id, {
+        status: 'PROCESSING_FAILED',
+        errorMessage: apiMessage(error),
+      });
     }
   }
 
@@ -227,7 +269,7 @@ export function PhotoUploader() {
   }
 
   const completedCount = uploads.filter((upload) => (
-    upload.status === 'PROCESSING' || upload.status === 'COMPLETED'
+    upload.status === 'SANITIZED' || upload.status === 'COMPLETED'
   )).length;
   const allUploadsComplete = uploads.length > 0 && completedCount === uploads.length;
   const categoryLocked = isPreparing || uploads.length > 0;
@@ -238,7 +280,7 @@ export function PhotoUploader() {
         <div>
           <p className="login-status">PRIVATE UPLOAD</p>
           <h2 id="photo-upload-title">사진으로 새 기록 시작하기</h2>
-          <p>JPG·HEIC·PNG 사진을 최대 100장까지 선택할 수 있습니다.</p>
+          <p>JPG·PNG 사진을 최대 100장까지 선택할 수 있습니다. HEIC은 JPEG 변환 후 업로드를 권장합니다.</p>
         </div>
         {uploads.length > 0 && <strong>{completedCount} / {uploads.length}</strong>}
       </div>
@@ -295,7 +337,7 @@ export function PhotoUploader() {
 
       {allUploadsComplete && draftPostId && (
         <div className="photo-upload-complete" role="status">
-          <p>모든 사진이 업로드됐고 비공개 초안으로 저장되었습니다.</p>
+          <p>모든 사진의 업로드와 개인정보 메타데이터 제거가 완료됐습니다.</p>
           <Link href={`/manage/drafts/${draftPostId}`}>초안 열기 <span>→</span></Link>
         </div>
       )}
@@ -328,6 +370,9 @@ export function PhotoUploader() {
                 )}
                 {upload.status === 'FAILED' && (
                   <button type="button" onClick={() => void handleRetry(upload)}>다시 시도</button>
+                )}
+                {upload.status === 'PROCESSING_FAILED' && (
+                  <button type="button" onClick={() => void handleProcessingRetry(upload)}>정제 다시 시도</button>
                 )}
               </div>
               {upload.errorMessage && <p role="alert">{upload.errorMessage}</p>}
@@ -379,6 +424,8 @@ function statusLabel(status: ClientUploadStatus): string {
     UPLOADING: '업로드 중',
     PAUSED: '일시정지',
     PROCESSING: '업로드 완료 · 처리 대기',
+    SANITIZED: '방향 보정 · 메타데이터 제거 완료',
+    PROCESSING_FAILED: '사진 정제 실패',
     COMPLETED: '처리 완료',
     FAILED: '업로드 실패',
     EXPIRED: '만료됨',

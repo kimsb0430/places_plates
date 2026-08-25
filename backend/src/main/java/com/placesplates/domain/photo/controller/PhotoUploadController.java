@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.placesplates.domain.auth.service.AdministratorPrincipal;
 import com.placesplates.domain.photo.dto.CreateUploadBatchRequest;
+import com.placesplates.domain.photo.dto.ImageSanitizationResponse;
 import com.placesplates.domain.photo.dto.UploadBatchResponse;
 import com.placesplates.domain.photo.dto.UploadFailureRequest;
 import com.placesplates.domain.photo.dto.UploadItemResponse;
 import com.placesplates.domain.photo.dto.UploadProgressRequest;
+import com.placesplates.domain.photo.service.ImageSanitizationService;
 import com.placesplates.domain.photo.service.PhotoUploadService;
 
 import jakarta.validation.Valid;
@@ -27,9 +29,14 @@ import jakarta.validation.Valid;
 public class PhotoUploadController {
 
 	private final PhotoUploadService photoUploadService;
+	private final ImageSanitizationService imageSanitizationService;
 
-	public PhotoUploadController(PhotoUploadService photoUploadService) {
+	public PhotoUploadController(
+		PhotoUploadService photoUploadService,
+		ImageSanitizationService imageSanitizationService
+	) {
 		this.photoUploadService = photoUploadService;
+		this.imageSanitizationService = imageSanitizationService;
 	}
 
 	@PostMapping
@@ -90,5 +97,14 @@ public class PhotoUploadController {
 		@PathVariable UUID itemId
 	) {
 		return photoUploadService.complete(principal.userId(), batchId, itemId);
+	}
+
+	@PostMapping("/{batchId}/items/{itemId}/sanitize")
+	public ImageSanitizationResponse sanitize(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID batchId,
+		@PathVariable UUID itemId
+	) {
+		return imageSanitizationService.sanitize(principal.userId(), batchId, itemId);
 	}
 }

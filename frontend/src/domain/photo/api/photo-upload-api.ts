@@ -1,4 +1,5 @@
 import type {
+  ImageSanitizationResult,
   UploadBatch,
   UploadFileDescriptor,
   UploadItem,
@@ -110,5 +111,14 @@ export function retryUpload(batchId: string, itemId: string): Promise<UploadItem
 export function completeUpload(batchId: string, itemId: string): Promise<UploadItem> {
   return mutate<UploadItem>(
     `/api/v1/manage/photo-uploads/${batchId}/items/${itemId}/complete`,
+  );
+}
+
+export function sanitizeUpload(
+  batchId: string,
+  itemId: string,
+): Promise<ImageSanitizationResult> {
+  return mutate<ImageSanitizationResult>(
+    `/api/v1/manage/photo-uploads/${batchId}/items/${itemId}/sanitize`,
   );
 }

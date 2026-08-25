@@ -758,6 +758,7 @@
         <div class="flow-step"><h4>검사</h4><p>메타데이터 0건·워터마크·정제본 디코딩 성공 확인</p></div>
         <div class="flow-step"><h4>원본 자동 삭제</h4><p>검사 성공 후 임시 업로드 원본을 즉시 폐기</p></div>
       </div>
+      <div class="callout"><strong>C14 구현 기준:</strong> 인증된 소유자 요청이 업로드 항목별 작업을 한 번에 하나씩 잠그고 실행한다. JPG·PNG는 최대 2,500만 픽셀까지 방향을 적용한 뒤 품질 0.92 JPEG로 새로 인코딩하고 EXIF·XMP·IPTC 재검사를 통과한 결과만 비공개 <code>SANITIZED_MASTER</code>로 저장한다. 현재 운영 JVM에서 HEIC·HEIF 픽셀 디코더가 검증되지 않았으므로 해당 형식은 공개하지 않고 JPEG 변환 후 재업로드를 안내한다. 임시 원본 삭제는 공개 파생본까지 검사하는 C17에서 수행한다.</div>
 
       <div class="grid grid-3" style="margin-top:18px">
         <article class="card"><div class="icon">🗑️</div><h3>업로드 원본 미보관</h3><p>서버의 임시 원본은 처리와 검사가 완료되는 즉시 삭제한다. 실패·중단된 임시 파일도 만료 작업으로 정리하며 원본 다운로드 기능은 제공하지 않는다.</p></article>
@@ -863,7 +864,7 @@
       <div class="grid grid-4">
         <article class="card"><h3>frontend</h3><p>독립된 Next.js + TypeScript 프로젝트. 페이지는 <code>app</code>, 기능은 <code>domain</code>, 공통 요소는 <code>shared</code>로 나눠 Spring Boot와 비슷하게 책임을 드러낸다.</p></article>
         <article class="card"><h3>backend</h3><p>독립된 Java + Spring Boot + Gradle REST API. 도메인별 controller·service·repository·entity·dto 구조와 Spring Security 소유자 권한을 적용한다.</p></article>
-        <article class="card"><h3>이미지 파이프라인</h3><p>임시 원본에서 메타데이터가 제거된 정제 마스터와 공개 파생본을 만든 뒤 검사가 끝나면 임시 원본을 삭제한다.</p></article>
+        <article class="card"><h3>이미지 파이프라인</h3><p>인증된 처리 요청이 임시 원본을 방향 보정·재인코딩해 비공개 정제 마스터를 만들고, 이후 공개 파생본 검사까지 끝나면 임시 원본을 삭제한다.</p></article>
         <article class="card"><h3>Google 지도 연결</h3><p>Google Maps JavaScript API와 Places API (New)를 사용한다. 지도 탭을 열 때만 동적 지도를 로드하고, 장소 선택 후 Place ID·좌표를 저장해 공개 페이지에서 같은 장소 정보를 반복 조회하지 않는다.</p></article>
         <article class="card"><h3>탐색 인덱스</h3><p>게시 상태·카테고리·좌표를 함께 조회하고 지도 경계 및 묶음 단위 집계를 빠르게 계산한다.</p></article>
       </div>

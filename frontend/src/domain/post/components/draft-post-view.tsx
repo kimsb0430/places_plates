@@ -80,7 +80,7 @@ export function DraftPostView({ draftPostId }: DraftPostViewProps) {
         <p className="overline">{draft.category === 'RESTAURANT' ? '맛집 기록' : '여행지 기록'}</p>
         <h1>{draft.title}</h1>
         <p className="draft-detail-lead">
-          사진 업로드가 완료됐으며 이 기록은 공개되지 않는 비공개 초안으로 저장되었습니다.
+          사진 업로드와 정제가 완료됐으며 이 기록은 공개되지 않는 비공개 초안으로 저장되었습니다.
         </p>
         <dl>
           <div><dt>공개 상태</dt><dd>비공개</dd></div>
