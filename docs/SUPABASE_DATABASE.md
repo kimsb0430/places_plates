@@ -7,7 +7,7 @@
 - Supabase 프로젝트 `placesplates`는 GitHub 저장소와 연결되어 있다.
 - PostgreSQL 리전은 서울이며 무료 `nano` 컴퓨팅을 사용한다.
 - PostGIS 3.3.7은 Supabase의 `extensions` 스키마에 활성화되어 있다.
-- Flyway V1~V10, 애플리케이션 테이블 14개, 서버 전용 세션 테이블 2개와 강제 RLS 테이블 13개가 운영 DB에 적용되어 있다. V11 조건부 사진 READY 백필은 적용 대기 중이다.
+- Flyway V1~V11, 애플리케이션 테이블 14개, 서버 전용 세션 테이블 2개와 강제 RLS 테이블 13개가 운영 DB에 적용되어 있다. V11 조건부 백필로 검증 조건을 만족한 기존 사진을 `READY`로 전환했으며 대상 잔여 행은 0건이다.
 - `placesplates_app` 역할은 로그인만 허용되며 `SUPERUSER`·`CREATEROLE`·`CREATEDB`·`REPLICATION`·`BYPASSRLS` 권한이 없다.
 - GitHub 연결은 저장소 연동일 뿐이며 Spring Boot의 Flyway 마이그레이션을 자동 실행하지 않는다.
 - 프론트엔드는 Supabase Database·Data API를 직접 사용하지 않는다. 사진 제어 권한은 Spring Boot에서 받고, 사진 본문만 단기 서명 토큰으로 비공개 Storage TUS 엔드포인트에 직접 전송한다.
@@ -104,7 +104,7 @@ V11은 `COMPLETED` 이미지 작업, 결과 사진 연결, 비공개 `SANITIZED_
 - Supabaseの`placesplates`プロジェクトはGitHubリポジトリへ接続済みである。
 - PostgreSQLはソウルリージョンの無料`nano`コンピュートを使用する。
 - PostGIS 3.3.7はSupabaseの`extensions`スキーマで有効化済みである。
-- Flyway V1〜V10、アプリケーションテーブル14個、サーバー専用sessionテーブル2個、強制RLSテーブル13個は本番DBへ適用済みである。V11の条件付き写真READY backfillは適用待ちである。
+- Flyway V1〜V11、アプリケーションテーブル14個、サーバー専用sessionテーブル2個、強制RLSテーブル13個は本番DBへ適用済みである。V11の条件付きbackfillで検証条件を満たす既存写真を`READY`へ変更し、対象残件は0件である。
 - `placesplates_app`はログインだけが許可され、`SUPERUSER`・`CREATEROLE`・`CREATEDB`・`REPLICATION`・`BYPASSRLS`権限を持たない。
 - GitHub接続だけではSpring BootのFlywayマイグレーションは自動実行されない。
 - フロントエンドはSupabase Database・Data APIへ直接接続しない。写真制御権限はSpring Bootから取得し、写真本文だけを短期署名トークンで非公開Storage TUSエンドポイントへ直接送信する。
