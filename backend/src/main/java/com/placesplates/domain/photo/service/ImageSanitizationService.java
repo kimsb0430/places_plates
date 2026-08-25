@@ -66,6 +66,7 @@ public class ImageSanitizationService {
 			.orElseThrow(() -> notFound("사진 업로드 항목을 찾을 수 없습니다."));
 
 		if (job.getStatus() == ImageProcessingJobStatus.COMPLETED && uploadItem.getResultPhotoId() != null) {
+			photoRepository.findById(uploadItem.getResultPhotoId()).ifPresent(Photo::markReady);
 			return ImageSanitizationResponse.completed(job.getId(), uploadItemId, uploadItem.getResultPhotoId());
 		}
 
@@ -105,6 +106,7 @@ public class ImageSanitizationService {
 				sanitized.height(),
 				sanitized.bytes().length
 			));
+			photo.markReady();
 			uploadItem.assignResultPhoto(photo.getId());
 			job.complete(OffsetDateTime.now(ZoneOffset.UTC));
 			return ImageSanitizationResponse.completed(job.getId(), uploadItemId, photo.getId());

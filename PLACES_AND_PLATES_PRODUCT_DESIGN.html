@@ -758,7 +758,7 @@
         <div class="flow-step"><h4>검사</h4><p>메타데이터 0건·워터마크·정제본 디코딩 성공 확인</p></div>
         <div class="flow-step"><h4>원본 자동 삭제</h4><p>검사 성공 후 임시 업로드 원본을 즉시 폐기</p></div>
       </div>
-      <div class="callout"><strong>C14 구현 기준:</strong> 인증된 소유자 요청이 업로드 항목별 작업을 한 번에 하나씩 잠그고 실행한다. JPG·PNG는 최대 2,500만 픽셀까지 방향을 적용한 뒤 품질 0.92 JPEG로 새로 인코딩하고 EXIF·XMP·IPTC 재검사를 통과한 결과만 비공개 <code>SANITIZED_MASTER</code>로 저장한다. 현재 운영 JVM에서 HEIC·HEIF 픽셀 디코더가 검증되지 않았으므로 해당 형식은 공개하지 않고 JPEG 변환 후 재업로드를 안내한다. 임시 원본 삭제는 공개 파생본까지 검사하는 C17에서 수행한다.</div>
+      <div class="callout"><strong>C14 구현 기준:</strong> 인증된 소유자 요청이 업로드 항목별 작업을 한 번에 하나씩 잠그고 실행한다. JPG·PNG는 최대 2,500만 픽셀까지 방향을 적용한 뒤 품질 0.92 JPEG로 새로 인코딩하고 EXIF·XMP·IPTC 재검사를 통과한 결과만 비공개 <code>SANITIZED_MASTER</code>로 저장한다. 자산 저장과 메타데이터 검사가 모두 성공한 사진만 <code>READY</code>로 전환하며, 완료 요청을 다시 보내도 같은 사진의 완료 상태를 복구한다. 현재 운영 JVM에서 HEIC·HEIF 픽셀 디코더가 검증되지 않았으므로 해당 형식은 공개하지 않고 JPEG 변환 후 재업로드를 안내한다. 임시 원본 삭제는 공개 파생본까지 검사하는 C17에서 수행한다.</div>
 
       <div class="grid grid-3" style="margin-top:18px">
         <article class="card"><div class="icon">🗑️</div><h3>업로드 원본 미보관</h3><p>서버의 임시 원본은 처리와 검사가 완료되는 즉시 삭제한다. 실패·중단된 임시 파일도 만료 작업으로 정리하며 원본 다운로드 기능은 제공하지 않는다.</p></article>

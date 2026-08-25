@@ -59,7 +59,16 @@ public class Photo {
 		return new Photo(ownerUserId, postId);
 	}
 
+	public void markReady() {
+		this.processingStatus = PhotoProcessingStatus.READY;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
 	public UUID getId() {
 		return id;
+	}
+
+	public PhotoProcessingStatus getProcessingStatus() {
+		return processingStatus;
 	}
 }
