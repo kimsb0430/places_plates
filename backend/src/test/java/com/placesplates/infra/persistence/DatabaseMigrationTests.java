@@ -3,6 +3,8 @@ package com.placesplates.infra.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
@@ -10,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -247,6 +250,98 @@ class DatabaseMigrationTests {
 			Integer.class,
 			primaryId
 		)).isZero();
+	}
+
+	@Test
+	void readyBackfillRequiresCompletedMetadataFreeSanitizedMaster() throws IOException {
+		UUID userId = createUser();
+		UUID postId = UUID.randomUUID();
+		UUID batchId = UUID.randomUUID();
+		UUID readyPhotoId = UUID.randomUUID();
+		UUID unsafePhotoId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO posts (id, owner_user_id, category, title) VALUES (?, ?, 'DESTINATION', ?)",
+			postId,
+			userId,
+			"backfill draft"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO upload_batches (id, owner_user_id, post_id, expires_at) VALUES (?, ?, ?, ?)",
+			batchId,
+			userId,
+			postId,
+			OffsetDateTime.now().plusHours(1)
+		);
+		insertProcessingPhoto(readyPhotoId, userId, postId);
+		insertProcessingPhoto(unsafePhotoId, userId, postId);
+		insertCompletedSanitizedUpload(batchId, readyPhotoId, userId, postId, true);
+		insertCompletedSanitizedUpload(batchId, unsafePhotoId, userId, postId, false);
+
+		ClassPathResource migration = new ClassPathResource(
+			"db/migration/common/V11__backfill_ready_sanitized_photos.sql"
+		);
+		jdbcTemplate.execute(migration.getContentAsString(StandardCharsets.UTF_8));
+
+		assertThat(photoStatus(readyPhotoId)).isEqualTo("READY");
+		assertThat(photoStatus(unsafePhotoId)).isEqualTo("PROCESSING");
+	}
+
+	private void insertProcessingPhoto(UUID photoId, UUID userId, UUID postId) {
+		jdbcTemplate.update(
+			"INSERT INTO photos (id, owner_user_id, post_id, processing_status) VALUES (?, ?, ?, 'PROCESSING')",
+			photoId,
+			userId,
+			postId
+		);
+	}
+
+	private void insertCompletedSanitizedUpload(
+		UUID batchId,
+		UUID photoId,
+		UUID userId,
+		UUID postId,
+		boolean metadataScanPassed
+	) {
+		UUID uploadItemId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO upload_items (id, upload_batch_id, result_photo_id, expires_at) VALUES (?, ?, ?, ?)",
+			uploadItemId,
+			batchId,
+			photoId,
+			OffsetDateTime.now().plusHours(1)
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO image_processing_jobs (
+			    id, owner_user_id, post_id, upload_item_id, status, completed_at
+			) VALUES (?, ?, ?, ?, 'COMPLETED', ?)
+			""",
+			UUID.randomUUID(),
+			userId,
+			postId,
+			uploadItemId,
+			OffsetDateTime.now()
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed
+			) VALUES (?, ?, 'SANITIZED_MASTER', 'PRIVATE', ?, 'image/jpeg', 800, 500, 1024, ?)
+			""",
+			UUID.randomUUID(),
+			photoId,
+			"sanitized/" + photoId + ".jpg",
+			metadataScanPassed
+		);
+	}
+
+	private String photoStatus(UUID photoId) {
+		return jdbcTemplate.queryForObject(
+			"SELECT processing_status FROM photos WHERE id = ?",
+			String.class,
+			photoId
+		);
 	}
 
 	private UUID createUser() {

@@ -14,7 +14,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 10;
+	private static final int EXPECTED_MIGRATION_COUNT = 11;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
 	private static final int RUNTIME_VERIFICATION_ATTEMPTS = 4;
 	private static final long RUNTIME_VERIFICATION_RETRY_DELAY_MILLIS = 10_000L;
@@ -112,6 +112,29 @@ public final class SupabaseDatabaseProvisioner {
 			assertNoSupabaseDataApiPrivilege(connection, "anon");
 			assertNoSupabaseDataApiPrivilege(connection, "authenticated");
 			assertRuntimeSessionTablePrivileges(connection);
+			assertCount(
+				connection,
+				"""
+				SELECT COUNT(*)
+				FROM photos
+				WHERE processing_status = 'PROCESSING'
+				  AND EXISTS (
+				      SELECT 1
+				      FROM upload_items
+				      JOIN image_processing_jobs
+				        ON image_processing_jobs.upload_item_id = upload_items.id
+				      JOIN photo_assets
+				        ON photo_assets.photo_id = photos.id
+				      WHERE upload_items.result_photo_id = photos.id
+				        AND image_processing_jobs.status = 'COMPLETED'
+				        AND photo_assets.variant_type = 'SANITIZED_MASTER'
+				        AND photo_assets.access_level = 'PRIVATE'
+				        AND photo_assets.metadata_scan_passed = TRUE
+				  )
+				""",
+				0,
+				"completed sanitized photos pending READY backfill"
+			);
 		}
 	}
 

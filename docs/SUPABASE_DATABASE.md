@@ -7,7 +7,7 @@
 - Supabase 프로젝트 `placesplates`는 GitHub 저장소와 연결되어 있다.
 - PostgreSQL 리전은 서울이며 무료 `nano` 컴퓨팅을 사용한다.
 - PostGIS 3.3.7은 Supabase의 `extensions` 스키마에 활성화되어 있다.
-- Flyway V1~V10, 애플리케이션 테이블 14개, 서버 전용 세션 테이블 2개와 강제 RLS 테이블 13개가 운영 DB에 적용되어 있다.
+- Flyway V1~V10, 애플리케이션 테이블 14개, 서버 전용 세션 테이블 2개와 강제 RLS 테이블 13개가 운영 DB에 적용되어 있다. V11 조건부 사진 READY 백필은 적용 대기 중이다.
 - `placesplates_app` 역할은 로그인만 허용되며 `SUPERUSER`·`CREATEROLE`·`CREATEDB`·`REPLICATION`·`BYPASSRLS` 권한이 없다.
 - GitHub 연결은 저장소 연동일 뿐이며 Spring Boot의 Flyway 마이그레이션을 자동 실행하지 않는다.
 - 프론트엔드는 Supabase Database·Data API를 직접 사용하지 않는다. 사진 제어 권한은 Spring Boot에서 받고, 사진 본문만 단기 서명 토큰으로 비공개 Storage TUS 엔드포인트에 직접 전송한다.
@@ -49,7 +49,7 @@ Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조�
 프로비저닝은 다음을 한 번에 수행한다.
 
 1. `placesplates_app` 로그인 역할 생성 또는 비밀번호 교체
-2. Flyway V1~V10 적용
+2. Flyway V1~V11 적용
 3. PostGIS·마이그레이션 이력·애플리케이션 테이블 14개·세션 테이블 2개·13개 강제 RLS 테이블 확인
 4. Supabase `anon`·`authenticated` 역할의 애플리케이션·세션 테이블 권한 제거 확인
 5. 운영 역할이 `SUPERUSER`·`BYPASSRLS`가 아님을 확인
@@ -83,6 +83,8 @@ Supabase Dashboard의 **Storage → New bucket**에서 `temporary-uploads` 비�
 
 C14 정제 마스터는 기본적으로 같은 비공개 버킷의 `sanitized/<owner-uuid>/<job-uuid>.jpg`에 저장한다. 객체 키와 파일 바이트에는 원래 파일명을 넣지 않으며 `SUPABASE_SANITIZED_PHOTO_BUCKET`으로 별도 비공개 버킷을 지정할 수도 있다. 만료 정리는 `temporary/`만 대상으로 하고 `sanitized/`는 삭제하지 않는다. JPG·PNG는 2,500만 픽셀 한도와 품질 0.92 JPEG 재인코딩을 적용하며, HEIC·HEIF는 검증된 서버 디코더가 추가될 때까지 실패 상태와 JPEG 변환 안내를 반환한다.
 
+V11은 `COMPLETED` 이미지 작업, 결과 사진 연결, 비공개 `SANITIZED_MASTER`, `metadata_scan_passed=TRUE`를 모두 확인한 뒤 과거 버전에서 `PROCESSING`에 남은 사진만 `READY`로 변경한다. 검사 미통과·실패·미완료 사진은 변경하지 않으며 프로비저닝 검증은 조건을 충족하면서 `PROCESSING`에 남은 행이 0건인지 확인한다.
+
 ### 검증과 롤백
 
 - Table Editor의 `public` 스키마에서 애플리케이션 테이블을 확인한다.
@@ -102,7 +104,7 @@ C14 정제 마스터는 기본적으로 같은 비공개 버킷의 `sanitized/<o
 - Supabaseの`placesplates`プロジェクトはGitHubリポジトリへ接続済みである。
 - PostgreSQLはソウルリージョンの無料`nano`コンピュートを使用する。
 - PostGIS 3.3.7はSupabaseの`extensions`スキーマで有効化済みである。
-- Flyway V1〜V10、アプリケーションテーブル14個、サーバー専用sessionテーブル2個、強制RLSテーブル13個は本番DBへ適用済みである。
+- Flyway V1〜V10、アプリケーションテーブル14個、サーバー専用sessionテーブル2個、強制RLSテーブル13個は本番DBへ適用済みである。V11の条件付き写真READY backfillは適用待ちである。
 - `placesplates_app`はログインだけが許可され、`SUPERUSER`・`CREATEROLE`・`CREATEDB`・`REPLICATION`・`BYPASSRLS`権限を持たない。
 - GitHub接続だけではSpring BootのFlywayマイグレーションは自動実行されない。
 - フロントエンドはSupabase Database・Data APIへ直接接続しない。写真制御権限はSpring Bootから取得し、写真本文だけを短期署名トークンで非公開Storage TUSエンドポイントへ直接送信する。
@@ -135,7 +137,7 @@ Supabase Dashboardの**Connect → Session pooler**でプロジェクト参照�
 
 スクリプトは管理者パスワード、新しい`placesplates_app`パスワード（20文字以上）、確認用パスワードをマスク入力で受け取る。値はファイル・コマンドライン・ログへ保存せず、実行プロセスの環境からも終了時に削除する。管理者パスワードが不明な場合は、ユーザー自身がDashboardで再設定してから実行する。
 
-処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V10、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示をまとめて検証する。
+処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V11、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示をまとめて検証する。
 
 Role password更新直後にSession poolerへの認証情報伝播が遅れると、一時的に`28P01 password authentication failed`となる場合がある。Provisioning toolはこのSQL stateだけを10秒間隔で最大4回再接続し、他の接続・権限errorは直ちに失敗させる。繰り返し失敗する場合は誤ったpasswordで接続を続けず、Supabaseの**Database Settings → Network Bans**とPooler Logsを確認する。
 
@@ -164,6 +166,8 @@ IMAGE_MASTER_JPEG_QUALITY=0.92
 Supabase Dashboardの**Storage → New bucket**で非公開`temporary-uploads`バケットを作成する。オブジェクトキーは`temporary/<owner-uuid>/<batch-uuid>/<item-uuid>.<safe-extension>`で生成し、元ファイル名を含めない。Spring Bootだけがサービスロールキーで短期アップロード署名を発行し、ブラウザへは署名トークン・バケット名・UUIDオブジェクト名だけを返す。TUS URLとDB項目は24時間有効とし、C17で期限切れまたは処理済み原本を削除する。
 
 C14のsanitized masterは既定で同じ非公開bucketの`sanitized/<owner-uuid>/<job-uuid>.jpg`へ保存する。Object keyとfile bytesには元file名を含めず、`SUPABASE_SANITIZED_PHOTO_BUCKET`で別の非公開bucketも指定できる。期限切れ削除は`temporary/`だけを対象とし、`sanitized/`は削除しない。JPG・PNGは2,500万pixel上限と品質0.92のJPEG再encodeを適用する。HEIC・HEIFは検証済みserver decoderを追加するまで失敗状態とJPEG変換案内を返す。
+
+V11は`COMPLETED` image job、結果写真の関連付け、非公開`SANITIZED_MASTER`、`metadata_scan_passed=TRUE`をすべて確認し、過去versionで`PROCESSING`に残った写真だけを`READY`へ変更する。検査未通過・失敗・未完了写真は変更せず、provisioning検証は条件を満たしながら`PROCESSING`に残る行が0件であることを確認する。
 
 ### 検証とロールバック
 
