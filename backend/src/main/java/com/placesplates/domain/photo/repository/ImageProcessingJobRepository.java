@@ -21,6 +21,17 @@ public interface ImageProcessingJobRepository extends JpaRepository<ImageProcess
 
 	Optional<ImageProcessingJob> findByUploadItemId(UUID uploadItemId);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+		select job
+		from ImageProcessingJob job
+		where job.uploadItemId = :uploadItemId and job.ownerUserId = :ownerUserId
+		""")
+	Optional<ImageProcessingJob> findLockedByUploadItemIdAndOwnerUserId(
+		@Param("uploadItemId") UUID uploadItemId,
+		@Param("ownerUserId") UUID ownerUserId
+	);
+
 	Optional<ImageProcessingJob> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);
 
 	List<ImageProcessingJob> findAllByOwnerUserIdOrderByCreatedAtDesc(UUID ownerUserId);

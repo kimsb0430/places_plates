@@ -133,8 +133,8 @@ backend/src/main/java/com/placesplates/
 │   └── security/                # Spring Security와 요청별 DB 소유자 컨텍스트
 └── infra/
     ├── googlemaps/              # Google Places 서버 연동
-    ├── image/                   # EXIF 제거·리사이즈·워터마크
-    ├── storage/                 # 정제 마스터·공개 이미지 저장소
+    ├── image/                   # 방향 보정·JPEG 재인코딩·EXIF/XMP/IPTC 검사
+    ├── storage/                 # 임시 원본 읽기·비공개 정제 마스터 저장
     └── persistence/             # 복잡한 조회·운영 DB 프로비저닝
 ```
 
@@ -168,7 +168,7 @@ backend/src/main/resources/
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
 | post | 맛집·여행지 게시물, 업로드 시작 초안과 공개 범위 | `/api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
-| photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
+| photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
 | map | 지도 경계·마커·묶음 숫자 조회 | `/api/v1/map/posts` |
 
@@ -197,6 +197,9 @@ backend/src/test/java/com/placesplates/
 - Google Maps 브라우저 키는 HTTP 리퍼러와 Maps JavaScript API·Places API로 제한한다.
 - `backend` 비밀값은 운영 환경에서만 주입하며 저장소에 커밋하지 않는다.
 - Supabase Storage 서비스 역할 키는 Cloud Run Secret Manager에만 저장하며, 백엔드는 소유자와 객체 키를 검증한 뒤 단기 업로드 토큰만 반환한다.
+- 정제 요청은 인증된 소유자 API에서 작업 행을 잠근 뒤 실행한다. JPG·PNG 픽셀을 최대 2,500만 픽셀까지 디코딩하고 방향 보정 후 품질 0.92 JPEG로 새로 인코딩하며, EXIF·XMP·IPTC 재검사를 통과한 결과만 `SANITIZED_MASTER`로 저장한다.
+- `SUPABASE_SANITIZED_PHOTO_BUCKET`은 비공개 버킷이어야 한다. 미설정 시 기존 비공개 `temporary-uploads` 버킷의 `sanitized/` 접두사를 사용하되 C17 만료 정리는 `temporary/` 접두사만 삭제한다.
+- HEIC·HEIF는 검증된 JVM 픽셀 디코더가 배포되기 전까지 실패 상태와 JPEG 변환 안내를 반환하며 원본이나 불완전한 파생본을 공개하지 않는다.
 - 데이터베이스 비밀번호, 저장소 비밀키, 관리자 비밀번호는 프론트엔드에 전달하지 않는다.
 - 운영 세션 쿠키는 `HttpOnly`, `Secure`, `SameSite=None`으로 설정하고 CORS는 실제 프론트 도메인만 허용한다.
 - `SPRING_SESSION`·`SPRING_SESSION_ATTRIBUTES`는 Spring Boot만 접근하는 인프라 테이블이다. 소유자 RLS는 적용하지 않고 `placesplates_app`에만 CRUD를 허용하며 Supabase `anon`·`authenticated`와 `PUBLIC` 권한은 제거한다.

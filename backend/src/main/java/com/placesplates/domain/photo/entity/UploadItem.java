@@ -28,6 +28,9 @@ public class UploadItem {
 	@Column(name = "temporary_storage_key", length = 500)
 	private String temporaryStorageKey;
 
+	@Column(name = "result_photo_id")
+	private UUID resultPhotoId;
+
 	@Column(name = "client_file_label", nullable = false, length = 255)
 	private String clientFileLabel;
 
@@ -138,6 +141,14 @@ public class UploadItem {
 		return status == UploadItemStatus.PROCESSING || status == UploadItemStatus.COMPLETED;
 	}
 
+	public void assignResultPhoto(UUID photoId) {
+		if (resultPhotoId != null && !resultPhotoId.equals(photoId)) {
+			throw new IllegalStateException("Upload item already has a result photo");
+		}
+		resultPhotoId = photoId;
+		touch();
+	}
+
 	private void touch() {
 		updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
@@ -152,6 +163,10 @@ public class UploadItem {
 
 	public String getTemporaryStorageKey() {
 		return temporaryStorageKey;
+	}
+
+	public UUID getResultPhotoId() {
+		return resultPhotoId;
 	}
 
 	public String getClientFileLabel() {

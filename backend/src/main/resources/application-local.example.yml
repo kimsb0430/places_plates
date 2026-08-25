@@ -17,3 +17,7 @@ places-plates:
     api-url: ${SUPABASE_STORAGE_API_URL:}
     service-role-key: ${SUPABASE_STORAGE_SERVICE_ROLE_KEY:}
     temporary-bucket: ${SUPABASE_TEMPORARY_UPLOAD_BUCKET:temporary-uploads}
+    sanitized-bucket: ${SUPABASE_SANITIZED_PHOTO_BUCKET:temporary-uploads}
+  image:
+    max-pixels: ${IMAGE_MAX_PIXELS:25000000}
+    jpeg-quality: ${IMAGE_MASTER_JPEG_QUALITY:0.92}

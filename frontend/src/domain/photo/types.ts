@@ -36,6 +36,15 @@ export interface UploadBatch {
   items: UploadItem[];
 }
 
+export interface ImageSanitizationResult {
+  jobId: string;
+  uploadItemId: string;
+  photoId: string | null;
+  status: 'COMPLETED' | 'FAILED';
+  failureCode: string | null;
+  message: string;
+}
+
 export interface UploadFileDescriptor {
   clientFileName: string;
   mimeType: string;

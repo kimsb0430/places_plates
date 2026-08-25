@@ -155,7 +155,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
-진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료
+진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 JPG·PNG 정제 마스터 구현과 로컬 검증 완료, 운영 검증 대기
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -163,7 +163,7 @@ Sprint 종료 게이트:
 | C12 | `feat: create private drafts when uploads begin` | 맛집·여행지 선택 후 업로드 즉시 비공개 초안을 만들고 업로드 묶음과 연결 | 완료 시 초안으로 자동 이동하고 관리 화면에서 초안을 다시 열 수 있음 |
 | C13 | `feat: queue image processing jobs after upload` | 업로드 항목별 단일 이미지 처리 작업, 처리 시도 횟수·재시도 시각·실패 원인 추적 | 중복 완료 요청에도 작업이 한 개만 생성되고 실패 작업을 즉시 또는 지연 재실행 가능 |
 | C13A | `feat: persist authenticated sessions in postgresql` | Spring Session JDBC, 세션·속성 테이블, 런타임 역할 전용 권한 | Cloud Run 재배포·다중 인스턴스 전환 후에도 기존 인증 세션 복구 |
-| C14 | `feat: create sanitized masters without image metadata` | 방향 보정·재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거 | 정제 마스터와 공개본에서 민감 메타데이터 0건 |
+| C14 | `feat: create sanitized masters without image metadata` | 인증된 업로드 완료 요청에서 방향 보정·JPEG 재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거, 2,500만 픽셀 제한과 실패 코드 기록 | 비공개 정제 마스터에서 민감 메타데이터 0건, 중복 요청은 동일 처리 작업으로 직렬화 |
 | C15 | `feat: generate responsive image variants and thumbnails` | 썸네일·카드·상세용 이미지 생성 | 화면별로 적합한 크기 선택 |
 | C16 | `feat: burn places and plates watermarks into public images` | `Places & Plates` 서버 합성 워터마크와 정책 버전 | CSS 제거 후에도 표준 문구 유지 |
 | C17 | `feat: verify images and purge temporary originals` | 정제본·공개본 검사, 임시 원본 삭제·만료 정리와 자동 테스트 | 처리 완료 후 원본 잔존 0건, 실패 이미지는 게시 차단 |
@@ -176,7 +176,7 @@ Sprint 종료 게이트:
 
 위험과 대응:
 
-- HEIC 처리 라이브러리가 운영 환경에서 동작하지 않으면 v1에서는 업로드 후 JPEG 변환 안내를 제공한다.
+- 현재 Java 런타임은 HEIC·HEIF 픽셀 디코더가 없으므로 정제 단계에서 `HEIC_DECODER_UNAVAILABLE`로 비공개 실패 처리하고 JPEG 변환 후 재업로드를 안내한다. 운영용 디코더가 검증되기 전에는 성공으로 간주하지 않는다.
 - 이미지 워커의 메모리 사용량이 높으면 동시 처리 수를 제한하고 큐를 사용한다.
 
 ## 8. Sprint 3 — 게시물 작성과 공개 관리

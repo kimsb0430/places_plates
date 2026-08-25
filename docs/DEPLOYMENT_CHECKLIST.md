@@ -33,7 +33,9 @@
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 최초 관리자 계정은 `ADMIN_PASSWORD` Secret Manager 참조로 한 번만 생성하고 로그인 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`와 비밀번호 참조 제거 상태로 다시 배포한다.
 - Supabase Storage에 비공개 `temporary-uploads` 버킷을 만들고 `SUPABASE_STORAGE_API_URL`, `SUPABASE_TEMPORARY_UPLOAD_BUCKET`을 일반 환경변수로, `SUPABASE_STORAGE_SERVICE_ROLE_KEY`를 Secret Manager 참조로 주입한다. 서비스 역할 키는 Vercel에 설정하지 않는다.
+- `SUPABASE_SANITIZED_PHOTO_BUCKET`을 비공개 버킷으로 지정한다. 기본값은 `temporary-uploads`이며 이 경우 `temporary/`와 `sanitized/` 접두사를 분리하고 만료 정리가 정제 마스터를 삭제하지 않는지 확인한다. `IMAGE_MAX_PIXELS=25000000`, `IMAGE_MASTER_JPEG_QUALITY=0.92`로 시작한다.
 - 브라우저 네트워크에서 사진 본문은 서명 전용 `/storage/v1/upload/resumable/sign`에 `x-signature`와 함께 TUS 6MB 청크로 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
+- JPG·PNG 업로드 후 `/sanitize` 응답이 `COMPLETED`이고 `photo_assets`에 비공개 `SANITIZED_MASTER`가 하나 생성되는지, 저장 키에 원래 파일명이 없고 결과 EXIF·XMP·IPTC가 0건인지 확인한다. HEIC·HEIF는 `HEIC_DECODER_UNAVAILABLE`과 JPEG 변환 안내를 반환해야 한다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 로그인 상태에서 새 Cloud Run 리비전으로 트래픽을 전환한 뒤에도 세션이 복구되는지 확인하고, 로그아웃 후 같은 쿠키의 보호 API 접근이 401인지 확인한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
