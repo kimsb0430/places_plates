@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -20,7 +22,8 @@ public class PhotoAsset {
 	private UUID photoId;
 
 	@Column(name = "variant_type", nullable = false, length = 30)
-	private String variantType;
+	@Enumerated(EnumType.STRING)
+	private PhotoAssetVariantType variantType;
 
 	@Column(name = "access_level", nullable = false, length = 20)
 	private String accessLevel;
@@ -54,6 +57,7 @@ public class PhotoAsset {
 
 	private PhotoAsset(
 		UUID photoId,
+		PhotoAssetVariantType variantType,
 		String storageKey,
 		String mimeType,
 		int width,
@@ -62,7 +66,7 @@ public class PhotoAsset {
 	) {
 		this.id = UUID.randomUUID();
 		this.photoId = photoId;
-		this.variantType = "SANITIZED_MASTER";
+		this.variantType = variantType;
 		this.accessLevel = "PRIVATE";
 		this.storageKey = storageKey;
 		this.mimeType = mimeType;
@@ -82,6 +86,53 @@ public class PhotoAsset {
 		int height,
 		long byteSize
 	) {
-		return new PhotoAsset(photoId, storageKey, mimeType, width, height, byteSize);
+		return new PhotoAsset(
+			photoId,
+			PhotoAssetVariantType.SANITIZED_MASTER,
+			storageKey,
+			mimeType,
+			width,
+			height,
+			byteSize
+		);
+	}
+
+	public static PhotoAsset privateResponsiveVariant(
+		UUID photoId,
+		PhotoAssetVariantType variantType,
+		String storageKey,
+		String mimeType,
+		int width,
+		int height,
+		long byteSize
+	) {
+		if (!variantType.isResponsiveVariant()) {
+			throw new IllegalArgumentException("Responsive asset type is required");
+		}
+		return new PhotoAsset(photoId, variantType, storageKey, mimeType, width, height, byteSize);
+	}
+
+	public PhotoAssetVariantType getVariantType() {
+		return variantType;
+	}
+
+	public String getStorageKey() {
+		return storageKey;
+	}
+
+	public String getMimeType() {
+		return mimeType;
+	}
+
+	public int getWidth() {
+		return width;
+	}
+
+	public int getHeight() {
+		return height;
+	}
+
+	public long getByteSize() {
+		return byteSize;
 	}
 }
