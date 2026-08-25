@@ -57,6 +57,7 @@ SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 | `db/migration/postgresql/V8__secure_image_processing_jobs.sql` | PostgreSQL | 이미지 처리 작업 강제 RLS·런타임 권한·Data API 차단 |
 | `db/migration/common/V9__create_jdbc_session_store.sql` | 모든 DB | Spring Session JDBC 표준 세션·속성 테이블과 조회 인덱스 |
 | `db/migration/postgresql/V10__secure_jdbc_session_store.sql` | PostgreSQL | 런타임 역할 세션 CRUD와 PUBLIC·Data API 접근 차단 |
+| `db/migration/common/V11__backfill_ready_sanitized_photos.sql` | 모든 DB | 완료 작업·비공개 정제 마스터·메타데이터 검사 통과 조건을 모두 충족한 기존 사진만 READY로 백필 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
