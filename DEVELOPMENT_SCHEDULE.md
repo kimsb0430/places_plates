@@ -155,7 +155,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
-진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 JPG·PNG 정제 마스터 구현과 로컬 검증 완료, 운영 검증 대기
+진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 운영 합성 JPG 스모크에서 정제 작업 완료와 메타데이터 검사 통과를 확인했으며, 사진 READY 상태 전환 누락을 보완하고 있다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -163,7 +163,7 @@ Sprint 종료 게이트:
 | C12 | `feat: create private drafts when uploads begin` | 맛집·여행지 선택 후 업로드 즉시 비공개 초안을 만들고 업로드 묶음과 연결 | 완료 시 초안으로 자동 이동하고 관리 화면에서 초안을 다시 열 수 있음 |
 | C13 | `feat: queue image processing jobs after upload` | 업로드 항목별 단일 이미지 처리 작업, 처리 시도 횟수·재시도 시각·실패 원인 추적 | 중복 완료 요청에도 작업이 한 개만 생성되고 실패 작업을 즉시 또는 지연 재실행 가능 |
 | C13A | `feat: persist authenticated sessions in postgresql` | Spring Session JDBC, 세션·속성 테이블, 런타임 역할 전용 권한 | Cloud Run 재배포·다중 인스턴스 전환 후에도 기존 인증 세션 복구 |
-| C14 | `feat: create sanitized masters without image metadata` | 인증된 업로드 완료 요청에서 방향 보정·JPEG 재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거, 2,500만 픽셀 제한과 실패 코드 기록 | 비공개 정제 마스터에서 민감 메타데이터 0건, 중복 요청은 동일 처리 작업으로 직렬화 |
+| C14 | `feat: create sanitized masters without image metadata` | 인증된 업로드 완료 요청에서 방향 보정·JPEG 재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거, 2,500만 픽셀 제한과 실패 코드 기록 | 비공개 정제 마스터에서 민감 메타데이터 0건, 사진 상태 READY, 중복 요청은 동일 처리 작업으로 직렬화·완료 상태 복구 |
 | C15 | `feat: generate responsive image variants and thumbnails` | 썸네일·카드·상세용 이미지 생성 | 화면별로 적합한 크기 선택 |
 | C16 | `feat: burn places and plates watermarks into public images` | `Places & Plates` 서버 합성 워터마크와 정책 버전 | CSS 제거 후에도 표준 문구 유지 |
 | C17 | `feat: verify images and purge temporary originals` | 정제본·공개본 검사, 임시 원본 삭제·만료 정리와 자동 테스트 | 처리 완료 후 원본 잔존 0건, 실패 이미지는 게시 차단 |

@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
+import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
 import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
 import com.placesplates.domain.photo.repository.PhotoAssetRepository;
@@ -74,6 +76,9 @@ class PhotoUploadControllerTests {
 
 	@Autowired
 	private ImageProcessingJobService imageProcessingJobService;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
 	private DraftPostRepository draftPostRepository;
@@ -148,9 +153,24 @@ class PhotoUploadControllerTests {
 		assertThat(uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow().getResultPhotoId())
 			.isEqualTo(photoId);
 		assertThat(photoRepository.count()).isEqualTo(1);
+		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
+			.isEqualTo(PhotoProcessingStatus.READY);
 		assertThat(photoAssetRepository.count()).isEqualTo(1);
 		assertThat(imageProcessingJobRepository.findByUploadItemId(UUID.fromString(itemId)).orElseThrow().getStatus())
 			.hasToString("COMPLETED");
+
+		jdbcTemplate.update(
+			"UPDATE photos SET processing_status = 'PROCESSING' WHERE id = ?",
+			photoId
+		);
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.photoId").value(photoId.toString()));
+		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
+			.isEqualTo(PhotoProcessingStatus.READY);
 
 		ArgumentCaptor<String> storageKey = ArgumentCaptor.forClass(String.class);
 		verify(privatePhotoStorage).storeSanitizedMaster(
