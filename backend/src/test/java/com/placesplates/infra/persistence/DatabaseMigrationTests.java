@@ -108,6 +108,46 @@ class DatabaseMigrationTests {
 	}
 
 	@Test
+	void watermarkedAssetRequiresVersionAndSupportedPosition() {
+		UUID userId = createUser();
+		UUID photoId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO photos (id, owner_user_id, processing_status) VALUES (?, ?, ?)",
+			photoId,
+			userId,
+			"READY"
+		);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed, watermark_applied,
+			    watermark_version, watermark_position
+			) VALUES (?, ?, 'PUBLIC_DETAIL', 'PUBLIC', ?, 'image/jpeg', 1200, 800, 100000, TRUE, TRUE, NULL, NULL)
+			""",
+			UUID.randomUUID(),
+			photoId,
+			"variants/unsafe-watermark.jpg"
+		)).isInstanceOf(DataIntegrityViolationException.class);
+
+		assertThat(jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed, watermark_applied,
+			    watermark_version, watermark_position
+			) VALUES (?, ?, 'PUBLIC_DETAIL', 'PUBLIC', ?, 'image/jpeg', 1200, 800, 100000, TRUE, TRUE, ?, ?)
+			""",
+			UUID.randomUUID(),
+			photoId,
+			"variants/safe-watermark.jpg",
+			"places-plates-corner-v1",
+			"BOTTOM_RIGHT"
+		)).isOne();
+	}
+
+	@Test
 	void completedUploadCannotRetainTemporaryOriginalPath() {
 		UUID userId = createUser();
 		UUID batchId = UUID.randomUUID();

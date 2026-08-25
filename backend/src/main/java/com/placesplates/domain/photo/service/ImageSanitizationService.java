@@ -3,8 +3,10 @@ package com.placesplates.domain.photo.service;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -140,14 +142,16 @@ public class ImageSanitizationService {
 					variant.bytes(),
 					variant.mimeType()
 				);
-				photoAssetRepository.save(PhotoAsset.privateResponsiveVariant(
+				photoAssetRepository.save(PhotoAsset.publicWatermarkedVariant(
 					photo.getId(),
 					variant.type(),
 					variantStorageKey,
 					variant.mimeType(),
 					variant.width(),
 					variant.height(),
-					variant.bytes().length
+					variant.bytes().length,
+					variant.watermarkVersion(),
+					variant.watermarkPosition()
 				));
 			}
 			photo.markReady();
@@ -188,9 +192,15 @@ public class ImageSanitizationService {
 
 	private List<PhotoAsset> ensureResponsiveVariants(UUID ownerUserId, UUID jobId, UUID photoId) {
 		List<PhotoAsset> assets = photoAssetRepository.findAllByPhotoId(photoId);
-		Set<PhotoAssetVariantType> existingTypes = EnumSet.noneOf(PhotoAssetVariantType.class);
-		assets.forEach(asset -> existingTypes.add(asset.getVariantType()));
-		if (existingTypes.containsAll(responsiveVariantTypes())) {
+		Map<PhotoAssetVariantType, PhotoAsset> assetsByType = new EnumMap<>(PhotoAssetVariantType.class);
+		assets.forEach(asset -> assetsByType.put(asset.getVariantType(), asset));
+		if (responsiveVariantTypes().stream().allMatch(type -> {
+			PhotoAsset asset = assetsByType.get(type);
+			return asset != null && asset.usesWatermarkPolicy(
+				responsiveImageGenerator.watermarkVersion(),
+				responsiveImageGenerator.watermarkPosition()
+			);
+		})) {
 			return assets;
 		}
 
@@ -209,20 +219,38 @@ public class ImageSanitizationService {
 			masterAsset.getHeight()
 		);
 		for (ResponsiveImageVariant variant : responsiveImageGenerator.generate(master)) {
-			if (existingTypes.contains(variant.type())) {
+			PhotoAsset existingAsset = assetsByType.get(variant.type());
+			if (existingAsset != null && existingAsset.usesWatermarkPolicy(
+				variant.watermarkVersion(),
+				variant.watermarkPosition()
+			)) {
 				continue;
 			}
 			String variantStorageKey = responsiveStorageKey(ownerUserId, jobId, variant.type());
 			photoStorage.storeResponsiveVariant(variantStorageKey, variant.bytes(), variant.mimeType());
-			photoAssetRepository.save(PhotoAsset.privateResponsiveVariant(
-				photoId,
-				variant.type(),
-				variantStorageKey,
-				variant.mimeType(),
-				variant.width(),
-				variant.height(),
-				variant.bytes().length
-			));
+			if (existingAsset == null) {
+				photoAssetRepository.save(PhotoAsset.publicWatermarkedVariant(
+					photoId,
+					variant.type(),
+					variantStorageKey,
+					variant.mimeType(),
+					variant.width(),
+					variant.height(),
+					variant.bytes().length,
+					variant.watermarkVersion(),
+					variant.watermarkPosition()
+				));
+			} else {
+				existingAsset.publishWatermarked(
+					variantStorageKey,
+					variant.mimeType(),
+					variant.width(),
+					variant.height(),
+					variant.bytes().length,
+					variant.watermarkVersion(),
+					variant.watermarkPosition()
+				);
+			}
 		}
 		return photoAssetRepository.findAllByPhotoId(photoId);
 	}

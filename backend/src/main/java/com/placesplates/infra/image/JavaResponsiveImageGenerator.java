@@ -38,11 +38,14 @@ public class JavaResponsiveImageGenerator implements ResponsiveImageGenerator {
 	);
 
 	private final float jpegQuality;
+	private final ServerWatermarkRenderer watermarkRenderer;
 
 	public JavaResponsiveImageGenerator(
-		@Value("${places-plates.image.variant-jpeg-quality:0.88}") float jpegQuality
+		@Value("${places-plates.image.variant-jpeg-quality:0.88}") float jpegQuality,
+		ServerWatermarkRenderer watermarkRenderer
 	) {
 		this.jpegQuality = jpegQuality;
+		this.watermarkRenderer = watermarkRenderer;
 	}
 
 	@Override
@@ -55,15 +58,28 @@ public class JavaResponsiveImageGenerator implements ResponsiveImageGenerator {
 
 	private ResponsiveImageVariant generateVariant(BufferedImage source, VariantSpec spec) {
 		BufferedImage resized = resizeToFit(source, spec.maxLongEdge());
-		byte[] encoded = encodeJpeg(resized);
+		WatermarkedImage watermarked = watermarkRenderer.apply(resized);
+		byte[] encoded = encodeJpeg(watermarked.image());
 		assertSensitiveMetadataRemoved(encoded);
 		return new ResponsiveImageVariant(
 			spec.type(),
 			encoded,
 			OUTPUT_MIME_TYPE,
-			resized.getWidth(),
-			resized.getHeight()
+			watermarked.image().getWidth(),
+			watermarked.image().getHeight(),
+			watermarked.version(),
+			watermarked.position()
 		);
+	}
+
+	@Override
+	public String watermarkVersion() {
+		return watermarkRenderer.version();
+	}
+
+	@Override
+	public String watermarkPosition() {
+		return watermarkRenderer.position();
 	}
 
 	private static BufferedImage decode(byte[] source) {

@@ -54,3 +54,8 @@ places-plates:
     max-pixels: ${IMAGE_MAX_PIXELS:25000000}
     jpeg-quality: ${IMAGE_MASTER_JPEG_QUALITY:0.92}
     variant-jpeg-quality: ${IMAGE_VARIANT_JPEG_QUALITY:0.88}
+    watermark:
+      version: ${IMAGE_WATERMARK_VERSION:places-plates-corner-v1}
+      opacity: ${IMAGE_WATERMARK_OPACITY:0.28}
+      target-width-ratio: ${IMAGE_WATERMARK_TARGET_WIDTH_RATIO:0.16}
+      margin-ratio: ${IMAGE_WATERMARK_MARGIN_RATIO:0.03}

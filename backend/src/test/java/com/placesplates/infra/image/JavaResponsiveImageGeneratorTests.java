@@ -22,7 +22,10 @@ import com.placesplates.domain.photo.entity.PhotoAssetVariantType;
 
 class JavaResponsiveImageGeneratorTests {
 
-	private final JavaResponsiveImageGenerator generator = new JavaResponsiveImageGenerator(0.88f);
+	private final JavaResponsiveImageGenerator generator = new JavaResponsiveImageGenerator(
+		0.88f,
+		new JavaServerWatermarkRenderer("places-plates-corner-v1", 0.28f, 0.16, 0.03)
+	);
 
 	@Test
 	void createsThreeMetadataFreeVariantsWithoutChangingAspectRatio() throws Exception {
@@ -39,7 +42,10 @@ class JavaResponsiveImageGeneratorTests {
 		assertThat(variants).extracting(ResponsiveImageVariant::height).containsExactly(160, 480, 1000);
 		for (ResponsiveImageVariant variant : variants) {
 			assertThat(variant.mimeType()).isEqualTo("image/jpeg");
+			assertThat(variant.watermarkVersion()).isEqualTo("places-plates-corner-v1");
+			assertThat(variant.watermarkPosition()).isEqualTo("BOTTOM_RIGHT");
 			assertThat(hasSensitiveMetadata(variant.bytes())).isFalse();
+			assertThat(hasVisibleBottomRightVariation(variant)).isTrue();
 		}
 	}
 
@@ -77,6 +83,21 @@ class JavaResponsiveImageGeneratorTests {
 				|| directory instanceof XmpDirectory
 				|| directory instanceof IptcDirectory) {
 				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean hasVisibleBottomRightVariation(ResponsiveImageVariant variant) throws Exception {
+		BufferedImage image = ImageIO.read(new ByteArrayInputStream(variant.bytes()));
+		int startX = (int) Math.floor(image.getWidth() * 0.75);
+		int startY = (int) Math.floor(image.getHeight() * 0.75);
+		int reference = image.getRGB(startX, startY);
+		for (int y = startY; y < image.getHeight(); y++) {
+			for (int x = startX; x < image.getWidth(); x++) {
+				if (image.getRGB(x, y) != reference) {
+					return true;
+				}
 			}
 		}
 		return false;
