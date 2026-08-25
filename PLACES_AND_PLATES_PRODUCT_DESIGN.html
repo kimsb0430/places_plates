@@ -864,7 +864,7 @@
       </div>
       <div class="grid grid-4">
         <article class="card"><h3>frontend</h3><p>독립된 Next.js + TypeScript 프로젝트. 페이지는 <code>app</code>, 기능은 <code>domain</code>, 공통 요소는 <code>shared</code>로 나눠 Spring Boot와 비슷하게 책임을 드러낸다.</p></article>
-        <article class="card"><h3>backend</h3><p>독립된 Java + Spring Boot + Gradle REST API. 도메인별 controller·service·repository·entity·dto 구조와 Spring Security 소유자 권한을 적용한다.</p></article>
+        <article class="card"><h3>backend</h3><p>독립된 Java + Spring Boot + Gradle REST API. 도메인별 controller·service·repository·entity·dto 구조와 Spring Security 소유자 권한을 적용하며, Cloud Run은 Java 21과 이미지 색상 처리용 LCMS2가 포함된 비루트 컨테이너로 실행한다.</p></article>
         <article class="card"><h3>이미지 파이프라인</h3><p>인증된 처리 요청이 임시 원본을 방향 보정·재인코딩해 비공개 정제 마스터를 만들고, 이후 공개 파생본 검사까지 끝나면 임시 원본을 삭제한다.</p></article>
         <article class="card"><h3>Google 지도 연결</h3><p>Google Maps JavaScript API와 Places API (New)를 사용한다. 지도 탭을 열 때만 동적 지도를 로드하고, 장소 선택 후 Place ID·좌표를 저장해 공개 페이지에서 같은 장소 정보를 반복 조회하지 않는다.</p></article>
         <article class="card"><h3>탐색 인덱스</h3><p>게시 상태·카테고리·좌표를 함께 조회하고 지도 경계 및 묶음 단위 집계를 빠르게 계산한다.</p></article>
