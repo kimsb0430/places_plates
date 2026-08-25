@@ -21,3 +21,4 @@ places-plates:
   image:
     max-pixels: ${IMAGE_MAX_PIXELS:25000000}
     jpeg-quality: ${IMAGE_MASTER_JPEG_QUALITY:0.92}
+    variant-jpeg-quality: ${IMAGE_VARIANT_JPEG_QUALITY:0.88}

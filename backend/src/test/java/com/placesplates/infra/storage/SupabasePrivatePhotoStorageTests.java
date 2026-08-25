@@ -41,6 +41,14 @@ class SupabasePrivatePhotoStorageTests {
 			exchange.sendResponseHeaders(200, -1);
 			exchange.close();
 		});
+		server.createContext("/storage/v1/object/private-assets/variants/", exchange -> {
+			uploadedPath.set(exchange.getRequestURI().getRawPath());
+			uploadedContentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+			upsertHeader.set(exchange.getRequestHeaders().getFirst("x-upsert"));
+			uploadedBody.set(exchange.getRequestBody().readAllBytes());
+			exchange.sendResponseHeaders(200, -1);
+			exchange.close();
+		});
 		server.start();
 		storageApiUrl = "http://127.0.0.1:" + server.getAddress().getPort() + "/storage/v1";
 	}
@@ -70,5 +78,25 @@ class SupabasePrivatePhotoStorageTests {
 		assertThat(uploadedContentType.get()).isEqualTo("image/jpeg");
 		assertThat(upsertHeader.get()).isEqualTo("true");
 		assertThat(uploadedBody.get()).isEqualTo(sanitized);
+	}
+
+	@Test
+	void storesResponsiveVariantInPrivateAssetBucket() {
+		SupabasePrivatePhotoStorage storage = new SupabasePrivatePhotoStorage(
+			storageApiUrl,
+			SERVICE_ROLE_KEY,
+			"temporary-uploads",
+			"private-assets"
+		);
+
+		byte[] variant = "responsive-photo".getBytes(StandardCharsets.UTF_8);
+		storage.storeResponsiveVariant("variants/owner/job/thumbnail.jpg", variant, "image/jpeg");
+
+		assertThat(uploadedPath.get()).isEqualTo(
+			"/storage/v1/object/private-assets/variants/owner/job/thumbnail.jpg"
+		);
+		assertThat(uploadedContentType.get()).isEqualTo("image/jpeg");
+		assertThat(upsertHeader.get()).isEqualTo("true");
+		assertThat(uploadedBody.get()).isEqualTo(variant);
 	}
 }

@@ -34,6 +34,7 @@ interface ClientUpload {
   status: ClientUploadStatus;
   attemptCount: number;
   errorMessage?: string;
+  variantCount?: number;
   ticket?: UploadTicket;
 }
 
@@ -161,6 +162,7 @@ export function PhotoUploader() {
                 status: 'SANITIZED',
                 ticket: undefined,
                 errorMessage: undefined,
+                variantCount: result.variants.length,
               });
               resolve(true);
             })
@@ -246,7 +248,11 @@ export function PhotoUploader() {
         });
         return;
       }
-      updateUpload(clientUpload.id, { status: 'SANITIZED', errorMessage: undefined });
+      updateUpload(clientUpload.id, {
+        status: 'SANITIZED',
+        errorMessage: undefined,
+        variantCount: result.variants.length,
+      });
       const otherUploadsComplete = uploads.every((upload) => (
         upload.id === clientUpload.id || upload.status === 'SANITIZED'
       ));
@@ -348,7 +354,10 @@ export function PhotoUploader() {
             <li key={upload.id}>
               <div className="photo-upload-file">
                 <strong>{upload.file.name}</strong>
-                <span>{formatBytes(upload.file.size)} · {statusLabel(upload.status)}</span>
+                <span>
+                  {formatBytes(upload.file.size)} · {statusLabel(upload.status)}
+                  {upload.variantCount ? ` · ${upload.variantCount}종` : ''}
+                </span>
               </div>
               <div
                 className="photo-progress"
@@ -424,7 +433,7 @@ function statusLabel(status: ClientUploadStatus): string {
     UPLOADING: '업로드 중',
     PAUSED: '일시정지',
     PROCESSING: '업로드 완료 · 처리 대기',
-    SANITIZED: '방향 보정 · 메타데이터 제거 완료',
+    SANITIZED: '정제 · 반응형 이미지 준비 완료',
     PROCESSING_FAILED: '사진 정제 실패',
     COMPLETED: '처리 완료',
     FAILED: '업로드 실패',

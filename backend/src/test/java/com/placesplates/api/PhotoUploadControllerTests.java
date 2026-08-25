@@ -33,6 +33,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
+import com.placesplates.domain.photo.entity.PhotoAssetVariantType;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
 import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
 import com.placesplates.domain.photo.repository.PhotoAssetRepository;
@@ -144,6 +145,8 @@ class PhotoUploadControllerTests {
 			.andExpect(jsonPath("$.status").value("COMPLETED"))
 			.andExpect(jsonPath("$.photoId").isNotEmpty())
 			.andExpect(jsonPath("$.failureCode").doesNotExist())
+			.andExpect(jsonPath("$.variants.length()").value(3))
+			.andExpect(jsonPath("$.variants[0].type").value("THUMBNAIL"))
 			.andReturn();
 
 		UUID photoId = UUID.fromString(JsonPath.read(
@@ -155,10 +158,14 @@ class PhotoUploadControllerTests {
 		assertThat(photoRepository.count()).isEqualTo(1);
 		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
 			.isEqualTo(PhotoProcessingStatus.READY);
-		assertThat(photoAssetRepository.count()).isEqualTo(1);
+		assertThat(photoAssetRepository.count()).isEqualTo(4);
 		assertThat(imageProcessingJobRepository.findByUploadItemId(UUID.fromString(itemId)).orElseThrow().getStatus())
 			.hasToString("COMPLETED");
 
+		photoAssetRepository.deleteAll(photoAssetRepository.findAll().stream()
+			.filter(asset -> asset.getVariantType().isResponsiveVariant())
+			.toList());
+		when(privatePhotoStorage.downloadSanitizedMaster(anyString())).thenReturn(source);
 		jdbcTemplate.update(
 			"UPDATE photos SET processing_status = 'PROCESSING' WHERE id = ?",
 			photoId
@@ -168,9 +175,18 @@ class PhotoUploadControllerTests {
 				.header(authenticated.headerName(), authenticated.token()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("COMPLETED"))
-			.andExpect(jsonPath("$.photoId").value(photoId.toString()));
+			.andExpect(jsonPath("$.photoId").value(photoId.toString()))
+			.andExpect(jsonPath("$.variants.length()").value(3));
 		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
 			.isEqualTo(PhotoProcessingStatus.READY);
+		assertThat(photoAssetRepository.findAllByPhotoId(photoId))
+			.extracting(asset -> asset.getVariantType())
+			.containsExactlyInAnyOrder(
+				PhotoAssetVariantType.SANITIZED_MASTER,
+				PhotoAssetVariantType.THUMBNAIL,
+				PhotoAssetVariantType.MAP_CARD,
+				PhotoAssetVariantType.PUBLIC_DETAIL
+			);
 
 		ArgumentCaptor<String> storageKey = ArgumentCaptor.forClass(String.class);
 		verify(privatePhotoStorage).storeSanitizedMaster(
@@ -182,6 +198,11 @@ class PhotoUploadControllerTests {
 			.startsWith("sanitized/")
 			.endsWith(".jpg")
 			.doesNotContain("private-name");
+		verify(privatePhotoStorage, org.mockito.Mockito.times(6)).storeResponsiveVariant(
+			org.mockito.ArgumentMatchers.startsWith("variants/"),
+			org.mockito.ArgumentMatchers.any(byte[].class),
+			org.mockito.ArgumentMatchers.eq("image/jpeg")
+		);
 	}
 
 	@Test

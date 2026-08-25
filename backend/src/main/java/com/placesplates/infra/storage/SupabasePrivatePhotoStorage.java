@@ -38,24 +38,42 @@ public class SupabasePrivatePhotoStorage implements PrivatePhotoStorage {
 
 	@Override
 	public byte[] downloadTemporary(String objectKey) {
-		assertConfigured();
-		HttpRequest request = authorizedRequest(objectUri(temporaryBucket, objectKey)).GET().build();
-		try {
-			HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
-			if (response.statusCode() < 200 || response.statusCode() >= 300) {
-				throw new StorageAccessException("Temporary storage object download failed");
-			}
-			return response.body();
-		} catch (InterruptedException exception) {
-			Thread.currentThread().interrupt();
-			throw new StorageAccessException("Temporary storage object download was interrupted", exception);
-		} catch (IOException exception) {
-			throw new StorageAccessException("Temporary storage object download failed", exception);
-		}
+		return download(temporaryBucket, objectKey, "Temporary storage object");
+	}
+
+	@Override
+	public byte[] downloadSanitizedMaster(String objectKey) {
+		return download(sanitizedBucket, objectKey, "Sanitized master");
 	}
 
 	@Override
 	public void storeSanitizedMaster(String objectKey, byte[] bytes, String mimeType) {
+		upload(objectKey, bytes, mimeType, "Sanitized master");
+	}
+
+	@Override
+	public void storeResponsiveVariant(String objectKey, byte[] bytes, String mimeType) {
+		upload(objectKey, bytes, mimeType, "Responsive image variant");
+	}
+
+	private byte[] download(String bucket, String objectKey, String assetName) {
+		assertConfigured();
+		HttpRequest request = authorizedRequest(objectUri(bucket, objectKey)).GET().build();
+		try {
+			HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+			if (response.statusCode() < 200 || response.statusCode() >= 300) {
+				throw new StorageAccessException(assetName + " download failed");
+			}
+			return response.body();
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new StorageAccessException(assetName + " download was interrupted", exception);
+		} catch (IOException exception) {
+			throw new StorageAccessException(assetName + " download failed", exception);
+		}
+	}
+
+	private void upload(String objectKey, byte[] bytes, String mimeType, String assetName) {
 		assertConfigured();
 		HttpRequest request = authorizedRequest(objectUri(sanitizedBucket, objectKey))
 			.header("Content-Type", mimeType)
@@ -65,13 +83,13 @@ public class SupabasePrivatePhotoStorage implements PrivatePhotoStorage {
 		try {
 			HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
-				throw new StorageAccessException("Sanitized master upload failed");
+				throw new StorageAccessException(assetName + " upload failed");
 			}
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
-			throw new StorageAccessException("Sanitized master upload was interrupted", exception);
+			throw new StorageAccessException(assetName + " upload was interrupted", exception);
 		} catch (IOException exception) {
-			throw new StorageAccessException("Sanitized master upload failed", exception);
+			throw new StorageAccessException(assetName + " upload failed", exception);
 		}
 	}
 

@@ -43,6 +43,16 @@ export interface ImageSanitizationResult {
   status: 'COMPLETED' | 'FAILED';
   failureCode: string | null;
   message: string;
+  variants: ImageVariant[];
+}
+
+export type ImageVariantType = 'THUMBNAIL' | 'MAP_CARD' | 'PUBLIC_DETAIL';
+
+export interface ImageVariant {
+  type: ImageVariantType;
+  width: number;
+  height: number;
+  byteSize: number;
 }
 
 export interface UploadFileDescriptor {

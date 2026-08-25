@@ -73,6 +73,7 @@ SUPABASE_SANITIZED_PHOTO_BUCKET=temporary-uploads
 SUPABASE_STORAGE_SERVICE_ROLE_KEY=<secret-manager-reference>
 IMAGE_MAX_PIXELS=25000000
 IMAGE_MASTER_JPEG_QUALITY=0.92
+IMAGE_VARIANT_JPEG_QUALITY=0.88
 ```
 
 관리자 사용자명과 데이터베이스 비밀번호는 백엔드 호스팅 환경변수에 추가하지 않는다. Storage 서비스 역할 키는 데이터베이스 관리자 비밀번호와 다른 비밀이며 Cloud Run Secret Manager에만 저장한다. Supabase 무료 `nano`의 연결 수를 보호하기 위해 인스턴스당 최대 풀 크기를 5로 시작하고, 백엔드 인스턴스 수가 증가하면 전체 연결 합계를 다시 계산한다.
@@ -82,6 +83,8 @@ IMAGE_MASTER_JPEG_QUALITY=0.92
 Supabase Dashboard의 **Storage → New bucket**에서 `temporary-uploads` 비공개 버킷을 만든다. 객체 키는 `temporary/<owner-uuid>/<batch-uuid>/<item-uuid>.<safe-extension>` 형태로 생성되며 원래 파일명을 포함하지 않는다. Spring Boot만 서비스 역할 키로 단기 업로드 서명을 발급하고 브라우저에는 서명 토큰·버킷명·UUID 객체명만 반환한다. TUS 업로드 URL과 DB 항목은 24시간 만료를 기준으로 관리하며, C17 정리 작업이 만료 또는 처리 완료 원본을 삭제한다.
 
 C14 정제 마스터는 기본적으로 같은 비공개 버킷의 `sanitized/<owner-uuid>/<job-uuid>.jpg`에 저장한다. 객체 키와 파일 바이트에는 원래 파일명을 넣지 않으며 `SUPABASE_SANITIZED_PHOTO_BUCKET`으로 별도 비공개 버킷을 지정할 수도 있다. 만료 정리는 `temporary/`만 대상으로 하고 `sanitized/`는 삭제하지 않는다. JPG·PNG는 2,500만 픽셀 한도와 품질 0.92 JPEG 재인코딩을 적용하며, HEIC·HEIF는 검증된 서버 디코더가 추가될 때까지 실패 상태와 JPEG 변환 안내를 반환한다.
+
+C15 파생본은 같은 비공개 버킷의 `variants/<owner-uuid>/<job-uuid>/<variant>.jpg`에 저장한다. 긴 변 기준 320px `THUMBNAIL`, 960px `MAP_CARD`, 2,000px `PUBLIC_DETAIL`을 품질 0.88 JPEG로 만들고 작은 정제 마스터는 확대하지 않는다. 세 결과는 메타데이터 재검사를 통과하지만 C16 워터마크 전까지 `access_level=PRIVATE`, `watermark_applied=FALSE`로 유지한다.
 
 V11은 `COMPLETED` 이미지 작업, 결과 사진 연결, 비공개 `SANITIZED_MASTER`, `metadata_scan_passed=TRUE`를 모두 확인한 뒤 과거 버전에서 `PROCESSING`에 남은 사진만 `READY`로 변경한다. 검사 미통과·실패·미완료 사진은 변경하지 않으며 프로비저닝 검증은 조건을 충족하면서 `PROCESSING`에 남은 행이 0건인지 확인한다.
 
@@ -157,6 +160,7 @@ SUPABASE_SANITIZED_PHOTO_BUCKET=temporary-uploads
 SUPABASE_STORAGE_SERVICE_ROLE_KEY=<secret-manager-reference>
 IMAGE_MAX_PIXELS=25000000
 IMAGE_MASTER_JPEG_QUALITY=0.92
+IMAGE_VARIANT_JPEG_QUALITY=0.88
 ```
 
 管理者ユーザー名とDBパスワードはバックエンドホスティングへ登録しない。StorageサービスロールキーはDB管理者パスワードとは別の秘密であり、Cloud Run Secret Managerだけへ保存する。無料`nano`の接続数を守るため、インスタンス当たりの最大プールサイズは5から開始し、バックエンドの台数増加時に接続合計を再計算する。
@@ -166,6 +170,8 @@ IMAGE_MASTER_JPEG_QUALITY=0.92
 Supabase Dashboardの**Storage → New bucket**で非公開`temporary-uploads`バケットを作成する。オブジェクトキーは`temporary/<owner-uuid>/<batch-uuid>/<item-uuid>.<safe-extension>`で生成し、元ファイル名を含めない。Spring Bootだけがサービスロールキーで短期アップロード署名を発行し、ブラウザへは署名トークン・バケット名・UUIDオブジェクト名だけを返す。TUS URLとDB項目は24時間有効とし、C17で期限切れまたは処理済み原本を削除する。
 
 C14のsanitized masterは既定で同じ非公開bucketの`sanitized/<owner-uuid>/<job-uuid>.jpg`へ保存する。Object keyとfile bytesには元file名を含めず、`SUPABASE_SANITIZED_PHOTO_BUCKET`で別の非公開bucketも指定できる。期限切れ削除は`temporary/`だけを対象とし、`sanitized/`は削除しない。JPG・PNGは2,500万pixel上限と品質0.92のJPEG再encodeを適用する。HEIC・HEIFは検証済みserver decoderを追加するまで失敗状態とJPEG変換案内を返す。
+
+C15のvariantは同じ非公開bucketの`variants/<owner-uuid>/<job-uuid>/<variant>.jpg`へ保存する。長辺基準320pxの`THUMBNAIL`、960pxの`MAP_CARD`、2,000pxの`PUBLIC_DETAIL`を品質0.88 JPEGで生成し、小さいsanitized masterは拡大しない。3結果はmetadata再検査を通過するが、C16 watermark適用前は`access_level=PRIVATE`、`watermark_applied=FALSE`を維持する。
 
 V11は`COMPLETED` image job、結果写真の関連付け、非公開`SANITIZED_MASTER`、`metadata_scan_passed=TRUE`をすべて確認し、過去versionで`PROCESSING`に残った写真だけを`READY`へ変更する。検査未通過・失敗・未完了写真は変更せず、provisioning検証は条件を満たしながら`PROCESSING`に残る行が0件であることを確認する。
 
