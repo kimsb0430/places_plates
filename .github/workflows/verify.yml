@@ -93,3 +93,12 @@ jobs:
           POSTGRES_TEST_URL: jdbc:postgresql://localhost:5432/placesplates_test
           POSTGRES_TEST_USERNAME: placesplates_test
           POSTGRES_TEST_PASSWORD: local_ci_password
+      - name: Verify Cloud Run container contract
+        shell: pwsh
+        run: ..\scripts\verify-cloud-run-container.ps1
+      - name: Build Cloud Run container
+        run: docker build --tag places-plates-api:verify .
+      - name: Verify image runtime dependencies
+        run: >-
+          docker run --rm --entrypoint sh places-plates-api:verify -c
+          'ldconfig -p | grep -F "liblcms2.so.2" && test "$(id -u)" != "0"'

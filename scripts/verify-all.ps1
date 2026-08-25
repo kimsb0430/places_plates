@@ -7,6 +7,9 @@ $backendRoot = Join-Path $repositoryRoot 'backend'
 & (Join-Path $PSScriptRoot 'check-secrets.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Secret scan failed.' }
 
+& (Join-Path $PSScriptRoot 'verify-cloud-run-container.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Cloud Run container contract verification failed.' }
+
 Push-Location $frontendRoot
 try {
     pnpm install --frozen-lockfile

@@ -29,13 +29,13 @@
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
 - 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
-- Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/project.toml`의 `GOOGLE_RUNTIME_VERSION=21`이 적용되는지 빌드 로그에서 확인한다.
+- Cloud Run 소스 배포의 빌드 루트는 `backend`로 지정하고 `backend/Dockerfile`이 Java 21 실행 이미지와 `liblcms2-2`를 설치하는지 확인한다. 배포 이미지에서 `liblcms2.so.2`가 조회되고 애플리케이션이 UID 10001 비루트 사용자로 실행되어야 한다.
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 최초 관리자 계정은 `ADMIN_PASSWORD` Secret Manager 참조로 한 번만 생성하고 로그인 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`와 비밀번호 참조 제거 상태로 다시 배포한다.
 - Supabase Storage에 비공개 `temporary-uploads` 버킷을 만들고 `SUPABASE_STORAGE_API_URL`, `SUPABASE_TEMPORARY_UPLOAD_BUCKET`을 일반 환경변수로, `SUPABASE_STORAGE_SERVICE_ROLE_KEY`를 Secret Manager 참조로 주입한다. 서비스 역할 키는 Vercel에 설정하지 않는다.
 - `SUPABASE_SANITIZED_PHOTO_BUCKET`을 비공개 버킷으로 지정한다. 기본값은 `temporary-uploads`이며 이 경우 `temporary/`, `sanitized/`, `variants/` 접두사를 분리하고 만료 정리가 정제 마스터·파생본을 삭제하지 않는지 확인한다. `IMAGE_MAX_PIXELS=25000000`, `IMAGE_MASTER_JPEG_QUALITY=0.92`, `IMAGE_VARIANT_JPEG_QUALITY=0.88`로 시작한다.
 - 브라우저 네트워크에서 사진 본문은 서명 전용 `/storage/v1/upload/resumable/sign`에 `x-signature`와 함께 TUS 6MB 청크로 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
-- JPG·PNG 업로드 후 `/sanitize` 응답과 `image_processing_jobs.status`가 `COMPLETED`, `photos.processing_status`가 `READY`인지 확인한다. `photo_assets`에는 `metadata_scan_passed=TRUE`인 비공개 `SANITIZED_MASTER`가 하나 생성되고, 저장 키에 원래 파일명이 없으며 결과 EXIF·XMP·IPTC가 0건이어야 한다. 완료 요청을 반복해도 같은 사진이 `READY`로 복구되어야 하며, HEIC·HEIF는 `HEIC_DECODER_UNAVAILABLE`과 JPEG 변환 안내를 반환해야 한다.
+- ICC 색상 프로필이 있는 JPG를 포함한 JPG·PNG 업로드 후 `/sanitize` 응답과 `image_processing_jobs.status`가 `COMPLETED`, `photos.processing_status`가 `READY`인지 확인한다. Cloud Run 로그에 `liblcms2.so.2` 관련 `UnsatisfiedLinkError`가 없어야 한다. `photo_assets`에는 `metadata_scan_passed=TRUE`인 비공개 `SANITIZED_MASTER`가 하나 생성되고, 저장 키에 원래 파일명이 없으며 결과 EXIF·XMP·IPTC가 0건이어야 한다. 완료 요청을 반복해도 같은 사진이 `READY`로 복구되어야 하며, HEIC·HEIF는 `HEIC_DECODER_UNAVAILABLE`과 JPEG 변환 안내를 반환해야 한다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 로그인 상태에서 새 Cloud Run 리비전으로 트래픽을 전환한 뒤에도 세션이 복구되는지 확인하고, 로그아웃 후 같은 쿠키의 보호 API 접근이 401인지 확인한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
@@ -71,13 +71,13 @@
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
 - Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
-- Cloud Runソースデプロイのビルドルートを`backend`に指定し、`backend/project.toml`の`GOOGLE_RUNTIME_VERSION=21`がビルドログへ反映されることを確認する。
+- Cloud Runソースデプロイのbuild rootを`backend`に指定し、`backend/Dockerfile`がJava 21 runtime imageと`liblcms2-2`を導入することを確認する。配備imageで`liblcms2.so.2`を参照でき、applicationがUID 10001の非root userとして実行されなければならない。
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
 - 初回管理者は`ADMIN_PASSWORD`をSecret Manager参照として一度だけ作成し、ログイン確認後に`ADMIN_BOOTSTRAP_ENABLED=false`とパスワード参照削除の状態で再配備する。
 - Supabase Storageへ非公開`temporary-uploads`バケットを作成し、Storage API URLとバケット名は通常環境変数、サービスロールキーはSecret Manager参照としてCloud Runだけへ注入する。Vercelには保存しない。
 - `SUPABASE_SANITIZED_PHOTO_BUCKET`を非公開バケットへ指定する。既定値が`temporary-uploads`の場合は`temporary/`、`sanitized/`、`variants/` prefixを分離し、期限切れ処理がsanitized master・variantを削除しないことを確認する。`IMAGE_MAX_PIXELS=25000000`、`IMAGE_MASTER_JPEG_QUALITY=0.92`、`IMAGE_VARIANT_JPEG_QUALITY=0.88`から開始する。
 - 写真本文が`x-signature`付きで署名専用`/storage/v1/upload/resumable/sign`へTUSの6MBチャンクとして送信され、制御・進捗・完了要求はSpring Boot APIだけへ送信されることを確認する。
-- JPG・PNG upload後に`/sanitize` responseと`image_processing_jobs.status`が`COMPLETED`、`photos.processing_status`が`READY`であることを確認する。`photo_assets`には`metadata_scan_passed=TRUE`の非公開`SANITIZED_MASTER`が一つ作成され、storage keyに元file名がなく、結果EXIF・XMP・IPTCが0件でなければならない。完了requestを繰り返しても同じ写真が`READY`へ復元され、HEIC・HEIFは`HEIC_DECODER_UNAVAILABLE`とJPEG変換案内を返すことを確認する。
+- ICC color profileを含むJPGを含め、JPG・PNG upload後に`/sanitize` responseと`image_processing_jobs.status`が`COMPLETED`、`photos.processing_status`が`READY`であることを確認する。Cloud Run logに`liblcms2.so.2`関連の`UnsatisfiedLinkError`がないことも確認する。`photo_assets`には`metadata_scan_passed=TRUE`の非公開`SANITIZED_MASTER`が一つ作成され、storage keyに元file名がなく、結果EXIF・XMP・IPTCが0件でなければならない。完了requestを繰り返しても同じ写真が`READY`へ復元され、HEIC・HEIFは`HEIC_DECODER_UNAVAILABLE`とJPEG変換案内を返すことを確認する。
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - Login状態で新しいCloud Run revisionへtrafficを切り替えた後もsessionを復元でき、logout後に同じCookieで保護APIへアクセスすると401になることを確認する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。

@@ -1,0 +1,15 @@
+.gradle
+build
+.env
+.env.*
+HELP.md
+hs_err_pid*.log
+src/test
+src/main/resources/application-local.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.iml
+.idea
+.vscode

@@ -1,7 +1,7 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.4
-작성일: 2026-08-25
+문서 버전: v2.5
+작성일: 2026-08-26
 
 ## 1. 구조 결정
 
@@ -29,7 +29,8 @@ places-plates/
 │   ├── src/main/resources/
 │   ├── src/test/java/
 │   ├── build.gradle.kts
-│   ├── project.toml              # Google Buildpack Java 21 빌드 설정
+│   ├── Dockerfile                # Java 21·LCMS2를 포함한 Cloud Run 실행 이미지
+│   ├── .dockerignore             # 컨테이너 빌드 제외 대상
 │   ├── settings.gradle.kts
 │   └── gradlew
 ├── docs/                        # 제품·API·운영 문서
@@ -44,7 +45,7 @@ places-plates/
 
 프론트엔드는 동일한 App Router 소스에서 두 배포 산출물을 만든다. Vercel은 `pnpm build:vercel`로 표준 `.next` 산출물을 만들고, 기존 OpenAI Sites 미리보기는 `pnpm build`로 Vinext `dist` 산출물을 만든다. 두 산출물은 CI에서 각각 빌드하고 비밀정보를 검사한다.
 
-Cloud Run 소스 배포는 저장소의 `backend/`를 빌드 루트로 사용한다. `backend/project.toml`의 `GOOGLE_RUNTIME_VERSION=21`을 기준으로 Google Buildpack이 Gradle Java Toolchain과 일치하는 JDK 21을 설치해야 한다.
+Cloud Run 소스 배포는 저장소의 `backend/`를 빌드 루트로 사용하고 `backend/Dockerfile`을 배포 기준으로 삼는다. 빌드 단계와 실행 단계 모두 Java 21을 사용하며, 실행 이미지에는 Java ImageIO의 ICC 색상 프로필 처리에 필요한 `liblcms2.so.2`를 제공하는 `liblcms2-2` 패키지를 명시적으로 설치한다. 애플리케이션은 UID 10001 비루트 사용자로 실행하고 CI에서 실제 이미지를 빌드해 라이브러리와 실행 사용자를 확인한다.
 
 ## 3. 프론트엔드 구조
 
