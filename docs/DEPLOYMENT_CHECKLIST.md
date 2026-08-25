@@ -25,7 +25,7 @@
 - 운영 API의 `FRONTEND_ORIGINS`를 실제 프론트 도메인으로 제한하고 세션 쿠키에 `HttpOnly`, `Secure`, `SameSite=None`이 적용됐는지 확인한다.
 - 최초 관리자 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 운영 환경변수에서 제거한다.
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
-- 운영 PostgreSQL에서 V1~V11 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다. V11 적용 후 완료 작업·검사 통과 정제 마스터가 있으면서 `PROCESSING`에 남은 사진은 0건이어야 한다.
+- 운영 PostgreSQL에서 V1~V12 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다. V11 적용 후 완료 작업·검사 통과 정제 마스터가 있으면서 `PROCESSING`에 남은 사진은 0건이어야 하며, V12 적용 후 안전 조건이 누락된 공개 사진 자산은 0건이어야 한다.
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
 - 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
@@ -33,9 +33,10 @@
 - 최신 리비전 이미지가 `gcr.io/cloudrun/placeholder`가 아닌 Artifact Registry의 애플리케이션 이미지인지 확인하고, `/api/v1/health` 응답 본문이 `{"status":"UP"}`인지 검증한다. HTTP 200만으로 배포 성공을 판정하지 않는다.
 - 최초 관리자 계정은 `ADMIN_PASSWORD` Secret Manager 참조로 한 번만 생성하고 로그인 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`와 비밀번호 참조 제거 상태로 다시 배포한다.
 - Supabase Storage에 비공개 `temporary-uploads` 버킷을 만들고 `SUPABASE_STORAGE_API_URL`, `SUPABASE_TEMPORARY_UPLOAD_BUCKET`을 일반 환경변수로, `SUPABASE_STORAGE_SERVICE_ROLE_KEY`를 Secret Manager 참조로 주입한다. 서비스 역할 키는 Vercel에 설정하지 않는다.
-- `SUPABASE_SANITIZED_PHOTO_BUCKET`을 비공개 버킷으로 지정한다. 기본값은 `temporary-uploads`이며 이 경우 `temporary/`, `sanitized/`, `variants/` 접두사를 분리하고 만료 정리가 정제 마스터·파생본을 삭제하지 않는지 확인한다. `IMAGE_MAX_PIXELS=25000000`, `IMAGE_MASTER_JPEG_QUALITY=0.92`, `IMAGE_VARIANT_JPEG_QUALITY=0.88`로 시작한다.
+- `SUPABASE_SANITIZED_PHOTO_BUCKET`을 비공개 버킷으로 지정한다. 기본값은 `temporary-uploads`이며 이 경우 `temporary/`, `sanitized/`, `variants/` 접두사를 분리하고 만료 정리가 정제 마스터·파생본을 삭제하지 않는지 확인한다. `IMAGE_MAX_PIXELS=25000000`, `IMAGE_MASTER_JPEG_QUALITY=0.92`, `IMAGE_VARIANT_JPEG_QUALITY=0.88`, `IMAGE_WATERMARK_VERSION=places-plates-corner-v1`, `IMAGE_WATERMARK_OPACITY=0.28`, `IMAGE_WATERMARK_TARGET_WIDTH_RATIO=0.16`, `IMAGE_WATERMARK_MARGIN_RATIO=0.03`으로 시작한다.
 - 브라우저 네트워크에서 사진 본문은 서명 전용 `/storage/v1/upload/resumable/sign`에 `x-signature`와 함께 TUS 6MB 청크로 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
 - ICC 색상 프로필이 있는 JPG를 포함한 JPG·PNG 업로드 후 `/sanitize` 응답과 `image_processing_jobs.status`가 `COMPLETED`, `photos.processing_status`가 `READY`인지 확인한다. Cloud Run 로그에 `liblcms2.so.2` 관련 `UnsatisfiedLinkError`가 없어야 한다. `photo_assets`에는 `metadata_scan_passed=TRUE`인 비공개 `SANITIZED_MASTER`가 하나 생성되고, 저장 키에 원래 파일명이 없으며 결과 EXIF·XMP·IPTC가 0건이어야 한다. 완료 요청을 반복해도 같은 사진이 `READY`로 복구되어야 하며, HEIC·HEIF는 `HEIC_DECODER_UNAVAILABLE`과 JPEG 변환 안내를 반환해야 한다.
+- `THUMBNAIL`·`MAP_CARD`·`PUBLIC_DETAIL`은 `PUBLIC`, `metadata_scan_passed=TRUE`, `watermark_applied=TRUE`, 정책 `places-plates-corner-v1`, 위치 `BOTTOM_RIGHT`여야 한다. 세 JPEG의 하단 오른쪽 픽셀에 `Places & Plates`가 보이고 CSS를 제거해도 유지되는지 확인하며, 기존 무워터마크 파생본은 정제 요청 재호출로 현재 정책에 맞게 교체되어야 한다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 로그인 상태에서 새 Cloud Run 리비전으로 트래픽을 전환한 뒤에도 세션이 복구되는지 확인하고, 로그아웃 후 같은 쿠키의 보호 API 접근이 401인지 확인한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
@@ -67,7 +68,7 @@
 - 本番APIの`FRONTEND_ORIGINS`を実際のフロントエンドドメインに限定し、セッションCookieに`HttpOnly`、`Secure`、`SameSite=None`が適用されていることを確認する。
 - 初回管理者の作成確認後、`ADMIN_BOOTSTRAP_ENABLED=false`へ変更し、`ADMIN_PASSWORD`を本番環境変数から削除する。
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
-- 本番PostgreSQLでV1〜V11履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。V11適用後、完了job・検査通過sanitized masterがありながら`PROCESSING`に残る写真は0件でなければならない。
+- 本番PostgreSQLでV1〜V12履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。V11適用後、完了job・検査通過sanitized masterがありながら`PROCESSING`に残る写真は0件で、V12適用後は安全条件が欠落した公開写真assetが0件でなければならない。
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
 - Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
@@ -75,9 +76,10 @@
 - 最新リビジョンのイメージが`gcr.io/cloudrun/placeholder`ではなくArtifact Registryのアプリケーションイメージであることを確認し、`/api/v1/health`のレスポンス本文が`{"status":"UP"}`であることを検証する。HTTP 200だけでデプロイ成功と判定しない。
 - 初回管理者は`ADMIN_PASSWORD`をSecret Manager参照として一度だけ作成し、ログイン確認後に`ADMIN_BOOTSTRAP_ENABLED=false`とパスワード参照削除の状態で再配備する。
 - Supabase Storageへ非公開`temporary-uploads`バケットを作成し、Storage API URLとバケット名は通常環境変数、サービスロールキーはSecret Manager参照としてCloud Runだけへ注入する。Vercelには保存しない。
-- `SUPABASE_SANITIZED_PHOTO_BUCKET`を非公開バケットへ指定する。既定値が`temporary-uploads`の場合は`temporary/`、`sanitized/`、`variants/` prefixを分離し、期限切れ処理がsanitized master・variantを削除しないことを確認する。`IMAGE_MAX_PIXELS=25000000`、`IMAGE_MASTER_JPEG_QUALITY=0.92`、`IMAGE_VARIANT_JPEG_QUALITY=0.88`から開始する。
+- `SUPABASE_SANITIZED_PHOTO_BUCKET`を非公開バケットへ指定する。既定値が`temporary-uploads`の場合は`temporary/`、`sanitized/`、`variants/` prefixを分離し、期限切れ処理がsanitized master・variantを削除しないことを確認する。`IMAGE_MAX_PIXELS=25000000`、`IMAGE_MASTER_JPEG_QUALITY=0.92`、`IMAGE_VARIANT_JPEG_QUALITY=0.88`、`IMAGE_WATERMARK_VERSION=places-plates-corner-v1`、`IMAGE_WATERMARK_OPACITY=0.28`、`IMAGE_WATERMARK_TARGET_WIDTH_RATIO=0.16`、`IMAGE_WATERMARK_MARGIN_RATIO=0.03`から開始する。
 - 写真本文が`x-signature`付きで署名専用`/storage/v1/upload/resumable/sign`へTUSの6MBチャンクとして送信され、制御・進捗・完了要求はSpring Boot APIだけへ送信されることを確認する。
 - ICC color profileを含むJPGを含め、JPG・PNG upload後に`/sanitize` responseと`image_processing_jobs.status`が`COMPLETED`、`photos.processing_status`が`READY`であることを確認する。Cloud Run logに`liblcms2.so.2`関連の`UnsatisfiedLinkError`がないことも確認する。`photo_assets`には`metadata_scan_passed=TRUE`の非公開`SANITIZED_MASTER`が一つ作成され、storage keyに元file名がなく、結果EXIF・XMP・IPTCが0件でなければならない。完了requestを繰り返しても同じ写真が`READY`へ復元され、HEIC・HEIFは`HEIC_DECODER_UNAVAILABLE`とJPEG変換案内を返すことを確認する。
+- `THUMBNAIL`・`MAP_CARD`・`PUBLIC_DETAIL`は`PUBLIC`、`metadata_scan_passed=TRUE`、`watermark_applied=TRUE`、policy `places-plates-corner-v1`、位置`BOTTOM_RIGHT`でなければならない。3 JPEGの右下pixelに`Places & Plates`が表示され、CSSを除去しても残ることを確認する。既存のwatermarkなしvariantはsanitize再呼出しで現policyへ置換されなければならない。
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - Login状態で新しいCloud Run revisionへtrafficを切り替えた後もsessionを復元でき、logout後に同じCookieで保護APIへアクセスすると401になることを確認する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。

@@ -7,6 +7,8 @@ public record ResponsiveImageVariant(
 	byte[] bytes,
 	String mimeType,
 	int width,
-	int height
+	int height,
+	String watermarkVersion,
+	String watermarkPosition
 ) {
 }

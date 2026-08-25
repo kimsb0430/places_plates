@@ -58,6 +58,7 @@ SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 | `db/migration/common/V9__create_jdbc_session_store.sql` | 모든 DB | Spring Session JDBC 표준 세션·속성 테이블과 조회 인덱스 |
 | `db/migration/postgresql/V10__secure_jdbc_session_store.sql` | PostgreSQL | 런타임 역할 세션 CRUD와 PUBLIC·Data API 접근 차단 |
 | `db/migration/common/V11__backfill_ready_sanitized_photos.sql` | 모든 DB | 완료 작업·비공개 정제 마스터·메타데이터 검사 통과 조건을 모두 충족한 기존 사진만 READY로 백필 |
+| `db/migration/common/V12__record_server_watermark_policy.sql` | 모든 DB | 워터마크 위치와 정책 버전의 일관성 제약, 정제 마스터 워터마크 금지 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -83,7 +84,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 공개 게시물은 장소, 공개 방문 연월, 게시 시각을 가져야 한다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.
 - 한 게시물의 대표 사진은 최대 한 장이다.
-- 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과해야 한다.
+- 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과하고 정책 버전·지원 위치를 가져야 한다.
 - 정제 마스터는 항상 비공개 자산이다.
 - 완료된 업로드 항목에는 임시 원본 저장 경로가 남을 수 없다.
 - `upload_items`는 비공개 업로드 화면을 위해 파일 표시명·MIME·선언 크기·업로드 바이트·시도 횟수·실패 코드·24시간 만료를 추적한다. 객체 키는 원래 파일명 대신 소유자·묶음·항목 UUID로 생성한다.
@@ -132,7 +133,7 @@ PHOTO_ASSET
 임시 원본 삭제 + temporary_storage_key = NULL
 ```
 
-`PHOTO_ASSET.variant_type`에는 `SANITIZED_MASTER`, `PUBLIC_DETAIL`, `THUMBNAIL`, `MAP_CARD`만 허용한다. 업로드 원본 유형은 존재하지 않는다.
+`PHOTO_ASSET.variant_type`에는 `SANITIZED_MASTER`, `PUBLIC_DETAIL`, `THUMBNAIL`, `MAP_CARD`만 허용한다. 업로드 원본 유형은 존재하지 않는다. `SANITIZED_MASTER`는 항상 `PRIVATE`·워터마크 미적용 상태이며, 공개 파생본은 `watermark_applied=TRUE`, `watermark_version=places-plates-corner-v1`, `watermark_position=BOTTOM_RIGHT`를 기록한다.
 
 ## 7. 실행 준비
 

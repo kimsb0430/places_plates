@@ -159,13 +159,49 @@ class PhotoUploadControllerTests {
 		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
 			.isEqualTo(PhotoProcessingStatus.READY);
 		assertThat(photoAssetRepository.count()).isEqualTo(4);
+		assertThat(photoAssetRepository.findAllByPhotoId(photoId))
+			.filteredOn(asset -> asset.getVariantType().isResponsiveVariant())
+			.allSatisfy(asset -> {
+				assertThat(asset.getAccessLevel()).isEqualTo("PUBLIC");
+				assertThat(asset.isMetadataScanPassed()).isTrue();
+				assertThat(asset.isWatermarkApplied()).isTrue();
+				assertThat(asset.getWatermarkVersion()).isEqualTo("places-plates-corner-v1");
+				assertThat(asset.getWatermarkPosition()).isEqualTo("BOTTOM_RIGHT");
+			});
 		assertThat(imageProcessingJobRepository.findByUploadItemId(UUID.fromString(itemId)).orElseThrow().getStatus())
 			.hasToString("COMPLETED");
+
+		when(privatePhotoStorage.downloadSanitizedMaster(anyString())).thenReturn(source);
+		jdbcTemplate.update(
+			"""
+			UPDATE photo_assets
+			SET access_level = 'PRIVATE',
+			    watermark_applied = FALSE,
+			    watermark_version = NULL,
+			    watermark_position = NULL
+			WHERE photo_id = ?
+			  AND variant_type <> 'SANITIZED_MASTER'
+			""",
+			photoId
+		);
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("COMPLETED"))
+			.andExpect(jsonPath("$.variants.length()").value(3));
+		assertThat(photoAssetRepository.findAllByPhotoId(photoId))
+			.filteredOn(asset -> asset.getVariantType().isResponsiveVariant())
+			.allSatisfy(asset -> {
+				assertThat(asset.getAccessLevel()).isEqualTo("PUBLIC");
+				assertThat(asset.isWatermarkApplied()).isTrue();
+				assertThat(asset.getWatermarkVersion()).isEqualTo("places-plates-corner-v1");
+				assertThat(asset.getWatermarkPosition()).isEqualTo("BOTTOM_RIGHT");
+			});
 
 		photoAssetRepository.deleteAll(photoAssetRepository.findAll().stream()
 			.filter(asset -> asset.getVariantType().isResponsiveVariant())
 			.toList());
-		when(privatePhotoStorage.downloadSanitizedMaster(anyString())).thenReturn(source);
 		jdbcTemplate.update(
 			"UPDATE photos SET processing_status = 'PROCESSING' WHERE id = ?",
 			photoId
@@ -198,7 +234,7 @@ class PhotoUploadControllerTests {
 			.startsWith("sanitized/")
 			.endsWith(".jpg")
 			.doesNotContain("private-name");
-		verify(privatePhotoStorage, org.mockito.Mockito.times(6)).storeResponsiveVariant(
+		verify(privatePhotoStorage, org.mockito.Mockito.times(9)).storeResponsiveVariant(
 			org.mockito.ArgumentMatchers.startsWith("variants/"),
 			org.mockito.ArgumentMatchers.any(byte[].class),
 			org.mockito.ArgumentMatchers.eq("image/jpeg")

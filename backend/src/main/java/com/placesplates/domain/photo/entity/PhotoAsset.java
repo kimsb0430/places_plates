@@ -49,6 +49,12 @@ public class PhotoAsset {
 	@Column(name = "watermark_applied", nullable = false)
 	private boolean watermarkApplied;
 
+	@Column(name = "watermark_version", length = 40)
+	private String watermarkVersion;
+
+	@Column(name = "watermark_position", length = 30)
+	private String watermarkPosition;
+
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
@@ -112,6 +118,76 @@ public class PhotoAsset {
 		return new PhotoAsset(photoId, variantType, storageKey, mimeType, width, height, byteSize);
 	}
 
+	public static PhotoAsset publicWatermarkedVariant(
+		UUID photoId,
+		PhotoAssetVariantType variantType,
+		String storageKey,
+		String mimeType,
+		int width,
+		int height,
+		long byteSize,
+		String watermarkVersion,
+		String watermarkPosition
+	) {
+		PhotoAsset asset = privateResponsiveVariant(
+			photoId,
+			variantType,
+			storageKey,
+			mimeType,
+			width,
+			height,
+			byteSize
+		);
+		asset.publishWatermarked(
+			storageKey,
+			mimeType,
+			width,
+			height,
+			byteSize,
+			watermarkVersion,
+			watermarkPosition
+		);
+		return asset;
+	}
+
+	public void publishWatermarked(
+		String storageKey,
+		String mimeType,
+		int width,
+		int height,
+		long byteSize,
+		String watermarkVersion,
+		String watermarkPosition
+	) {
+		if (!variantType.isResponsiveVariant()) {
+			throw new IllegalStateException("Only responsive assets can be published with a watermark");
+		}
+		if (watermarkVersion == null || watermarkVersion.isBlank()) {
+			throw new IllegalArgumentException("Watermark version is required");
+		}
+		if (watermarkPosition == null || watermarkPosition.isBlank()) {
+			throw new IllegalArgumentException("Watermark position is required");
+		}
+		this.accessLevel = "PUBLIC";
+		this.storageKey = storageKey;
+		this.mimeType = mimeType;
+		this.width = width;
+		this.height = height;
+		this.byteSize = byteSize;
+		this.metadataScanPassed = true;
+		this.watermarkApplied = true;
+		this.watermarkVersion = watermarkVersion;
+		this.watermarkPosition = watermarkPosition;
+	}
+
+	public boolean usesWatermarkPolicy(String version, String position) {
+		return "PUBLIC".equals(accessLevel)
+			&& metadataScanPassed
+			&& watermarkApplied
+			&& version.equals(watermarkVersion)
+			&& position.equals(watermarkPosition);
+	}
+
 	public PhotoAssetVariantType getVariantType() {
 		return variantType;
 	}
@@ -134,5 +210,25 @@ public class PhotoAsset {
 
 	public long getByteSize() {
 		return byteSize;
+	}
+
+	public String getAccessLevel() {
+		return accessLevel;
+	}
+
+	public boolean isMetadataScanPassed() {
+		return metadataScanPassed;
+	}
+
+	public boolean isWatermarkApplied() {
+		return watermarkApplied;
+	}
+
+	public String getWatermarkVersion() {
+		return watermarkVersion;
+	}
+
+	public String getWatermarkPosition() {
+		return watermarkPosition;
 	}
 }
