@@ -13,6 +13,10 @@ import {
   updateDraftPost,
 } from '../api/draft-post-api';
 import type { DraftPost, DraftPostUpdateInput } from '../types';
+import {
+  RestaurantDetailFields,
+  type RestaurantEditorValues,
+} from './restaurant-detail-fields';
 
 type DraftState =
   | { status: 'loading' }
@@ -30,6 +34,7 @@ interface DraftEditorForm {
   visitMonth: string;
   summary: string;
   content: string;
+  restaurant: RestaurantEditorValues;
 }
 
 interface DraftPostViewProps {
@@ -119,7 +124,11 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
     const abortController = new AbortController();
     const timer = window.setTimeout(() => {
       setSaveState({ status: 'saving' });
-      updateDraftPost(initialDraft.id, toUpdateInput(form), abortController.signal)
+      updateDraftPost(
+        initialDraft.id,
+        toUpdateInput(form, initialDraft.category),
+        abortController.signal,
+      )
         .then((savedDraft) => {
           lastSavedSnapshot.current = snapshot;
           setDraft(savedDraft);
@@ -144,13 +153,23 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [form, initialDraft.id, retryVersion, router]);
+  }, [form, initialDraft.category, initialDraft.id, retryVersion, router]);
 
   const handleFieldChange = (field: keyof DraftEditorForm, value: string) => {
     if (field === 'title' && !value.trim()) {
       setSaveState({ status: 'incomplete' });
     }
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleRestaurantFieldChange = (
+    field: keyof RestaurantEditorValues,
+    value: string,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      restaurant: { ...current.restaurant, [field]: value },
+    }));
   };
 
   return (
@@ -224,6 +243,13 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
           </label>
         </div>
 
+        {draft.category === 'RESTAURANT' && (
+          <RestaurantDetailFields
+            value={form.restaurant}
+            onChange={handleRestaurantFieldChange}
+          />
+        )}
+
         <div className="draft-editor-actions">
           <Link href="/manage">관리 화면으로 돌아가기</Link>
           {saveState.status === 'error' && (
@@ -274,10 +300,20 @@ function toEditorForm(draft: DraftPost): DraftEditorForm {
       : '',
     summary: draft.summary ?? '',
     content: draft.content ?? '',
+    restaurant: {
+      rating: draft.restaurantDetails?.rating?.toFixed(1) ?? '',
+      recommendedMenu: draft.restaurantDetails?.recommendedMenu ?? '',
+      priceRange: draft.restaurantDetails?.priceRange ?? '',
+      waitingMinutes: draft.restaurantDetails?.waitingMinutes?.toString() ?? '',
+      revisitIntention: draft.restaurantDetails?.revisitIntention ?? '',
+    },
   };
 }
 
-function toUpdateInput(form: DraftEditorForm): DraftPostUpdateInput {
+function toUpdateInput(
+  form: DraftEditorForm,
+  category: DraftPost['category'],
+): DraftPostUpdateInput {
   const [year, month] = form.visitMonth
     ? form.visitMonth.split('-').map(Number)
     : [null, null];
@@ -287,6 +323,17 @@ function toUpdateInput(form: DraftEditorForm): DraftPostUpdateInput {
     content: form.content.trim() || null,
     publicVisitYear: year,
     publicVisitMonth: month,
+    restaurantDetails: category === 'RESTAURANT'
+      ? {
+          rating: form.restaurant.rating ? Number(form.restaurant.rating) : null,
+          recommendedMenu: form.restaurant.recommendedMenu.trim() || null,
+          priceRange: form.restaurant.priceRange || null,
+          waitingMinutes: form.restaurant.waitingMinutes
+            ? Number(form.restaurant.waitingMinutes)
+            : null,
+          revisitIntention: form.restaurant.revisitIntention || null,
+        }
+      : null,
   };
 }
 
