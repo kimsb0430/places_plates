@@ -2,22 +2,45 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AuthenticationApiError,
   getAdministratorSession,
 } from '@/domain/auth/api/authentication-api';
-import { DraftPostApiError, getDraftPost } from '../api/draft-post-api';
-import type { DraftPost } from '../types';
+import {
+  DraftPostApiError,
+  getDraftPost,
+  updateDraftPost,
+} from '../api/draft-post-api';
+import type { DraftPost, DraftPostUpdateInput } from '../types';
 
 type DraftState =
   | { status: 'loading' }
   | { status: 'ready'; draft: DraftPost }
   | { status: 'unavailable'; message: string };
 
+type SaveState =
+  | { status: 'saved' }
+  | { status: 'saving' }
+  | { status: 'incomplete' }
+  | { status: 'error'; message: string };
+
+interface DraftEditorForm {
+  title: string;
+  visitMonth: string;
+  summary: string;
+  content: string;
+}
+
 interface DraftPostViewProps {
   draftPostId: string;
 }
+
+interface DraftPostEditorProps {
+  initialDraft: DraftPost;
+}
+
+const AUTOSAVE_DELAY_MS = 700;
 
 export function DraftPostView({ draftPostId }: DraftPostViewProps) {
   const router = useRouter();
@@ -55,8 +78,8 @@ export function DraftPostView({ draftPostId }: DraftPostViewProps) {
     return (
       <section className="manage-gate" aria-live="polite">
         <p className="login-status">PRIVATE DRAFT</p>
-        <h1>업로드한 기록을 준비하고 있습니다.</h1>
-        <p>비공개 초안과 사진 업로드 상태를 확인하고 있습니다.</p>
+        <h1>작성 중인 기록을 불러오고 있습니다.</h1>
+        <p>저장된 제목과 방문 기록을 안전하게 확인하고 있습니다.</p>
       </section>
     );
   }
@@ -72,37 +95,204 @@ export function DraftPostView({ draftPostId }: DraftPostViewProps) {
     );
   }
 
-  const { draft } = state;
+  return <DraftPostEditor initialDraft={state.draft} />;
+}
+
+function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
+  const router = useRouter();
+  const [draft, setDraft] = useState(initialDraft);
+  const [form, setForm] = useState<DraftEditorForm>(() => toEditorForm(initialDraft));
+  const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' });
+  const [retryVersion, setRetryVersion] = useState(0);
+  const lastSavedSnapshot = useRef(JSON.stringify(toEditorForm(initialDraft)));
+  const completionCount = useMemo(() => [
+    form.title.trim().length > 0,
+    form.visitMonth.length > 0,
+    form.summary.trim().length > 0,
+  ].filter(Boolean).length, [form.summary, form.title, form.visitMonth]);
+
+  useEffect(() => {
+    const snapshot = JSON.stringify(form);
+    if (snapshot === lastSavedSnapshot.current) return;
+    if (!form.title.trim()) return;
+
+    const abortController = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSaveState({ status: 'saving' });
+      updateDraftPost(initialDraft.id, toUpdateInput(form), abortController.signal)
+        .then((savedDraft) => {
+          lastSavedSnapshot.current = snapshot;
+          setDraft(savedDraft);
+          setSaveState({ status: 'saved' });
+        })
+        .catch((error: unknown) => {
+          if (abortController.signal.aborted) return;
+          if (error instanceof DraftPostApiError && error.status === 401) {
+            router.replace(`/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`);
+            return;
+          }
+          setSaveState({
+            status: 'error',
+            message: error instanceof DraftPostApiError
+              ? error.message
+              : '자동 저장에 실패했습니다.',
+          });
+        });
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [form, initialDraft.id, retryVersion, router]);
+
+  const handleFieldChange = (field: keyof DraftEditorForm, value: string) => {
+    if (field === 'title' && !value.trim()) {
+      setSaveState({ status: 'incomplete' });
+    }
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
   return (
-    <article className="draft-detail">
-      <div className="draft-detail-copy">
-        <p className="login-status">PRIVATE DRAFT</p>
-        <p className="overline">{draft.category === 'RESTAURANT' ? '맛집 기록' : '여행지 기록'}</p>
-        <h1>{draft.title}</h1>
-        <p className="draft-detail-lead">
-          사진 업로드와 정제가 완료됐으며 이 기록은 공개되지 않는 비공개 초안으로 저장되었습니다.
-        </p>
-        <dl>
-          <div><dt>공개 상태</dt><dd>비공개</dd></div>
-          <div><dt>작성 상태</dt><dd>초안</dd></div>
+    <article className="draft-editor">
+      <section className="draft-editor-form">
+        <div className="draft-editor-heading">
           <div>
-            <dt>저장 시각</dt>
-            <dd>{new Intl.DateTimeFormat('ko-KR', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            }).format(new Date(draft.updatedAt))}</dd>
+            <p className="login-status">PRIVATE DRAFT</p>
+            <p className="overline">
+              {draft.category === 'RESTAURANT' ? '맛집 기록' : '여행지 기록'}
+            </p>
+            <h1>기록 정보 편집</h1>
           </div>
-        </dl>
-        <div className="draft-detail-actions">
-          <Link href="/manage">관리 화면으로 돌아가기</Link>
+          <AutosaveStatus state={saveState} updatedAt={draft.updatedAt} />
         </div>
-      </div>
-      <aside>
-        <p className="login-status">NEXT STEP</p>
-        <h2>기록 정보 입력</h2>
-        <p>장소명, 방문 월, 지도 위치, 글 내용을 편집하는 화면은 다음 개발 단계에서 이 초안에 연결됩니다.</p>
-        <strong>현재 사진과 초안은 안전하게 연결되어 있습니다.</strong>
+
+        <div className="draft-editor-fields">
+          <label htmlFor="draft-title">
+            <span>제목 <b>필수</b></span>
+            <input
+              id="draft-title"
+              name="title"
+              value={form.title}
+              maxLength={200}
+              required
+              onChange={(event) => handleFieldChange('title', event.target.value)}
+              placeholder="기억하고 싶은 장면을 제목으로 남겨보세요"
+            />
+            <small>{form.title.length}/200</small>
+          </label>
+
+          <label htmlFor="draft-visit-month">
+            <span>방문 월 <b>필수</b></span>
+            <input
+              id="draft-visit-month"
+              name="visitMonth"
+              type="month"
+              value={form.visitMonth}
+              required
+              onChange={(event) => handleFieldChange('visitMonth', event.target.value)}
+            />
+            <small>공개 페이지에는 일자를 제외한 월 단위로 표시됩니다.</small>
+          </label>
+
+          <label htmlFor="draft-summary">
+            <span>한줄평 <b>필수</b></span>
+            <input
+              id="draft-summary"
+              name="summary"
+              value={form.summary}
+              maxLength={500}
+              required
+              onChange={(event) => handleFieldChange('summary', event.target.value)}
+              placeholder="이 장소를 한 문장으로 기억한다면"
+            />
+            <small>{form.summary.length}/500</small>
+          </label>
+
+          <label htmlFor="draft-content">
+            <span>본문 <em>선택</em></span>
+            <textarea
+              id="draft-content"
+              name="content"
+              value={form.content}
+              maxLength={50000}
+              rows={10}
+              onChange={(event) => handleFieldChange('content', event.target.value)}
+              placeholder="메뉴, 동선, 분위기처럼 나중에도 떠올리고 싶은 내용을 자유롭게 적어보세요."
+            />
+            <small>{form.content.length.toLocaleString('ko-KR')}/50,000</small>
+          </label>
+        </div>
+
+        <div className="draft-editor-actions">
+          <Link href="/manage">관리 화면으로 돌아가기</Link>
+          {saveState.status === 'error' && (
+            <button type="button" onClick={() => setRetryVersion((value) => value + 1)}>
+              다시 저장
+            </button>
+          )}
+        </div>
+      </section>
+
+      <aside className="draft-editor-guide">
+        <p className="login-status">AUTOSAVE</p>
+        <h2>{completionCount}/3 작성 완료</h2>
+        <p>입력을 멈추면 자동으로 저장됩니다. 다른 기기에서도 로그인하면 이어서 작성할 수 있습니다.</p>
+        <ul>
+          <li className={form.title.trim() ? 'is-complete' : ''}>기록 제목</li>
+          <li className={form.visitMonth ? 'is-complete' : ''}>방문 월</li>
+          <li className={form.summary.trim() ? 'is-complete' : ''}>한줄평</li>
+        </ul>
+        <strong>사진과 입력 내용은 게시하기 전까지 비공개로 유지됩니다.</strong>
       </aside>
     </article>
   );
+}
+
+function AutosaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: string }) {
+  if (state.status === 'saving') {
+    return <p className="draft-save-status is-saving" aria-live="polite">저장 중…</p>;
+  }
+  if (state.status === 'incomplete') {
+    return <p className="draft-save-status is-warning" aria-live="polite">제목을 입력하면 저장됩니다.</p>;
+  }
+  if (state.status === 'error') {
+    return <p className="draft-save-status is-error" role="alert">{state.message}</p>;
+  }
+  return (
+    <p className="draft-save-status" aria-live="polite">
+      자동 저장됨 · <time dateTime={updatedAt}>{formatSavedAt(updatedAt)}</time>
+    </p>
+  );
+}
+
+function toEditorForm(draft: DraftPost): DraftEditorForm {
+  return {
+    title: draft.title,
+    visitMonth: draft.publicVisitYear && draft.publicVisitMonth
+      ? `${draft.publicVisitYear}-${String(draft.publicVisitMonth).padStart(2, '0')}`
+      : '',
+    summary: draft.summary ?? '',
+    content: draft.content ?? '',
+  };
+}
+
+function toUpdateInput(form: DraftEditorForm): DraftPostUpdateInput {
+  const [year, month] = form.visitMonth
+    ? form.visitMonth.split('-').map(Number)
+    : [null, null];
+  return {
+    title: form.title,
+    summary: form.summary.trim() || null,
+    content: form.content.trim() || null,
+    publicVisitYear: year,
+    publicVisitMonth: month,
+  };
+}
+
+function formatSavedAt(updatedAt: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(updatedAt));
 }

@@ -58,7 +58,7 @@ frontend/src/
 │   ├── map/page.tsx             # 공개 기록 지도
 │   ├── login/page.tsx           # 관리자 로그인 진입점
 │   ├── manage/page.tsx          # 세션 확인 후 표시하는 관리 진입점
-│   ├── manage/drafts/[draftPostId]/page.tsx # 업로드와 연결된 비공개 초안
+│   ├── manage/drafts/[draftPostId]/page.tsx # 비공개 초안 공통 필드 편집·자동 저장
 │   ├── not-found.tsx            # 공통 404 빈 상태
 │   └── layout.tsx
 ├── domain/
@@ -99,6 +99,7 @@ app → domain → shared
 - 현재 경로 표시는 `shared/ui/public-navigation.tsx`, 데이터가 없는 안내 화면은 `shared/ui/empty-state.tsx`를 공통으로 사용한다.
 - 색상·타이포·간격·모서리·그림자·모션은 `shared/styles/tokens.css`를 기준으로 하며 화면 컴포넌트는 의미 기반 토큰을 우선 사용한다.
 - 지원 최소 너비는 320px이며 사용자 화면 변경은 390px와 1440px에서 가로 넘침을 확인한다.
+- 초안 편집 화면은 제목·방문 월·한줄평·본문을 로컬 입력 상태로 유지하고 700ms 동안 입력이 멈추면 CSRF 보호 `PATCH` 요청으로 자동 저장한다. 제목을 비우면 서버 요청을 중단하고, 저장 실패 시 입력값을 유지한 채 명시적 재시도를 제공한다.
 
 ## 4. 백엔드 구조
 
@@ -168,7 +169,7 @@ backend/src/main/resources/
 |---|---|---|
 | auth | CSRF 발급·로그인·PostgreSQL 지속 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
-| post | 맛집·여행지 게시물, 업로드 시작 초안과 공개 범위 | `/api/v1/manage/drafts/**`, `/api/v1/posts/**` |
+| post | 맛집·여행지 게시물, 업로드 시작 초안, 공통 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
 | photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
@@ -188,8 +189,8 @@ backend/src/test/java/com/placesplates/
 └── support/                     # fixture·테스트 설정
 ```
 
-- 프론트엔드는 목록·지도 전환, 필터 유지, 업로드 입력을 중심으로 테스트한다.
-- 백엔드는 소유자 권한, 원본 자동 삭제, 메타데이터 제거, 공개 범위를 중심으로 테스트한다.
+- 프론트엔드는 목록·지도 전환, 필터 유지, 업로드 입력과 초안 자동 저장 상태를 중심으로 테스트한다.
+- 백엔드는 소유자 권한, 초안 공통 필드 검증, 원본 자동 삭제, 메타데이터 제거, 공개 범위를 중심으로 테스트한다.
 - 루트 검증 스크립트가 프론트엔드 빌드와 백엔드 테스트를 한 번에 실행한다.
 
 ## 7. 환경변수 원칙

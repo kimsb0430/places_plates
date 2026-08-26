@@ -28,6 +28,18 @@ public class DraftPost {
 	@Column(nullable = false, length = 200)
 	private String title;
 
+	@Column(length = 500)
+	private String summary;
+
+	@Column(columnDefinition = "TEXT")
+	private String content;
+
+	@Column(name = "public_visit_year")
+	private Short publicVisitYear;
+
+	@Column(name = "public_visit_month")
+	private Short publicVisitMonth;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private PostVisibility visibility;
@@ -65,6 +77,31 @@ public class DraftPost {
 		return new DraftPost(ownerUserId, category);
 	}
 
+	/**
+	 * 編集画面の共通項目を更新し、最後の保存時刻をUTCで記録する。
+	 */
+	public void updateEditorFields(
+		String title,
+		String summary,
+		String content,
+		Integer publicVisitYear,
+		Integer publicVisitMonth
+	) {
+		this.title = title.trim();
+		this.summary = normalizeOptionalText(summary);
+		this.content = normalizeOptionalText(content);
+		this.publicVisitYear = publicVisitYear == null ? null : publicVisitYear.shortValue();
+		this.publicVisitMonth = publicVisitMonth == null ? null : publicVisitMonth.shortValue();
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	private static String normalizeOptionalText(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		return value.trim();
+	}
+
 	public UUID getId() {
 		return id;
 	}
@@ -79,6 +116,22 @@ public class DraftPost {
 
 	public String getTitle() {
 		return title;
+	}
+
+	public String getSummary() {
+		return summary;
+	}
+
+	public String getContent() {
+		return content;
+	}
+
+	public Short getPublicVisitYear() {
+		return publicVisitYear;
+	}
+
+	public Short getPublicVisitMonth() {
+		return publicVisitMonth;
 	}
 
 	public PostVisibility getVisibility() {
