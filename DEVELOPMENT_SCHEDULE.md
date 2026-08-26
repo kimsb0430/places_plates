@@ -155,7 +155,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
-진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 정제 마스터와 V11 READY 백필 운영 검증 완료. C15는 320px 썸네일·960px 카드·2,000px 상세 파생본 생성, 무확대 비율 유지, 메타데이터 재검사와 기존 완료 사진 누락 보충을 구현했다. C15 운영 배포 후 발견된 Cloud Run LCMS2 누락은 Java 21·`liblcms2-2` 명시 컨테이너와 CI 이미지 검사로 보완했고, 저장소의 `backend/cloudbuild.yaml`로 Docker 배포 경로를 고정했다. C16은 하단 오른쪽 `Places & Plates` 픽셀 워터마크, 밝기 기반 색상 선택, 정책 버전·위치 기록과 기존 파생본 재생성을 구현했다. C17은 저장소에서 다시 읽은 마스터·파생본의 디코딩·크기·메타데이터·워터마크 픽셀을 검증한 뒤 공개하고 임시 원본을 즉시 삭제하며, 실패 재시도와 24시간 만료 정리를 구현했다. 운영 DB V13·V14 적용과 배포 스모크 검증이 남아 있다.
+진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 정제 마스터와 V11 READY 백필 운영 검증 완료. C15는 320px 썸네일·960px 카드·2,000px 상세 파생본 생성, 무확대 비율 유지, 메타데이터 재검사와 기존 완료 사진 누락 보충을 구현했다. C15 운영 배포 후 발견된 Cloud Run LCMS2 누락은 Java 21·`liblcms2-2` 명시 컨테이너와 CI 이미지 검사로 보완했고, 저장소의 `backend/cloudbuild.yaml`로 Docker 배포 경로를 고정했다. C16은 하단 오른쪽 `Places & Plates` 픽셀 워터마크, 밝기 기반 색상 선택, 정책 버전·위치 기록과 기존 파생본 재생성을 구현했다. C17은 저장소에서 다시 읽은 마스터·파생본의 디코딩·크기·메타데이터·워터마크 픽셀을 검증한 뒤 공개하고 임시 원본을 즉시 삭제하며, 실패 재시도와 24시간 만료 정리를 구현했다. 운영 DB V13·V14 적용, Cloud Run 배포, 비공개 초안 운영 스모크 검증까지 완료했다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -185,7 +185,7 @@ Sprint 종료 게이트:
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
-| C18 | `feat: add common post editor fields and autosave` | 제목·날짜·한줄평·본문 자동 저장 | 필수 3개 항목만으로 초안 저장 가능 |
+| C18 | `feat: add common post editor fields and autosave` | 제목·방문 월·한줄평·본문을 700ms 지연 후 CSRF 보호 자동 저장 | 제목·방문 월·한줄평 3개를 작성 완료 기준으로 안내하고 부분 초안도 소유자 DB에 저장·재조회 가능 |
 | C19 | `feat: add restaurant category fields` | 평점·메뉴·가격대·대기시간·재방문 | 맛집 선택 시에만 전용 항목 표시 |
 | C20 | `feat: add destination category fields` | 소요시간·추천시간·볼거리·여행 팁 | 여행지 선택 시에만 전용 항목 표시 |
 | C21 | `feat: connect posts with google places and coordinates` | Places API (New) 검색·Google Maps 링크·직접 좌표 | Place ID와 좌표를 저장하고 검색 실패 시 자유 장소 저장 가능 |

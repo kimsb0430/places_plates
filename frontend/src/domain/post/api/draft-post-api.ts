@@ -1,10 +1,15 @@
-import type { DraftPost } from '../types';
+import type { DraftPost, DraftPostUpdateInput } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 
 interface ApiErrorResponse {
   code?: string;
   message?: string;
+}
+
+interface CsrfTokenResponse {
+  headerName: string;
+  token: string;
 }
 
 export class DraftPostApiError extends Error {
@@ -18,13 +23,17 @@ export class DraftPostApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
       credentials: 'include',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...init?.headers,
+      },
     });
   } catch {
     throw new DraftPostApiError(
@@ -52,4 +61,21 @@ export function getDraftPosts(): Promise<DraftPost[]> {
 
 export function getDraftPost(draftPostId: string): Promise<DraftPost> {
   return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}`);
+}
+
+export async function updateDraftPost(
+  draftPostId: string,
+  input: DraftPostUpdateInput,
+  signal?: AbortSignal,
+): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf', { signal });
+  return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}`, {
+    method: 'PATCH',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      [csrfToken.headerName]: csrfToken.token,
+    },
+    body: JSON.stringify(input),
+  });
 }
