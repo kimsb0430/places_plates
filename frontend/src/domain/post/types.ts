@@ -1,5 +1,16 @@
 import type { PostCategory } from '@/domain/photo/types';
 
+export type RestaurantPriceRange = 'BUDGET' | 'MODERATE' | 'EXPENSIVE' | 'LUXURY';
+export type RevisitIntention = 'YES' | 'MAYBE' | 'NO';
+
+export interface RestaurantDetail {
+  rating: number | null;
+  recommendedMenu: string | null;
+  priceRange: RestaurantPriceRange | null;
+  waitingMinutes: number | null;
+  revisitIntention: RevisitIntention | null;
+}
+
 export interface DraftPost {
   id: string;
   category: PostCategory;
@@ -8,6 +19,7 @@ export interface DraftPost {
   content: string | null;
   publicVisitYear: number | null;
   publicVisitMonth: number | null;
+  restaurantDetails: RestaurantDetail | null;
   visibility: 'PRIVATE';
   status: 'DRAFT';
   createdAt: string;
@@ -20,4 +32,5 @@ export interface DraftPostUpdateInput {
   content: string | null;
   publicVisitYear: number | null;
   publicVisitMonth: number | null;
+  restaurantDetails: RestaurantDetail | null;
 }

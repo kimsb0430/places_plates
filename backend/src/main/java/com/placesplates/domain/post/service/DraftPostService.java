@@ -1,7 +1,10 @@
 package com.placesplates.domain.post.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -9,31 +12,49 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.placesplates.domain.post.dto.DraftPostResponse;
 import com.placesplates.domain.post.dto.DraftPostUpdateRequest;
+import com.placesplates.domain.post.dto.RestaurantDetailResponse;
+import com.placesplates.domain.post.dto.RestaurantDetailUpdateRequest;
 import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.entity.PostStatus;
+import com.placesplates.domain.post.entity.RestaurantDetail;
 import com.placesplates.domain.post.exception.DraftPostException;
 import com.placesplates.domain.post.repository.DraftPostRepository;
+import com.placesplates.domain.post.repository.RestaurantDetailRepository;
 
 @Service
 @Transactional(readOnly = true)
 public class DraftPostService {
 
 	private final DraftPostRepository draftPostRepository;
+	private final RestaurantDetailRepository restaurantDetailRepository;
 
-	public DraftPostService(DraftPostRepository draftPostRepository) {
+	public DraftPostService(
+		DraftPostRepository draftPostRepository,
+		RestaurantDetailRepository restaurantDetailRepository
+	) {
 		this.draftPostRepository = draftPostRepository;
+		this.restaurantDetailRepository = restaurantDetailRepository;
 	}
 
 	public List<DraftPostResponse> findDrafts(UUID ownerUserId) {
-		return draftPostRepository
-			.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, PostStatus.DRAFT)
+		List<DraftPost> drafts = draftPostRepository
+			.findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(ownerUserId, PostStatus.DRAFT);
+		Map<UUID, RestaurantDetail> restaurantDetails = restaurantDetailRepository.findAllById(
+			drafts.stream()
+				.filter(draft -> draft.getCategory() == PostCategory.RESTAURANT)
+				.map(DraftPost::getId)
+				.toList()
+		).stream().collect(Collectors.toMap(RestaurantDetail::getPostId, Function.identity()));
+		return drafts
 			.stream()
-			.map(DraftPostResponse::from)
+			.map(draft -> toResponse(draft, restaurantDetails.get(draft.getId())))
 			.toList();
 	}
 
 	public DraftPostResponse findDraft(UUID ownerUserId, UUID draftId) {
-		return DraftPostResponse.from(findOwnedDraft(ownerUserId, draftId));
+		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
+		return toResponse(draft, findRestaurantDetail(draft));
 	}
 
 	@Transactional
@@ -44,6 +65,7 @@ public class DraftPostService {
 	) {
 		validateVisitMonthPair(request.publicVisitYear(), request.publicVisitMonth());
 		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
+		updateRestaurantDetail(draft, request.restaurantDetails());
 		draft.updateEditorFields(
 			request.title(),
 			request.summary(),
@@ -51,7 +73,55 @@ public class DraftPostService {
 			request.publicVisitYear(),
 			request.publicVisitMonth()
 		);
-		return DraftPostResponse.from(draft);
+		return toResponse(draft, findRestaurantDetail(draft));
+	}
+
+	private RestaurantDetail findRestaurantDetail(DraftPost draft) {
+		if (draft.getCategory() != PostCategory.RESTAURANT) {
+			return null;
+		}
+		return restaurantDetailRepository.findById(draft.getId()).orElse(null);
+	}
+
+	/**
+	 * レストラン下書きに限って固有項目を更新し、全項目が空なら詳細行を削除する。
+	 */
+	private void updateRestaurantDetail(
+		DraftPost draft,
+		RestaurantDetailUpdateRequest request
+	) {
+		if (request == null) {
+			return;
+		}
+		if (draft.getCategory() != PostCategory.RESTAURANT) {
+			throw new DraftPostException(
+				HttpStatus.BAD_REQUEST,
+				"DRAFT_POST_RESTAURANT_FIELDS_INVALID",
+				"맛집 전용 항목은 맛집 기록에만 입력할 수 있습니다."
+			);
+		}
+		if (request.isEmpty()) {
+			restaurantDetailRepository.findById(draft.getId())
+				.ifPresent(restaurantDetailRepository::delete);
+			return;
+		}
+		RestaurantDetail detail = restaurantDetailRepository.findById(draft.getId())
+			.orElseGet(() -> RestaurantDetail.create(draft.getId()));
+		detail.update(
+			request.rating(),
+			request.recommendedMenu(),
+			request.priceRange(),
+			request.waitingMinutes(),
+			request.revisitIntention()
+		);
+		restaurantDetailRepository.save(detail);
+	}
+
+	private DraftPostResponse toResponse(DraftPost draft, RestaurantDetail detail) {
+		return DraftPostResponse.from(
+			draft,
+			detail == null ? null : RestaurantDetailResponse.from(detail)
+		);
 	}
 
 	private DraftPost findOwnedDraft(UUID ownerUserId, UUID draftId) {
