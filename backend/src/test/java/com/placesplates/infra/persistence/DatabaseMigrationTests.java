@@ -183,6 +183,30 @@ class DatabaseMigrationTests {
 	}
 
 	@Test
+	void expiredUploadRequiresDeletedTemporaryOriginal() {
+		UUID userId = createUser();
+		UUID batchId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO upload_batches (id, owner_user_id, expires_at) VALUES (?, ?, ?)",
+			batchId,
+			userId,
+			OffsetDateTime.now().minusHours(1)
+		);
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+			"""
+			INSERT INTO upload_items (
+			    id, upload_batch_id, temporary_storage_key, processing_status, expires_at
+			) VALUES (?, ?, ?, 'EXPIRED', ?)
+			""",
+			UUID.randomUUID(),
+			batchId,
+			"temporary/expired.jpg",
+			OffsetDateTime.now().minusHours(1)
+		)).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
 	void uploadProgressCannotExceedDeclaredFileSize() {
 		UUID userId = createUser();
 		UUID batchId = UUID.randomUUID();

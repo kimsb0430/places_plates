@@ -20,7 +20,9 @@ import com.placesplates.domain.photo.entity.ImageProcessingJobStatus;
 import com.placesplates.domain.photo.entity.Photo;
 import com.placesplates.domain.photo.entity.PhotoAsset;
 import com.placesplates.domain.photo.entity.PhotoAssetVariantType;
+import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
 import com.placesplates.domain.photo.entity.UploadItem;
+import com.placesplates.domain.photo.entity.UploadItemStatus;
 import com.placesplates.domain.photo.exception.ImageProcessingJobException;
 import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
 import com.placesplates.domain.photo.repository.PhotoAssetRepository;
@@ -45,6 +47,7 @@ public class ImageSanitizationService {
 	private final PhotoAssetRepository photoAssetRepository;
 	private final ImageSanitizer imageSanitizer;
 	private final ResponsiveImageGenerator responsiveImageGenerator;
+	private final PhotoAssetVerificationService verificationService;
 	private final PrivatePhotoStorage photoStorage;
 
 	public ImageSanitizationService(
@@ -54,6 +57,7 @@ public class ImageSanitizationService {
 		PhotoAssetRepository photoAssetRepository,
 		ImageSanitizer imageSanitizer,
 		ResponsiveImageGenerator responsiveImageGenerator,
+		PhotoAssetVerificationService verificationService,
 		PrivatePhotoStorage photoStorage
 	) {
 		this.jobRepository = jobRepository;
@@ -62,6 +66,7 @@ public class ImageSanitizationService {
 		this.photoAssetRepository = photoAssetRepository;
 		this.imageSanitizer = imageSanitizer;
 		this.responsiveImageGenerator = responsiveImageGenerator;
+		this.verificationService = verificationService;
 		this.photoStorage = photoStorage;
 	}
 
@@ -76,43 +81,15 @@ public class ImageSanitizationService {
 		)
 			.orElseThrow(() -> notFound("사진 업로드 항목을 찾을 수 없습니다."));
 
-		if (job.getStatus() == ImageProcessingJobStatus.COMPLETED && uploadItem.getResultPhotoId() != null) {
-			try {
-				UUID photoId = uploadItem.getResultPhotoId();
-				Photo photo = photoRepository.findById(photoId)
-					.orElseThrow(() -> notFound("완료된 사진을 찾을 수 없습니다."));
-				List<PhotoAsset> assets = ensureResponsiveVariants(ownerUserId, job.getId(), photoId);
-				photo.markReady();
-				return ImageSanitizationResponse.completed(job.getId(), uploadItemId, photoId, assets);
-			} catch (ImageSanitizationException exception) {
-				return ImageSanitizationResponse.failed(
-					job.getId(), uploadItemId, exception.getFailureCode(), exception.getMessage()
-				);
-			} catch (StorageAccessException exception) {
-				return ImageSanitizationResponse.failed(
-					job.getId(),
-					uploadItemId,
-					"PHOTO_STORAGE_UNAVAILABLE",
-					"사진 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."
-				);
-			}
-		}
-
 		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-		if (job.getStatus() == ImageProcessingJobStatus.FAILED && job.canRetry()) {
-			job.retryNow(now);
+		if (uploadItem.getResultPhotoId() != null) {
+			return finalizeExistingPhoto(ownerUserId, job, uploadItem, now);
 		}
-		try {
-			job.start(now);
-		} catch (IllegalStateException exception) {
-			return ImageSanitizationResponse.failed(
-				job.getId(),
-				uploadItemId,
-				"IMAGE_PROCESSING_JOB_NOT_READY",
-				"이미지 처리 작업을 아직 다시 시작할 수 없습니다. 잠시 후 시도해주세요."
-			);
+		if (!startJob(job, now)) {
+			return notReady(job, uploadItemId);
 		}
 
+		Photo photo = null;
 		try {
 			byte[] source = photoStorage.downloadTemporary(uploadItem.getTemporaryStorageKey());
 			if (source.length != uploadItem.getByteSize()) {
@@ -126,79 +103,146 @@ public class ImageSanitizationService {
 			String storageKey = sanitizedStorageKey(ownerUserId, job.getId());
 			photoStorage.storeSanitizedMaster(storageKey, sanitized.bytes(), sanitized.mimeType());
 
-			Photo photo = photoRepository.save(Photo.processing(ownerUserId, job.getPostId()));
+			photo = photoRepository.save(Photo.processing(ownerUserId, job.getPostId()));
 			photoAssetRepository.save(PhotoAsset.sanitizedMaster(
-				photo.getId(),
-				storageKey,
-				sanitized.mimeType(),
-				sanitized.width(),
-				sanitized.height(),
-				sanitized.bytes().length
+				photo.getId(), storageKey, sanitized.mimeType(), sanitized.width(), sanitized.height(), sanitized.bytes().length
 			));
 			for (ResponsiveImageVariant variant : variants) {
-				String variantStorageKey = responsiveStorageKey(ownerUserId, job.getId(), variant.type());
-				photoStorage.storeResponsiveVariant(
-					variantStorageKey,
-					variant.bytes(),
-					variant.mimeType()
-				);
-				photoAssetRepository.save(PhotoAsset.publicWatermarkedVariant(
-					photo.getId(),
-					variant.type(),
-					variantStorageKey,
-					variant.mimeType(),
-					variant.width(),
-					variant.height(),
-					variant.bytes().length,
-					variant.watermarkVersion(),
-					variant.watermarkPosition()
-				));
+				storePrivateVariant(ownerUserId, job.getId(), photo.getId(), variant);
 			}
-			photo.markReady();
 			uploadItem.assignResultPhoto(photo.getId());
+			List<PhotoAsset> assets = verificationService.verifyAndPublish(photo.getId());
+			photoStorage.deleteTemporary(uploadItem.getTemporaryStorageKey());
+			uploadItem.completeAndForgetOriginal(OffsetDateTime.now(ZoneOffset.UTC));
+			photo.markReady();
 			job.complete(OffsetDateTime.now(ZoneOffset.UTC));
-			return ImageSanitizationResponse.completed(
-				job.getId(),
-				uploadItemId,
-				photo.getId(),
-				photoAssetRepository.findAllByPhotoId(photo.getId())
-			);
+			return ImageSanitizationResponse.completed(job.getId(), uploadItemId, photo.getId(), assets);
 		} catch (ImageSanitizationException exception) {
+			if (photo != null) {
+				photo.markFailed();
+				deleteRejectedOriginal(uploadItem, exception.getFailureCode());
+			}
 			return fail(job, uploadItemId, exception.getFailureCode(), exception.getMessage());
 		} catch (StorageAccessException exception) {
-			return fail(
-				job,
-				uploadItemId,
-				"PHOTO_STORAGE_UNAVAILABLE",
-				"사진 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해주세요."
-			);
+			return fail(job, uploadItemId, "PHOTO_STORAGE_UNAVAILABLE",
+				"사진 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.");
 		}
 	}
 
+	private ImageSanitizationResponse finalizeExistingPhoto(
+		UUID ownerUserId, ImageProcessingJob job, UploadItem uploadItem, OffsetDateTime now
+	) {
+		if (job.getStatus() != ImageProcessingJobStatus.COMPLETED && !startJob(job, now)) {
+			return notReady(job, uploadItem.getId());
+		}
+		Photo photo = photoRepository.findById(uploadItem.getResultPhotoId())
+			.orElseThrow(() -> notFound("처리된 사진을 찾을 수 없습니다."));
+		boolean forceRegeneration = photo.getProcessingStatus() == PhotoProcessingStatus.FAILED;
+		photo.markProcessing();
+		try {
+			ensureResponsiveVariants(ownerUserId, job.getId(), photo.getId(), forceRegeneration);
+			List<PhotoAsset> assets = verificationService.verifyAndPublish(photo.getId());
+			if (uploadItem.getTemporaryStorageKey() != null) {
+				photoStorage.deleteTemporary(uploadItem.getTemporaryStorageKey());
+				uploadItem.completeAndForgetOriginal(OffsetDateTime.now(ZoneOffset.UTC));
+			} else if (uploadItem.getOriginalDeletedAt() != null
+				&& uploadItem.getStatus() != UploadItemStatus.COMPLETED) {
+				uploadItem.completeAndForgetOriginal(uploadItem.getOriginalDeletedAt());
+			} else if (uploadItem.getStatus() != UploadItemStatus.COMPLETED) {
+				throw new ImageSanitizationException(
+					"TEMPORARY_ORIGINAL_STATE_INVALID",
+					"임시 원본의 삭제 상태를 확인할 수 없습니다."
+				);
+			}
+			photo.markReady();
+			if (job.getStatus() == ImageProcessingJobStatus.PROCESSING) {
+				job.complete(OffsetDateTime.now(ZoneOffset.UTC));
+			}
+			return ImageSanitizationResponse.completed(job.getId(), uploadItem.getId(), photo.getId(), assets);
+		} catch (ImageSanitizationException exception) {
+			photo.markFailed();
+			deleteRejectedOriginal(uploadItem, exception.getFailureCode());
+			return failIfProcessing(job, uploadItem.getId(), exception.getFailureCode(), exception.getMessage());
+		} catch (StorageAccessException exception) {
+			return failIfProcessing(job, uploadItem.getId(), "PHOTO_STORAGE_UNAVAILABLE",
+				"사진 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.");
+		}
+	}
+
+	private boolean startJob(ImageProcessingJob job, OffsetDateTime now) {
+		if (job.getStatus() == ImageProcessingJobStatus.FAILED && job.canRetry()) {
+			job.retryNow(now);
+		}
+		try {
+			job.start(now);
+			return true;
+		} catch (IllegalStateException exception) {
+			return false;
+		}
+	}
+
+	private void deleteRejectedOriginal(UploadItem uploadItem, String failureCode) {
+		if (uploadItem.getTemporaryStorageKey() == null) {
+			return;
+		}
+		try {
+			photoStorage.deleteTemporary(uploadItem.getTemporaryStorageKey());
+			uploadItem.failAndForgetOriginal(failureCode, OffsetDateTime.now(ZoneOffset.UTC));
+		} catch (StorageAccessException exception) {
+			// 削除失敗時は参照を保持し、定期cleanupで同じobjectを再削除する。
+		}
+	}
+
+	private void storePrivateVariant(UUID ownerUserId, UUID jobId, UUID photoId, ResponsiveImageVariant variant) {
+		String variantStorageKey = responsiveStorageKey(ownerUserId, jobId, variant.type());
+		photoStorage.storeResponsiveVariant(variantStorageKey, variant.bytes(), variant.mimeType());
+		photoAssetRepository.save(PhotoAsset.privateResponsiveVariant(
+			photoId, variant.type(), variantStorageKey, variant.mimeType(),
+			variant.width(), variant.height(), variant.bytes().length
+		));
+	}
+
 	private ImageSanitizationResponse fail(
-		ImageProcessingJob job,
-		UUID uploadItemId,
-		String failureCode,
-		String message
+		ImageProcessingJob job, UUID uploadItemId, String failureCode, String message
 	) {
 		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 		job.fail(failureCode, now.plus(RETRY_DELAY), now);
 		return ImageSanitizationResponse.failed(job.getId(), uploadItemId, failureCode, message);
 	}
 
+	private ImageSanitizationResponse failIfProcessing(
+		ImageProcessingJob job, UUID uploadItemId, String failureCode, String message
+	) {
+		if (job.getStatus() == ImageProcessingJobStatus.PROCESSING) {
+			return fail(job, uploadItemId, failureCode, message);
+		}
+		return ImageSanitizationResponse.failed(job.getId(), uploadItemId, failureCode, message);
+	}
+
+	private static ImageSanitizationResponse notReady(ImageProcessingJob job, UUID uploadItemId) {
+		return ImageSanitizationResponse.failed(
+			job.getId(), uploadItemId, "IMAGE_PROCESSING_JOB_NOT_READY",
+			"이미지 처리 작업을 아직 다시 시작할 수 없습니다. 잠시 후 시도해주세요."
+		);
+	}
+
 	private static String sanitizedStorageKey(UUID ownerUserId, UUID jobId) {
 		return "sanitized/" + ownerUserId + "/" + jobId + ".jpg";
 	}
 
-	private List<PhotoAsset> ensureResponsiveVariants(UUID ownerUserId, UUID jobId, UUID photoId) {
+	private List<PhotoAsset> ensureResponsiveVariants(
+		UUID ownerUserId,
+		UUID jobId,
+		UUID photoId,
+		boolean forceRegeneration
+	) {
 		List<PhotoAsset> assets = photoAssetRepository.findAllByPhotoId(photoId);
 		Map<PhotoAssetVariantType, PhotoAsset> assetsByType = new EnumMap<>(PhotoAssetVariantType.class);
 		assets.forEach(asset -> assetsByType.put(asset.getVariantType(), asset));
-		if (responsiveVariantTypes().stream().allMatch(type -> {
+		if (!forceRegeneration && responsiveVariantTypes().stream().allMatch(type -> {
 			PhotoAsset asset = assetsByType.get(type);
 			return asset != null && asset.usesWatermarkPolicy(
-				responsiveImageGenerator.watermarkVersion(),
-				responsiveImageGenerator.watermarkPosition()
+				responsiveImageGenerator.watermarkVersion(), responsiveImageGenerator.watermarkPosition()
 			);
 		})) {
 			return assets;
@@ -208,47 +252,29 @@ public class ImageSanitizationService {
 			.filter(asset -> asset.getVariantType() == PhotoAssetVariantType.SANITIZED_MASTER)
 			.findFirst()
 			.orElseThrow(() -> new ImageSanitizationException(
-				"SANITIZED_MASTER_NOT_FOUND",
-				"반응형 이미지의 기준이 되는 정제 마스터를 찾을 수 없습니다."
+				"SANITIZED_MASTER_NOT_FOUND", "반응형 이미지의 기준이 되는 정제 마스터를 찾을 수 없습니다."
 			));
 		byte[] masterBytes = photoStorage.downloadSanitizedMaster(masterAsset.getStorageKey());
 		SanitizedImage master = new SanitizedImage(
-			masterBytes,
-			masterAsset.getMimeType(),
-			masterAsset.getWidth(),
-			masterAsset.getHeight()
+			masterBytes, masterAsset.getMimeType(), masterAsset.getWidth(), masterAsset.getHeight()
 		);
 		for (ResponsiveImageVariant variant : responsiveImageGenerator.generate(master)) {
 			PhotoAsset existingAsset = assetsByType.get(variant.type());
-			if (existingAsset != null && existingAsset.usesWatermarkPolicy(
-				variant.watermarkVersion(),
-				variant.watermarkPosition()
+			if (!forceRegeneration && existingAsset != null && existingAsset.usesWatermarkPolicy(
+				variant.watermarkVersion(), variant.watermarkPosition()
 			)) {
 				continue;
 			}
 			String variantStorageKey = responsiveStorageKey(ownerUserId, jobId, variant.type());
 			photoStorage.storeResponsiveVariant(variantStorageKey, variant.bytes(), variant.mimeType());
 			if (existingAsset == null) {
-				photoAssetRepository.save(PhotoAsset.publicWatermarkedVariant(
-					photoId,
-					variant.type(),
-					variantStorageKey,
-					variant.mimeType(),
-					variant.width(),
-					variant.height(),
-					variant.bytes().length,
-					variant.watermarkVersion(),
-					variant.watermarkPosition()
+				photoAssetRepository.save(PhotoAsset.privateResponsiveVariant(
+					photoId, variant.type(), variantStorageKey, variant.mimeType(),
+					variant.width(), variant.height(), variant.bytes().length
 				));
 			} else {
-				existingAsset.publishWatermarked(
-					variantStorageKey,
-					variant.mimeType(),
-					variant.width(),
-					variant.height(),
-					variant.bytes().length,
-					variant.watermarkVersion(),
-					variant.watermarkPosition()
+				existingAsset.stagePrivateVariant(
+					variantStorageKey, variant.mimeType(), variant.width(), variant.height(), variant.bytes().length
 				);
 			}
 		}
@@ -264,9 +290,7 @@ public class ImageSanitizationService {
 	}
 
 	private static String responsiveStorageKey(
-		UUID ownerUserId,
-		UUID jobId,
-		PhotoAssetVariantType variantType
+		UUID ownerUserId, UUID jobId, PhotoAssetVariantType variantType
 	) {
 		return "variants/" + ownerUserId + "/" + jobId + "/"
 			+ variantType.name().toLowerCase(java.util.Locale.ROOT) + ".jpg";
@@ -274,9 +298,7 @@ public class ImageSanitizationService {
 
 	private static ImageProcessingJobException notFound(String message) {
 		return new ImageProcessingJobException(
-			HttpStatus.NOT_FOUND,
-			"IMAGE_PROCESSING_JOB_NOT_FOUND",
-			message
+			HttpStatus.NOT_FOUND, "IMAGE_PROCESSING_JOB_NOT_FOUND", message
 		);
 	}
 }

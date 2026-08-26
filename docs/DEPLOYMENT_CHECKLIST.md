@@ -25,7 +25,7 @@
 - 운영 API의 `FRONTEND_ORIGINS`를 실제 프론트 도메인으로 제한하고 세션 쿠키에 `HttpOnly`, `Secure`, `SameSite=None`이 적용됐는지 확인한다.
 - 최초 관리자 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 운영 환경변수에서 제거한다.
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
-- 운영 PostgreSQL에서 V1~V12 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다. V11 적용 후 완료 작업·검사 통과 정제 마스터가 있으면서 `PROCESSING`에 남은 사진은 0건이어야 하며, V12 적용 후 안전 조건이 누락된 공개 사진 자산은 0건이어야 한다.
+- 운영 PostgreSQL에서 V1~V14 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다. V11 적용 후 완료 작업·검사 통과 정제 마스터가 있으면서 `PROCESSING`에 남은 사진은 0건이어야 하며, V12 적용 후 안전 조건이 누락된 공개 사진 자산은 0건이어야 한다. V13의 만료 원본 제약·정리 인덱스와 V14의 제한된 후보 소유자 함수가 있어야 하며 함수 실행 권한은 `placesplates_app`만 가져야 한다.
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
 - 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
@@ -37,6 +37,7 @@
 - 브라우저 네트워크에서 사진 본문은 서명 전용 `/storage/v1/upload/resumable/sign`에 `x-signature`와 함께 TUS 6MB 청크로 전송되고, 제어·진행률·완료 요청은 Spring Boot API로만 전달되는지 확인한다.
 - ICC 색상 프로필이 있는 JPG를 포함한 JPG·PNG 업로드 후 `/sanitize` 응답과 `image_processing_jobs.status`가 `COMPLETED`, `photos.processing_status`가 `READY`인지 확인한다. Cloud Run 로그에 `liblcms2.so.2` 관련 `UnsatisfiedLinkError`가 없어야 한다. `photo_assets`에는 `metadata_scan_passed=TRUE`인 비공개 `SANITIZED_MASTER`가 하나 생성되고, 저장 키에 원래 파일명이 없으며 결과 EXIF·XMP·IPTC가 0건이어야 한다. 완료 요청을 반복해도 같은 사진이 `READY`로 복구되어야 하며, HEIC·HEIF는 `HEIC_DECODER_UNAVAILABLE`과 JPEG 변환 안내를 반환해야 한다.
 - `THUMBNAIL`·`MAP_CARD`·`PUBLIC_DETAIL`은 `PUBLIC`, `metadata_scan_passed=TRUE`, `watermark_applied=TRUE`, 정책 `places-plates-corner-v1`, 위치 `BOTTOM_RIGHT`여야 한다. 세 JPEG의 하단 오른쪽 픽셀에 `Places & Plates`가 보이고 CSS를 제거해도 유지되는지 확인하며, 기존 무워터마크 파생본은 정제 요청 재호출로 현재 정책에 맞게 교체되어야 한다.
+- C17 스모크에서는 `/sanitize` 성공 뒤 `upload_items.processing_status=COMPLETED`, `temporary_storage_key IS NULL`, `original_deleted_at IS NOT NULL`, `photos.processing_status=READY`를 함께 확인한다. 삭제 실패를 주입한 테스트에서는 사진이 `PROCESSING`으로 공개 차단되고 원본 키가 재시도용으로 남아야 하며, 24시간 만료 항목은 예약 작업 뒤 `EXPIRED`와 삭제 시각을 가져야 한다.
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 로그인 상태에서 새 Cloud Run 리비전으로 트래픽을 전환한 뒤에도 세션이 복구되는지 확인하고, 로그아웃 후 같은 쿠키의 보호 API 접근이 401인지 확인한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
@@ -68,7 +69,7 @@
 - 本番APIの`FRONTEND_ORIGINS`を実際のフロントエンドドメインに限定し、セッションCookieに`HttpOnly`、`Secure`、`SameSite=None`が適用されていることを確認する。
 - 初回管理者の作成確認後、`ADMIN_BOOTSTRAP_ENABLED=false`へ変更し、`ADMIN_PASSWORD`を本番環境変数から削除する。
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
-- 本番PostgreSQLでV1〜V12履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。V11適用後、完了job・検査通過sanitized masterがありながら`PROCESSING`に残る写真は0件で、V12適用後は安全条件が欠落した公開写真assetが0件でなければならない。
+- 本番PostgreSQLでV1〜V14履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。V11適用後、完了job・検査通過sanitized masterがありながら`PROCESSING`に残る写真は0件で、V12適用後は安全条件が欠落した公開写真assetが0件でなければならない。V13の期限切れ原本制約・cleanup indexとV14の限定された候補owner関数が存在し、関数の実行権限は`placesplates_app`だけが持つことを確認する。
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
 - Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
@@ -80,6 +81,7 @@
 - 写真本文が`x-signature`付きで署名専用`/storage/v1/upload/resumable/sign`へTUSの6MBチャンクとして送信され、制御・進捗・完了要求はSpring Boot APIだけへ送信されることを確認する。
 - ICC color profileを含むJPGを含め、JPG・PNG upload後に`/sanitize` responseと`image_processing_jobs.status`が`COMPLETED`、`photos.processing_status`が`READY`であることを確認する。Cloud Run logに`liblcms2.so.2`関連の`UnsatisfiedLinkError`がないことも確認する。`photo_assets`には`metadata_scan_passed=TRUE`の非公開`SANITIZED_MASTER`が一つ作成され、storage keyに元file名がなく、結果EXIF・XMP・IPTCが0件でなければならない。完了requestを繰り返しても同じ写真が`READY`へ復元され、HEIC・HEIFは`HEIC_DECODER_UNAVAILABLE`とJPEG変換案内を返すことを確認する。
 - `THUMBNAIL`・`MAP_CARD`・`PUBLIC_DETAIL`は`PUBLIC`、`metadata_scan_passed=TRUE`、`watermark_applied=TRUE`、policy `places-plates-corner-v1`、位置`BOTTOM_RIGHT`でなければならない。3 JPEGの右下pixelに`Places & Plates`が表示され、CSSを除去しても残ることを確認する。既存のwatermarkなしvariantはsanitize再呼出しで現policyへ置換されなければならない。
+- C17 smoke testでは`/sanitize`成功後に`upload_items.processing_status=COMPLETED`、`temporary_storage_key IS NULL`、`original_deleted_at IS NOT NULL`、`photos.processing_status=READY`を同時に確認する。削除失敗を注入したtestでは写真が`PROCESSING`のまま公開遮断され、原本keyが再試行用に残ること、24時間期限切れitemは定期処理後に`EXPIRED`と削除時刻を持つことを確認する。
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - Login状態で新しいCloud Run revisionへtrafficを切り替えた後もsessionを復元でき、logout後に同じCookieで保護APIへアクセスすると401になることを確認する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。

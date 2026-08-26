@@ -14,7 +14,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 12;
+	private static final int EXPECTED_MIGRATION_COUNT = 14;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
 	private static final int RUNTIME_VERIFICATION_ATTEMPTS = 4;
 	private static final long RUNTIME_VERIFICATION_RETRY_DELAY_MILLIS = 10_000L;
@@ -116,6 +116,30 @@ public final class SupabaseDatabaseProvisioner {
 				connection,
 				"""
 				SELECT COUNT(*)
+				FROM pg_proc
+				JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
+				WHERE pg_namespace.nspname = 'public'
+				  AND pg_proc.proname = 'list_temporary_original_cleanup_owners'
+				  AND prosecdef = TRUE
+				  AND has_function_privilege(
+				      'placesplates_app',
+				      'public.list_temporary_original_cleanup_owners(integer)',
+				      'EXECUTE'
+				  )
+				  AND NOT EXISTS (
+				      SELECT 1
+				      FROM aclexplode(COALESCE(pg_proc.proacl, acldefault('f', pg_proc.proowner))) acl
+				      WHERE acl.grantee = 0
+				        AND acl.privilege_type = 'EXECUTE'
+				  )
+				""",
+				1,
+				"temporary original cleanup function privileges"
+			);
+			assertCount(
+				connection,
+				"""
+				SELECT COUNT(*)
 				FROM photos
 				WHERE processing_status = 'PROCESSING'
 				  AND EXISTS (
@@ -174,6 +198,7 @@ public final class SupabaseDatabaseProvisioner {
 
 			assertCount(connection, "SELECT COUNT(*) FROM posts", 0, "rows visible without request scope");
 			assertQuerySucceeds(connection, "SELECT COUNT(*) FROM spring_session");
+			assertQuerySucceeds(connection, "SELECT * FROM list_temporary_original_cleanup_owners(1)");
 		}
 	}
 

@@ -13,3 +13,5 @@ spring:
 places-plates:
   security:
     database-row-security-enabled: false
+  cleanup:
+    enabled: false

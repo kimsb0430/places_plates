@@ -155,7 +155,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-02 ~ 2026-09-08
 
-진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 정제 마스터와 V11 READY 백필 운영 검증 완료. C15는 320px 썸네일·960px 카드·2,000px 상세 파생본 생성, 무확대 비율 유지, 메타데이터 재검사와 기존 완료 사진 누락 보충을 구현했다. C15 운영 배포 후 발견된 Cloud Run LCMS2 누락은 Java 21·`liblcms2-2` 명시 컨테이너와 CI 이미지 검사로 보완했고, 저장소의 `backend/cloudbuild.yaml`로 Docker 배포 경로를 고정했다. C16은 하단 오른쪽 `Places & Plates` 픽셀 워터마크, 밝기 기반 색상 선택, 정책 버전·위치 기록과 기존 파생본 재생성을 구현했으며 다음 기능 작업은 C17 공개본 검사와 임시 원본 삭제다.
+진행 상태: C11 다중 사진 TUS 임시 업로드, C12 비공개 초안, C13 이미지 처리 작업 큐의 운영 검증 완료. C13A PostgreSQL 세션 지속성·운영 DB V10·Cloud Run 배포와 새로고침 복구 검증 완료. C14 정제 마스터와 V11 READY 백필 운영 검증 완료. C15는 320px 썸네일·960px 카드·2,000px 상세 파생본 생성, 무확대 비율 유지, 메타데이터 재검사와 기존 완료 사진 누락 보충을 구현했다. C15 운영 배포 후 발견된 Cloud Run LCMS2 누락은 Java 21·`liblcms2-2` 명시 컨테이너와 CI 이미지 검사로 보완했고, 저장소의 `backend/cloudbuild.yaml`로 Docker 배포 경로를 고정했다. C16은 하단 오른쪽 `Places & Plates` 픽셀 워터마크, 밝기 기반 색상 선택, 정책 버전·위치 기록과 기존 파생본 재생성을 구현했다. C17은 저장소에서 다시 읽은 마스터·파생본의 디코딩·크기·메타데이터·워터마크 픽셀을 검증한 뒤 공개하고 임시 원본을 즉시 삭제하며, 실패 재시도와 24시간 만료 정리를 구현했다. 운영 DB V13·V14 적용과 배포 스모크 검증이 남아 있다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -166,7 +166,7 @@ Sprint 종료 게이트:
 | C14 | `feat: create sanitized masters without image metadata` | 인증된 업로드 완료 요청에서 방향 보정·JPEG 재인코딩 후 EXIF·XMP·IPTC와 원래 파일명 제거, 2,500만 픽셀 제한과 실패 코드 기록 | 비공개 정제 마스터에서 민감 메타데이터 0건, 사진 상태 READY, 중복 요청은 동일 처리 작업으로 직렬화·완료 상태 복구 |
 | C15 | `feat: generate responsive image variants and thumbnails` | 썸네일·카드·상세용 이미지 생성 | 화면별로 적합한 크기 선택 |
 | C16 | `feat: burn places and plates watermarks into public images` | `Places & Plates` 서버 합성 워터마크와 정책 버전 | CSS 제거 후에도 표준 문구 유지 |
-| C17 | `feat: verify images and purge temporary originals` | 정제본·공개본 검사, 임시 원본 삭제·만료 정리와 자동 테스트 | 처리 완료 후 원본 잔존 0건, 실패 이미지는 게시 차단 |
+| C17 | `feat: verify images and purge temporary originals` | 저장된 정제본·공개본 바이트 재검사, 성공 원본 즉시 삭제, 실패 재시도·24시간 만료 정리와 자동 테스트 | 검증·삭제 완료 전 사진은 READY가 아니며 처리 완료 후 원본 잔존 0건, 실패 이미지는 게시 차단 |
 
 Sprint 종료 게이트:
 
