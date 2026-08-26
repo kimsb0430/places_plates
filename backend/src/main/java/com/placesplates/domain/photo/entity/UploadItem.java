@@ -56,6 +56,9 @@ public class UploadItem {
 	@Column(name = "expires_at", nullable = false)
 	private OffsetDateTime expiresAt;
 
+	@Column(name = "original_deleted_at")
+	private OffsetDateTime originalDeletedAt;
+
 	@Column(name = "created_at", nullable = false)
 	private OffsetDateTime createdAt;
 
@@ -149,6 +152,39 @@ public class UploadItem {
 		touch();
 	}
 
+	public void completeAndForgetOriginal(OffsetDateTime deletedAt) {
+		if (resultPhotoId == null) {
+			throw new IllegalStateException("Completed upload item requires a result photo");
+		}
+		temporaryStorageKey = null;
+		originalDeletedAt = deletedAt;
+		status = UploadItemStatus.COMPLETED;
+		failureCode = null;
+		touch();
+	}
+
+	public void expireAndForgetOriginal(OffsetDateTime deletedAt) {
+		if (resultPhotoId != null) {
+			throw new IllegalStateException("Processed upload item cannot be expired");
+		}
+		temporaryStorageKey = null;
+		originalDeletedAt = deletedAt;
+		status = UploadItemStatus.EXPIRED;
+		failureCode = null;
+		touch();
+	}
+
+	public void failAndForgetOriginal(String failureCode, OffsetDateTime deletedAt) {
+		if (resultPhotoId == null) {
+			throw new IllegalStateException("Failed processed upload item requires a result photo");
+		}
+		temporaryStorageKey = null;
+		originalDeletedAt = deletedAt;
+		status = UploadItemStatus.FAILED;
+		this.failureCode = failureCode;
+		touch();
+	}
+
 	private void touch() {
 		updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
@@ -199,5 +235,9 @@ public class UploadItem {
 
 	public OffsetDateTime getExpiresAt() {
 		return expiresAt;
+	}
+
+	public OffsetDateTime getOriginalDeletedAt() {
+		return originalDeletedAt;
 	}
 }

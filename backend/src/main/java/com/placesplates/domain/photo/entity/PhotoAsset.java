@@ -180,6 +180,28 @@ public class PhotoAsset {
 		this.watermarkPosition = watermarkPosition;
 	}
 
+	public void stagePrivateVariant(
+		String storageKey,
+		String mimeType,
+		int width,
+		int height,
+		long byteSize
+	) {
+		if (!variantType.isResponsiveVariant()) {
+			throw new IllegalStateException("Only responsive assets can be staged");
+		}
+		this.accessLevel = "PRIVATE";
+		this.storageKey = storageKey;
+		this.mimeType = mimeType;
+		this.width = width;
+		this.height = height;
+		this.byteSize = byteSize;
+		this.metadataScanPassed = true;
+		this.watermarkApplied = false;
+		this.watermarkVersion = null;
+		this.watermarkPosition = null;
+	}
+
 	public boolean usesWatermarkPolicy(String version, String position) {
 		return "PUBLIC".equals(accessLevel)
 			&& metadataScanPassed

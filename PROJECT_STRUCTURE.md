@@ -135,9 +135,9 @@ backend/src/main/java/com/placesplates/
 │   └── security/                # Spring Security와 요청별 DB 소유자 컨텍스트
 └── infra/
     ├── googlemaps/              # Google Places 서버 연동
-    ├── image/                   # 방향 보정·JPEG 재인코딩·메타데이터 검사·반응형 크기·서버 워터마크
-    ├── storage/                 # 임시 원본 읽기·비공개 정제 마스터·파생본 저장
-    └── persistence/             # 복잡한 조회·운영 DB 프로비저닝
+    ├── image/                   # 방향 보정·JPEG 재인코딩·저장 바이트 검사·반응형 크기·서버 워터마크
+    ├── storage/                 # 임시 원본 읽기·삭제와 비공개 정제 마스터·파생본 저장·재조회
+    └── persistence/             # 복잡한 조회·운영 DB 프로비저닝·RLS 정리 대상 열거
 ```
 
 ```text
@@ -202,6 +202,9 @@ backend/src/test/java/com/placesplates/
 - 정제 요청은 인증된 소유자 API에서 작업 행을 잠근 뒤 실행한다. JPG·PNG 픽셀을 최대 2,500만 픽셀까지 디코딩하고 방향 보정 후 품질 0.92 JPEG로 새로 인코딩하며, EXIF·XMP·IPTC 재검사를 통과한 결과만 `SANITIZED_MASTER`로 저장한다.
 - 정제 마스터에서 `THUMBNAIL` 320px, `MAP_CARD` 960px, `PUBLIC_DETAIL` 2,000px 파생본을 품질 0.88 JPEG로 생성한다. 작은 사진은 확대하지 않으며 세 결과 모두 메타데이터 검사를 통과해야 신규 사진을 `READY`로 전환한다.
 - `JavaServerWatermarkRenderer`는 각 파생본 하단 오른쪽 픽셀에 `Places & Plates`를 합성한다. 기본 정책은 너비 16%, 여백 3%, 불투명도 28%, 밝기 기반 흰색·검은색 자동 선택이며 버전과 위치를 `photo_assets`에 기록한다.
+- 신규 파생본은 먼저 논리적 `PRIVATE`로 기록한다. `PhotoAssetVerificationService`가 저장소에서 마스터와 세 파생본을 다시 내려받아 JPEG 디코딩·바이트 크기·해상도·EXIF/XMP/IPTC 0건을 확인하고, 정제 마스터에서 동일 정책으로 재생성한 파생본과 바이트가 일치할 때만 `PUBLIC`으로 전환한다.
+- 검증을 통과한 뒤 `temporary/` 객체 삭제까지 성공해야 업로드 항목은 `COMPLETED`, 사진은 `READY`가 된다. 삭제 실패는 원본 키와 `PROCESSING` 상태를 유지해 다음 정제 요청 또는 예약 작업에서 재시도한다. 검증 실패 사진은 `FAILED`로 닫고 임시 원본을 삭제한다.
+- `TemporaryOriginalCleanupWorker`는 시작 30초 후, 이후 15분 간격으로 처리 완료 원본과 24시간 만료 미처리 원본을 최대 25개씩 정리한다. PostgreSQL `SECURITY DEFINER` 함수는 후보 소유자 UUID만 반환하고, 실제 조회·상태 변경은 각 소유자의 강제 RLS 범위에서 수행한다. Cloud Run이 0개 인스턴스로 축소된 동안에는 실행되지 않으므로 정확한 시각 보장이 필요해지면 Cloud Scheduler 호출형 작업으로 분리한다.
 - `SUPABASE_SANITIZED_PHOTO_BUCKET`은 비공개 버킷이어야 한다. 미설정 시 기존 비공개 `temporary-uploads` 버킷의 `sanitized/` 접두사를 사용하되 C17 만료 정리는 `temporary/` 접두사만 삭제한다.
 - HEIC·HEIF는 검증된 JVM 픽셀 디코더가 배포되기 전까지 실패 상태와 JPEG 변환 안내를 반환하며 원본이나 불완전한 파생본을 공개하지 않는다.
 - 데이터베이스 비밀번호, 저장소 비밀키, 관리자 비밀번호는 프론트엔드에 전달하지 않는다.

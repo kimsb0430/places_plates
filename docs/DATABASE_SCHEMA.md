@@ -59,6 +59,8 @@ SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 | `db/migration/postgresql/V10__secure_jdbc_session_store.sql` | PostgreSQL | 런타임 역할 세션 CRUD와 PUBLIC·Data API 접근 차단 |
 | `db/migration/common/V11__backfill_ready_sanitized_photos.sql` | 모든 DB | 완료 작업·비공개 정제 마스터·메타데이터 검사 통과 조건을 모두 충족한 기존 사진만 READY로 백필 |
 | `db/migration/common/V12__record_server_watermark_policy.sql` | 모든 DB | 워터마크 위치와 정책 버전의 일관성 제약, 정제 마스터 워터마크 금지 |
+| `db/migration/common/V13__enforce_temporary_original_purge.sql` | 모든 DB | 만료 항목의 원본 삭제 상태 제약과 원본 정리 조회 인덱스 |
+| `db/migration/postgresql/V14__list_temporary_original_cleanup_owners.sql` | PostgreSQL | 런타임 역할에 후보 소유자 UUID만 제한 공개하는 예약 정리 함수 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -87,6 +89,8 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과하고 정책 버전·지원 위치를 가져야 한다.
 - 정제 마스터는 항상 비공개 자산이다.
 - 완료된 업로드 항목에는 임시 원본 저장 경로가 남을 수 없다.
+- 만료된 업로드 항목도 임시 원본 경로가 없고 삭제 시각이 기록되어야 하며 결과 사진을 가질 수 없다.
+- 예약 정리는 권한 상승된 광역 테이블 조회를 사용하지 않는다. 제한된 보안 정의자 함수로 후보 소유자 UUID만 얻은 후, 각 소유자의 `OWNER` RLS 컨텍스트에서 항목을 잠그고 검사·삭제·상태 변경을 수행한다.
 - `upload_items`는 비공개 업로드 화면을 위해 파일 표시명·MIME·선언 크기·업로드 바이트·시도 횟수·실패 코드·24시간 만료를 추적한다. 객체 키는 원래 파일명 대신 소유자·묶음·항목 UUID로 생성한다.
 - `image_processing_jobs.upload_item_id`는 UNIQUE이며 업로드 완료 요청이 반복되어도 처리 작업은 하나만 생성한다. 작업은 최대 5회까지 처리 시도 횟수, 다음 실행 시각, 마지막 실패 코드를 추적하고 소유자 RLS 밖으로 노출되지 않는다.
 - 세션 속성은 `spring_session.primary_id`를 외래키로 참조하며 세션 삭제 시 함께 삭제된다. 만료 세션은 Spring Session JDBC 정리 작업이 `expiry_time`을 기준으로 제거한다.

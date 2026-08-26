@@ -3,6 +3,8 @@ package com.placesplates.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.util.UUID;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 
@@ -34,6 +38,7 @@ import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
 import com.placesplates.domain.photo.entity.PhotoAssetVariantType;
+import com.placesplates.domain.photo.entity.UploadItemStatus;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
 import com.placesplates.domain.photo.repository.ImageProcessingJobRepository;
 import com.placesplates.domain.photo.repository.PhotoAssetRepository;
@@ -43,6 +48,7 @@ import com.placesplates.domain.photo.service.ImageProcessingJobService;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.PrivatePhotoStorage;
+import com.placesplates.infra.storage.StorageAccessException;
 import com.placesplates.infra.storage.TemporaryUploadSigner;
 
 import jakarta.servlet.http.Cookie;
@@ -93,8 +99,13 @@ class PhotoUploadControllerTests {
 	@MockitoBean
 	private PrivatePhotoStorage privatePhotoStorage;
 
+	private final Map<String, byte[]> storedMasters = new ConcurrentHashMap<>();
+	private final Map<String, byte[]> storedVariants = new ConcurrentHashMap<>();
+
 	@BeforeEach
 	void setUp() {
+		storedMasters.clear();
+		storedVariants.clear();
 		imageProcessingJobRepository.deleteAll();
 		uploadBatchRepository.deleteAll();
 		photoAssetRepository.deleteAll();
@@ -113,6 +124,22 @@ class PhotoUploadControllerTests {
 				invocation.getArgument(0)
 			));
 		when(uploadSigner.objectMatches(anyString(), anyLong())).thenReturn(true);
+		doAnswer(invocation -> {
+			storedMasters.put(invocation.getArgument(0), invocation.<byte[]>getArgument(1).clone());
+			return null;
+		}).when(privatePhotoStorage).storeSanitizedMaster(
+			anyString(), org.mockito.ArgumentMatchers.any(byte[].class), anyString()
+		);
+		doAnswer(invocation -> {
+			storedVariants.put(invocation.getArgument(0), invocation.<byte[]>getArgument(1).clone());
+			return null;
+		}).when(privatePhotoStorage).storeResponsiveVariant(
+			anyString(), org.mockito.ArgumentMatchers.any(byte[].class), anyString()
+		);
+		when(privatePhotoStorage.downloadSanitizedMaster(anyString()))
+			.thenAnswer(invocation -> storedMasters.get(invocation.getArgument(0)));
+		when(privatePhotoStorage.downloadResponsiveVariant(anyString()))
+			.thenAnswer(invocation -> storedVariants.get(invocation.getArgument(0)));
 	}
 
 	@Test
@@ -153,8 +180,11 @@ class PhotoUploadControllerTests {
 			sanitizeResult.getResponse().getContentAsString(),
 			"$.photoId"
 		));
-		assertThat(uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow().getResultPhotoId())
-			.isEqualTo(photoId);
+		var completedItem = uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow();
+		assertThat(completedItem.getResultPhotoId()).isEqualTo(photoId);
+		assertThat(completedItem.getStatus()).isEqualTo(UploadItemStatus.COMPLETED);
+		assertThat(completedItem.getTemporaryStorageKey()).isNull();
+		assertThat(completedItem.getOriginalDeletedAt()).isNotNull();
 		assertThat(photoRepository.count()).isEqualTo(1);
 		assertThat(photoRepository.findById(photoId).orElseThrow().getProcessingStatus())
 			.isEqualTo(PhotoProcessingStatus.READY);
@@ -171,7 +201,6 @@ class PhotoUploadControllerTests {
 		assertThat(imageProcessingJobRepository.findByUploadItemId(UUID.fromString(itemId)).orElseThrow().getStatus())
 			.hasToString("COMPLETED");
 
-		when(privatePhotoStorage.downloadSanitizedMaster(anyString())).thenReturn(source);
 		jdbcTemplate.update(
 			"""
 			UPDATE photo_assets
@@ -239,6 +268,116 @@ class PhotoUploadControllerTests {
 			org.mockito.ArgumentMatchers.any(byte[].class),
 			org.mockito.ArgumentMatchers.eq("image/jpeg")
 		);
+		verify(privatePhotoStorage).deleteTemporary(org.mockito.ArgumentMatchers.startsWith("temporary/"));
+	}
+
+	@Test
+	void retriesTemporaryOriginalDeletionBeforePhotoBecomesReady() throws Exception {
+		byte[] source = createJpeg();
+		when(privatePhotoStorage.downloadTemporary(anyString())).thenReturn(source);
+		doThrow(new StorageAccessException("temporary delete unavailable"))
+			.doNothing()
+			.when(privatePhotoStorage).deleteTemporary(anyString());
+		AuthenticatedSession authenticated = login();
+		MvcResult createResult = mockMvc.perform(post("/api/v1/manage/photo-uploads")
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"category":"DESTINATION","files":[{"clientFileName":"retry.jpg","mimeType":"image/jpeg","byteSize":%d}]}
+					""".formatted(source.length)))
+			.andExpect(status().isCreated())
+			.andReturn();
+		String body = createResult.getResponse().getContentAsString();
+		String batchId = JsonPath.read(body, "$.id");
+		String itemId = JsonPath.read(body, "$.items[0].id");
+		mockMvc.perform(post(itemPath(batchId, itemId, "complete"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("FAILED"))
+			.andExpect(jsonPath("$.failureCode").value("PHOTO_STORAGE_UNAVAILABLE"));
+
+		var retainedItem = uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow();
+		assertThat(retainedItem.getTemporaryStorageKey()).startsWith("temporary/");
+		assertThat(retainedItem.getOriginalDeletedAt()).isNull();
+		assertThat(photoRepository.findById(retainedItem.getResultPhotoId()).orElseThrow().getProcessingStatus())
+			.isEqualTo(PhotoProcessingStatus.PROCESSING);
+		jdbcTemplate.update(
+			"UPDATE image_processing_jobs SET next_attempt_at = CURRENT_TIMESTAMP WHERE upload_item_id = ?",
+			UUID.fromString(itemId)
+		);
+
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("COMPLETED"));
+
+		var completedItem = uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow();
+		assertThat(completedItem.getTemporaryStorageKey()).isNull();
+		assertThat(completedItem.getOriginalDeletedAt()).isNotNull();
+		assertThat(photoRepository.findById(completedItem.getResultPhotoId()).orElseThrow().getProcessingStatus())
+			.isEqualTo(PhotoProcessingStatus.READY);
+	}
+
+	@Test
+	void rebuildsRejectedVariantFromSanitizedMasterAfterOriginalWasDeleted() throws Exception {
+		byte[] source = createJpeg();
+		when(privatePhotoStorage.downloadTemporary(anyString())).thenReturn(source);
+		when(privatePhotoStorage.downloadResponsiveVariant(anyString()))
+			.thenReturn(new byte[] {1})
+			.thenAnswer(invocation -> storedVariants.get(invocation.getArgument(0)));
+		AuthenticatedSession authenticated = login();
+		MvcResult createResult = mockMvc.perform(post("/api/v1/manage/photo-uploads")
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"category":"RESTAURANT","files":[{"clientFileName":"corrupt.jpg","mimeType":"image/jpeg","byteSize":%d}]}
+					""".formatted(source.length)))
+			.andExpect(status().isCreated())
+			.andReturn();
+		String body = createResult.getResponse().getContentAsString();
+		String batchId = JsonPath.read(body, "$.id");
+		String itemId = JsonPath.read(body, "$.items[0].id");
+		mockMvc.perform(post(itemPath(batchId, itemId, "complete"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("FAILED"))
+			.andExpect(jsonPath("$.failureCode").value("STORED_IMAGE_SIZE_MISMATCH"));
+
+		var rejectedItem = uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow();
+		assertThat(rejectedItem.getStatus()).isEqualTo(UploadItemStatus.FAILED);
+		assertThat(rejectedItem.getTemporaryStorageKey()).isNull();
+		assertThat(rejectedItem.getOriginalDeletedAt()).isNotNull();
+		jdbcTemplate.update(
+			"UPDATE image_processing_jobs SET next_attempt_at = CURRENT_TIMESTAMP WHERE upload_item_id = ?",
+			UUID.fromString(itemId)
+		);
+
+		mockMvc.perform(post(itemPath(batchId, itemId, "sanitize"))
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("COMPLETED"));
+
+		var completedItem = uploadItemRepository.findById(UUID.fromString(itemId)).orElseThrow();
+		assertThat(completedItem.getStatus()).isEqualTo(UploadItemStatus.COMPLETED);
+		assertThat(completedItem.getTemporaryStorageKey()).isNull();
+		assertThat(photoRepository.findById(completedItem.getResultPhotoId()).orElseThrow().getProcessingStatus())
+			.isEqualTo(PhotoProcessingStatus.READY);
 	}
 
 	@Test

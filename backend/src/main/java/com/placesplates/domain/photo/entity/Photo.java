@@ -64,6 +64,16 @@ public class Photo {
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
+	public void markProcessing() {
+		this.processingStatus = PhotoProcessingStatus.PROCESSING;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	public void markFailed() {
+		this.processingStatus = PhotoProcessingStatus.FAILED;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
 	public UUID getId() {
 		return id;
 	}

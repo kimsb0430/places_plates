@@ -47,6 +47,11 @@ public class SupabasePrivatePhotoStorage implements PrivatePhotoStorage {
 	}
 
 	@Override
+	public byte[] downloadResponsiveVariant(String objectKey) {
+		return download(sanitizedBucket, objectKey, "Responsive image variant");
+	}
+
+	@Override
 	public void storeSanitizedMaster(String objectKey, byte[] bytes, String mimeType) {
 		upload(objectKey, bytes, mimeType, "Sanitized master");
 	}
@@ -54,6 +59,26 @@ public class SupabasePrivatePhotoStorage implements PrivatePhotoStorage {
 	@Override
 	public void storeResponsiveVariant(String objectKey, byte[] bytes, String mimeType) {
 		upload(objectKey, bytes, mimeType, "Responsive image variant");
+	}
+
+	@Override
+	public void deleteTemporary(String objectKey) {
+		if (objectKey == null || !objectKey.startsWith("temporary/") || objectKey.contains("..")) {
+			throw new StorageAccessException("Temporary storage key is invalid");
+		}
+		assertConfigured();
+		HttpRequest request = authorizedRequest(objectUri(temporaryBucket, objectKey)).DELETE().build();
+		try {
+			HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+			if ((response.statusCode() < 200 || response.statusCode() >= 300) && response.statusCode() != 404) {
+				throw new StorageAccessException("Temporary storage object deletion failed");
+			}
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new StorageAccessException("Temporary storage object deletion was interrupted", exception);
+		} catch (IOException exception) {
+			throw new StorageAccessException("Temporary storage object deletion failed", exception);
+		}
 	}
 
 	private byte[] download(String bucket, String objectKey, String assetName) {
