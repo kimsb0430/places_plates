@@ -13,6 +13,7 @@ import type { DraftPhoto, DraftPhotoEditItem } from '../types';
 interface DraftPhotoEditorProps {
   draftPostId: string;
   onUnauthorized: () => void;
+  onSaved?: () => void;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -20,7 +21,7 @@ type SaveState = 'saved' | 'saving' | 'error';
 
 const AUTOSAVE_DELAY_MS = 600;
 
-export function DraftPhotoEditor({ draftPostId, onUnauthorized }: DraftPhotoEditorProps) {
+export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: DraftPhotoEditorProps) {
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -68,6 +69,7 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized }: DraftPhotoEdit
           setPhotos(savedPhotos);
           setSaveState('saved');
           setMessage('사진 변경 내용이 저장되었습니다.');
+          onSaved?.();
         })
         .catch((error: unknown) => {
           if (abortController.signal.aborted) return;
@@ -86,7 +88,7 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized }: DraftPhotoEdit
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [draftPostId, loadState, onUnauthorized, photos, retryVersion]);
+  }, [draftPostId, loadState, onSaved, onUnauthorized, photos, retryVersion]);
 
   const movePhoto = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;

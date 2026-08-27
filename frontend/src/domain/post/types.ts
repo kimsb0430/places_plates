@@ -2,6 +2,8 @@ import type { PostCategory } from '@/domain/photo/types';
 
 export type RestaurantPriceRange = 'BUDGET' | 'MODERATE' | 'EXPENSIVE' | 'LUXURY';
 export type RevisitIntention = 'YES' | 'MAYBE' | 'NO';
+export type PostVisibility = 'PRIVATE' | 'UNLISTED' | 'PUBLIC';
+export type PostStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 
 export interface RestaurantDetail {
   rating: number | null;
@@ -62,8 +64,8 @@ export interface DraftPost {
   place: Place | null;
   restaurantDetails: RestaurantDetail | null;
   destinationDetails: DestinationDetail | null;
-  visibility: 'PRIVATE';
-  status: 'DRAFT';
+  visibility: PostVisibility;
+  status: PostStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,4 +78,22 @@ export interface DraftPostUpdateInput {
   publicVisitMonth: number | null;
   restaurantDetails: RestaurantDetail | null;
   destinationDetails: DestinationDetail | null;
+}
+
+export interface PostPublicationCheck {
+  code: string;
+  label: string;
+  passed: boolean;
+}
+
+export interface PostPublicationReadiness {
+  ready: boolean;
+  checks: PostPublicationCheck[];
+}
+
+export interface PostPublicationResult {
+  id: string;
+  visibility: PostVisibility;
+  status: 'PUBLISHED';
+  publishedAt: string;
 }

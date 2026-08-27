@@ -3,6 +3,9 @@ import type {
   DraftPostUpdateInput,
   PlaceConnectionInput,
   PlaceSearchResult,
+  PostPublicationReadiness,
+  PostPublicationResult,
+  PostVisibility,
 } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
@@ -110,5 +113,30 @@ export async function disconnectDraftPlace(draftPostId: string): Promise<DraftPo
   return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}/place`, {
     method: 'DELETE',
     headers: { [csrfToken.headerName]: csrfToken.token },
+  });
+}
+
+export function getPostPublicationReadiness(
+  draftPostId: string,
+  signal?: AbortSignal,
+): Promise<PostPublicationReadiness> {
+  return request<PostPublicationReadiness>(
+    `/api/v1/manage/drafts/${draftPostId}/publication-readiness`,
+    { signal },
+  );
+}
+
+export async function publishDraftPost(
+  draftPostId: string,
+  visibility: PostVisibility,
+): Promise<PostPublicationResult> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<PostPublicationResult>(`/api/v1/manage/drafts/${draftPostId}/publication`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      [csrfToken.headerName]: csrfToken.token,
+    },
+    body: JSON.stringify({ visibility }),
   });
 }

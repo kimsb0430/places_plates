@@ -23,6 +23,7 @@ import {
 } from './restaurant-detail-fields';
 import { PlaceFields } from './place-fields';
 import { DraftPhotoEditor } from '@/domain/photo/components/draft-photo-editor';
+import { DraftPublicationPanel } from './draft-publication-panel';
 
 type DraftState =
   | { status: 'loading' }
@@ -116,6 +117,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
   const [form, setForm] = useState<DraftEditorForm>(() => toEditorForm(initialDraft));
   const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' });
   const [retryVersion, setRetryVersion] = useState(0);
+  const [publicationVersion, setPublicationVersion] = useState(0);
   const lastSavedSnapshot = useRef(JSON.stringify(toEditorForm(initialDraft)));
   const handleUnauthorized = useCallback(() => {
     router.replace(`/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`);
@@ -143,6 +145,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
           lastSavedSnapshot.current = snapshot;
           setDraft(savedDraft);
           setSaveState({ status: 'saved' });
+          setPublicationVersion((value) => value + 1);
         })
         .catch((error: unknown) => {
           if (abortController.signal.aborted) return;
@@ -266,12 +269,16 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
         <DraftPhotoEditor
           draftPostId={draft.id}
           onUnauthorized={handleUnauthorized}
+          onSaved={() => setPublicationVersion((value) => value + 1)}
         />
 
         <PlaceFields
           draftPostId={draft.id}
           value={draft.place}
-          onSaved={setDraft}
+          onSaved={(savedDraft) => {
+            setDraft(savedDraft);
+            setPublicationVersion((value) => value + 1);
+          }}
           onUnauthorized={() => router.replace(
             `/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`,
           )}
@@ -290,6 +297,13 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
             onChange={handleDestinationFieldChange}
           />
         )}
+
+        <DraftPublicationPanel
+          draftPostId={draft.id}
+          canPublish={saveState.status === 'saved'}
+          readinessVersion={publicationVersion}
+          onUnauthorized={handleUnauthorized}
+        />
 
         <div className="draft-editor-actions">
           <Link href="/manage">관리 화면으로 돌아가기</Link>

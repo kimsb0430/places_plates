@@ -7,6 +7,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.placesplates.domain.auth.service.AdministratorPrincipal;
 import com.placesplates.domain.post.dto.DraftPostResponse;
 import com.placesplates.domain.post.dto.DraftPostUpdateRequest;
+import com.placesplates.domain.post.dto.PostPublicationReadinessResponse;
+import com.placesplates.domain.post.dto.PostPublicationRequest;
+import com.placesplates.domain.post.dto.PostPublicationResponse;
+import com.placesplates.domain.post.service.DraftPublicationService;
 import com.placesplates.domain.post.service.DraftPostService;
 import com.placesplates.domain.place.dto.PlaceConnectionRequest;
 
@@ -26,9 +31,14 @@ import jakarta.validation.Valid;
 public class DraftPostController {
 
 	private final DraftPostService draftPostService;
+	private final DraftPublicationService draftPublicationService;
 
-	public DraftPostController(DraftPostService draftPostService) {
+	public DraftPostController(
+		DraftPostService draftPostService,
+		DraftPublicationService draftPublicationService
+	) {
 		this.draftPostService = draftPostService;
+		this.draftPublicationService = draftPublicationService;
 	}
 
 	@GetMapping
@@ -70,5 +80,22 @@ public class DraftPostController {
 		@PathVariable UUID draftId
 	) {
 		return draftPostService.disconnectPlace(principal.userId(), draftId);
+	}
+
+	@GetMapping("/{draftId}/publication-readiness")
+	public PostPublicationReadinessResponse getPublicationReadiness(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID draftId
+	) {
+		return draftPublicationService.getReadiness(principal.userId(), draftId);
+	}
+
+	@PostMapping("/{draftId}/publication")
+	public PostPublicationResponse publishDraft(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID draftId,
+		@Valid @RequestBody PostPublicationRequest request
+	) {
+		return draftPublicationService.publish(principal.userId(), draftId, request);
 	}
 }
