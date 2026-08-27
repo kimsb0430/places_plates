@@ -14,4 +14,9 @@ public interface PhotoAssetRepository extends JpaRepository<PhotoAsset, UUID> {
 	List<PhotoAsset> findAllByPhotoId(UUID photoId);
 
 	Optional<PhotoAsset> findByPhotoIdAndVariantType(UUID photoId, PhotoAssetVariantType variantType);
+
+	List<PhotoAsset> findAllByPhotoIdInAndVariantType(
+		List<UUID> photoIds,
+		PhotoAssetVariantType variantType
+	);
 }

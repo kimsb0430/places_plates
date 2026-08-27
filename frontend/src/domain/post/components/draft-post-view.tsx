@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AuthenticationApiError,
   getAdministratorSession,
@@ -22,6 +22,7 @@ import {
   type RestaurantEditorValues,
 } from './restaurant-detail-fields';
 import { PlaceFields } from './place-fields';
+import { DraftPhotoEditor } from '@/domain/photo/components/draft-photo-editor';
 
 type DraftState =
   | { status: 'loading' }
@@ -116,6 +117,9 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
   const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' });
   const [retryVersion, setRetryVersion] = useState(0);
   const lastSavedSnapshot = useRef(JSON.stringify(toEditorForm(initialDraft)));
+  const handleUnauthorized = useCallback(() => {
+    router.replace(`/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`);
+  }, [initialDraft.id, router]);
   const completionCount = useMemo(() => [
     form.title.trim().length > 0,
     form.visitMonth.length > 0,
@@ -258,6 +262,11 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
             <small>{form.content.length.toLocaleString('ko-KR')}/50,000</small>
           </label>
         </div>
+
+        <DraftPhotoEditor
+          draftPostId={draft.id}
+          onUnauthorized={handleUnauthorized}
+        />
 
         <PlaceFields
           draftPostId={draft.id}

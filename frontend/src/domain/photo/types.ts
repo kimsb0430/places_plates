@@ -60,3 +60,20 @@ export interface UploadFileDescriptor {
   mimeType: string;
   byteSize: number;
 }
+
+export type PhotoProcessingStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+
+export interface DraftPhoto {
+  id: string;
+  displayOrder: number;
+  cover: boolean;
+  altText: string | null;
+  processingStatus: PhotoProcessingStatus;
+  thumbnailPath: string | null;
+}
+
+export interface DraftPhotoEditItem {
+  photoId: string;
+  cover: boolean;
+  altText: string | null;
+}

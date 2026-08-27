@@ -30,6 +30,9 @@ public class Photo {
 	@Column(name = "is_cover", nullable = false)
 	private boolean cover;
 
+	@Column(name = "alt_text", length = 500)
+	private String altText;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "processing_status", nullable = false, length = 20)
 	private PhotoProcessingStatus processingStatus;
@@ -74,8 +77,37 @@ public class Photo {
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
+	/**
+	 * 下書き編集画面で指定された表示順、代表状態、代替テキストを反映する。
+	 */
+	public void updateEditorState(int displayOrder, boolean cover, String altText) {
+		this.displayOrder = displayOrder;
+		this.cover = cover;
+		this.altText = normalizeOptionalText(altText);
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	private static String normalizeOptionalText(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		return value.trim();
+	}
+
 	public UUID getId() {
 		return id;
+	}
+
+	public int getDisplayOrder() {
+		return displayOrder;
+	}
+
+	public boolean isCover() {
+		return cover;
+	}
+
+	public String getAltText() {
+		return altText;
 	}
 
 	public PhotoProcessingStatus getProcessingStatus() {
