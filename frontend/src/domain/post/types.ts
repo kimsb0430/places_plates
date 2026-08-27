@@ -11,6 +11,13 @@ export interface RestaurantDetail {
   revisitIntention: RevisitIntention | null;
 }
 
+export interface DestinationDetail {
+  recommendedTime: string | null;
+  durationMinutes: number | null;
+  highlights: string | null;
+  travelTips: string | null;
+}
+
 export interface DraftPost {
   id: string;
   category: PostCategory;
@@ -20,6 +27,7 @@ export interface DraftPost {
   publicVisitYear: number | null;
   publicVisitMonth: number | null;
   restaurantDetails: RestaurantDetail | null;
+  destinationDetails: DestinationDetail | null;
   visibility: 'PRIVATE';
   status: 'DRAFT';
   createdAt: string;
@@ -33,4 +41,5 @@ export interface DraftPostUpdateInput {
   publicVisitYear: number | null;
   publicVisitMonth: number | null;
   restaurantDetails: RestaurantDetail | null;
+  destinationDetails: DestinationDetail | null;
 }

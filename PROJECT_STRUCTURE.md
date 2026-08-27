@@ -170,7 +170,7 @@ backend/src/main/resources/
 |---|---|---|
 | auth | CSRF 발급·로그인·PostgreSQL 지속 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
-| post | 맛집·여행지 게시물, 업로드 시작 초안, 공통·맛집 전용 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `/api/v1/posts/**` |
+| post | 맛집·여행지 게시물, 업로드 시작 초안, 공통·카테고리 전용 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `/api/v1/posts/**` |
 | place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
 | photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |

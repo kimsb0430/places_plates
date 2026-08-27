@@ -26,6 +26,9 @@ public record DraftPostUpdateRequest(
 	Integer publicVisitMonth,
 
 	@Valid
-	RestaurantDetailUpdateRequest restaurantDetails
+	RestaurantDetailUpdateRequest restaurantDetails,
+
+	@Valid
+	DestinationDetailUpdateRequest destinationDetails
 ) {
 }
