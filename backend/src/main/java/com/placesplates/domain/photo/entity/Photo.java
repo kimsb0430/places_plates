@@ -98,6 +98,10 @@ public class Photo {
 		return id;
 	}
 
+	public UUID getPostId() {
+		return postId;
+	}
+
 	public int getDisplayOrder() {
 		return displayOrder;
 	}

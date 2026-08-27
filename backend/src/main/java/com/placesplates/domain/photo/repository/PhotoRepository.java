@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.placesplates.domain.photo.entity.Photo;
+import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
 
 public interface PhotoRepository extends JpaRepository<Photo, UUID> {
 
@@ -19,6 +20,16 @@ public interface PhotoRepository extends JpaRepository<Photo, UUID> {
 	);
 
 	Optional<Photo> findByIdAndPostIdAndOwnerUserId(UUID id, UUID postId, UUID ownerUserId);
+
+	List<Photo> findAllByPostIdInAndCoverTrueAndProcessingStatus(
+		List<UUID> postIds,
+		PhotoProcessingStatus processingStatus
+	);
+
+	Optional<Photo> findByPostIdAndCoverTrueAndProcessingStatus(
+		UUID postId,
+		PhotoProcessingStatus processingStatus
+	);
 
 	@Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
 	@Query("""

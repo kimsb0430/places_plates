@@ -12,10 +12,11 @@ public record PublicPostSummaryResponse(
 	String summary,
 	Integer publicVisitYear,
 	Integer publicVisitMonth,
-	OffsetDateTime publishedAt
+	OffsetDateTime publishedAt,
+	PublicPostCoverResponse cover
 ) {
 
-	public static PublicPostSummaryResponse from(DraftPost post) {
+	public static PublicPostSummaryResponse from(DraftPost post, PublicPostCoverResponse cover) {
 		return new PublicPostSummaryResponse(
 			post.getId(),
 			post.getCategory().name(),
@@ -23,7 +24,8 @@ public record PublicPostSummaryResponse(
 			post.getSummary(),
 			post.getPublicVisitYear() == null ? null : post.getPublicVisitYear().intValue(),
 			post.getPublicVisitMonth() == null ? null : post.getPublicVisitMonth().intValue(),
-			post.getPublishedAt()
+			post.getPublishedAt(),
+			cover
 		);
 	}
 }

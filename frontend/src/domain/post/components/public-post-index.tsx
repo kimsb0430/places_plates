@@ -1,3 +1,5 @@
+import Image from 'next/image';
+import { getPublicCoverUrl } from '../api/public-post-api';
 import type { PublicPostSummary } from '../types';
 
 interface PublicPostIndexProps {
@@ -6,23 +8,38 @@ interface PublicPostIndexProps {
 
 export function PublicPostIndex({ posts }: PublicPostIndexProps) {
   return (
-    <ol className="public-post-index" aria-label="공개 게시물 목록">
-      {posts.map((post, index) => (
+    <ol className="public-post-index" aria-label="공개 게시물 카드 목록">
+      {posts.map((post) => (
         <li key={post.id}>
-          <article>
-            <span className="public-post-number" aria-hidden="true">
-              {String(index + 1).padStart(2, '0')}
-            </span>
+          <article className="public-post-card">
+            <div className="public-post-cover">
+              {post.cover ? (
+                <>
+                  <Image
+                    src={getPublicCoverUrl(post.cover.path)}
+                    alt={post.cover.altText}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
+                    draggable={false}
+                  />
+                  <span className="public-post-cover-shield" aria-hidden="true" />
+                </>
+              ) : (
+                <span className="public-post-cover-placeholder" aria-hidden="true">
+                  {post.category === 'RESTAURANT' ? 'PLATE' : 'PLACE'}
+                </span>
+              )}
+              <span className={`public-post-card-badge is-${post.category.toLowerCase()}`}>
+                {post.category === 'RESTAURANT' ? '맛집' : '여행지'}
+              </span>
+            </div>
             <div className="public-post-index-body">
-              <p className={`public-post-category is-${post.category.toLowerCase()}`}>
-                {post.category === 'RESTAURANT' ? 'PLATE · 맛집' : 'PLACE · 여행지'}
-              </p>
               <h2>{post.title}</h2>
               <p>{post.summary ?? '이 기록의 한줄평은 아직 준비 중입니다.'}</p>
+              <time dateTime={`${post.publicVisitYear}-${String(post.publicVisitMonth).padStart(2, '0')}`}>
+                {post.publicVisitYear}년 {post.publicVisitMonth}월
+              </time>
             </div>
-            <time dateTime={`${post.publicVisitYear}-${String(post.publicVisitMonth).padStart(2, '0')}`}>
-              {post.publicVisitYear}년 {post.publicVisitMonth}월
-            </time>
           </article>
         </li>
       ))}
