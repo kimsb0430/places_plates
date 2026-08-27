@@ -1,7 +1,7 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.5
-작성일: 2026-08-26
+문서 버전: v2.6
+작성일: 2026-08-27
 
 ## 1. 구조 결정
 
@@ -101,6 +101,7 @@ app → domain → shared
 - 지원 최소 너비는 320px이며 사용자 화면 변경은 390px와 1440px에서 가로 넘침을 확인한다.
 - 초안 편집 화면은 제목·방문 월·한줄평·본문과 카테고리 전용 값을 로컬 입력 상태로 유지하고 700ms 동안 입력이 멈추면 CSRF 보호 `PATCH` 요청으로 자동 저장한다. 제목을 비우면 서버 요청을 중단하고, 저장 실패 시 입력값을 유지한 채 명시적 재시도를 제공한다.
 - 맛집 초안은 `restaurant-detail-fields.tsx`에서 평점·추천 메뉴·가격대·대기시간·재방문 의사를 선택 입력으로 제공한다. 여행지 초안에는 이 컴포넌트를 렌더링하지 않으며 서버도 여행지 게시물의 맛집 상세 요청을 거부한다.
+- 사진 편집은 `photo/components/draft-photo-editor.tsx`가 담당한다. 소유자 전용 썸네일을 자격 증명 포함 Blob으로 읽어 원격 최적화 캐시에 노출하지 않고, 기본 버튼의 키보드 동작으로 순서·대표 사진을 바꾸며 대체 텍스트를 600ms 지연 자동 저장한다.
 
 ## 4. 백엔드 구조
 
@@ -172,7 +173,7 @@ backend/src/main/resources/
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
 | post | 맛집·여행지 게시물, 업로드 시작 초안, 공통·카테고리 전용 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `PUT/DELETE /api/v1/manage/drafts/{draftId}/place`, `/api/v1/posts/**` |
 | place | 인증 소유자의 Places API (New) 검색, Google Place ID·좌표·직접 입력 장소 | `GET /api/v1/manage/places/search` |
-| photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
+| photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태, 소유자 전용 썸네일·순서·대표·대체 텍스트 편집 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `GET/PUT /api/v1/manage/drafts/{draftId}/photos`, `GET /api/v1/manage/drafts/{draftId}/photos/{photoId}/thumbnail`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
 | map | 지도 경계·마커·묶음 숫자 조회 | `/api/v1/map/posts` |
 
@@ -190,8 +191,8 @@ backend/src/test/java/com/placesplates/
 └── support/                     # fixture·테스트 설정
 ```
 
-- 프론트엔드는 목록·지도 전환, 필터 유지, 업로드 입력과 초안 공통·카테고리 전용 자동 저장 상태를 중심으로 테스트한다.
-- 백엔드는 소유자 권한, 초안 공통 필드와 카테고리 전용 필드 검증, 원본 자동 삭제, 메타데이터 제거, 공개 범위를 중심으로 테스트한다.
+- 프론트엔드는 목록·지도 전환, 필터 유지, 업로드 입력과 초안 공통·카테고리·사진 구성 자동 저장 상태를 중심으로 테스트한다.
+- 백엔드는 소유자 권한, 초안 공통 필드와 카테고리 전용 필드 검증, 사진 전체 집합·대표 한 장 제약, 비공개 썸네일, 원본 자동 삭제, 메타데이터 제거, 공개 범위를 중심으로 테스트한다.
 - 루트 검증 스크립트가 프론트엔드 빌드와 백엔드 테스트를 한 번에 실행한다.
 
 ## 7. 환경변수 원칙
@@ -207,6 +208,7 @@ backend/src/test/java/com/placesplates/
 - 정제 마스터에서 `THUMBNAIL` 320px, `MAP_CARD` 960px, `PUBLIC_DETAIL` 2,000px 파생본을 품질 0.88 JPEG로 생성한다. 작은 사진은 확대하지 않으며 세 결과 모두 메타데이터 검사를 통과해야 신규 사진을 `READY`로 전환한다.
 - `JavaServerWatermarkRenderer`는 각 파생본 하단 오른쪽 픽셀에 `Places & Plates`를 합성한다. 기본 정책은 너비 16%, 여백 3%, 불투명도 28%, 밝기 기반 흰색·검은색 자동 선택이며 버전과 위치를 `photo_assets`에 기록한다.
 - 신규 파생본은 먼저 논리적 `PRIVATE`로 기록한다. `PhotoAssetVerificationService`가 저장소에서 마스터와 세 파생본을 다시 내려받아 JPEG 디코딩·바이트 크기·해상도·EXIF/XMP/IPTC 0건을 확인하고, 정제 마스터에서 동일 정책으로 재생성한 파생본과 바이트가 일치할 때만 `PUBLIC`으로 전환한다.
+- 초안 사진 편집 API는 `photos`의 기존 `display_order`, `is_cover`, `alt_text`를 사용한다. 배열 순서를 0부터 연속된 표시 순서로 저장하고, 대표 사진은 최대 한 장만 허용하며, 다른 소유자나 다른 초안의 사진 ID가 섞인 부분 갱신을 거부한다. 관리자 썸네일 응답은 `no-store`로 제공한다.
 - 검증을 통과한 뒤 `temporary/` 객체 삭제까지 성공해야 업로드 항목은 `COMPLETED`, 사진은 `READY`가 된다. 삭제 실패는 원본 키와 `PROCESSING` 상태를 유지해 다음 정제 요청 또는 예약 작업에서 재시도한다. 검증 실패 사진은 `FAILED`로 닫고 임시 원본을 삭제한다.
 - `TemporaryOriginalCleanupWorker`는 시작 30초 후, 이후 15분 간격으로 처리 완료 원본과 24시간 만료 미처리 원본을 최대 25개씩 정리한다. PostgreSQL `SECURITY DEFINER` 함수는 후보 소유자 UUID만 반환하고, 실제 조회·상태 변경은 각 소유자의 강제 RLS 범위에서 수행한다. Cloud Run이 0개 인스턴스로 축소된 동안에는 실행되지 않으므로 정확한 시각 보장이 필요해지면 Cloud Scheduler 호출형 작업으로 분리한다.
 - `SUPABASE_SANITIZED_PHOTO_BUCKET`은 비공개 버킷이어야 한다. 미설정 시 기존 비공개 `temporary-uploads` 버킷의 `sanitized/` 접두사를 사용하되 C17 만료 정리는 `temporary/` 접두사만 삭제한다.

@@ -214,6 +214,10 @@ public class PhotoAsset {
 		return variantType;
 	}
 
+	public UUID getPhotoId() {
+		return photoId;
+	}
+
 	public String getStorageKey() {
 		return storageKey;
 	}
