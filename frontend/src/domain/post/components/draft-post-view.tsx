@@ -14,6 +14,10 @@ import {
 } from '../api/draft-post-api';
 import type { DraftPost, DraftPostUpdateInput } from '../types';
 import {
+  DestinationDetailFields,
+  type DestinationEditorValues,
+} from './destination-detail-fields';
+import {
   RestaurantDetailFields,
   type RestaurantEditorValues,
 } from './restaurant-detail-fields';
@@ -35,6 +39,7 @@ interface DraftEditorForm {
   summary: string;
   content: string;
   restaurant: RestaurantEditorValues;
+  destination: DestinationEditorValues;
 }
 
 interface DraftPostViewProps {
@@ -172,6 +177,16 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
     }));
   };
 
+  const handleDestinationFieldChange = (
+    field: keyof DestinationEditorValues,
+    value: string,
+  ) => {
+    setForm((current) => ({
+      ...current,
+      destination: { ...current.destination, [field]: value },
+    }));
+  };
+
   return (
     <article className="draft-editor">
       <section className="draft-editor-form">
@@ -250,6 +265,13 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
           />
         )}
 
+        {draft.category === 'DESTINATION' && (
+          <DestinationDetailFields
+            value={form.destination}
+            onChange={handleDestinationFieldChange}
+          />
+        )}
+
         <div className="draft-editor-actions">
           <Link href="/manage">관리 화면으로 돌아가기</Link>
           {saveState.status === 'error' && (
@@ -307,6 +329,12 @@ function toEditorForm(draft: DraftPost): DraftEditorForm {
       waitingMinutes: draft.restaurantDetails?.waitingMinutes?.toString() ?? '',
       revisitIntention: draft.restaurantDetails?.revisitIntention ?? '',
     },
+    destination: {
+      recommendedTime: draft.destinationDetails?.recommendedTime ?? '',
+      durationMinutes: draft.destinationDetails?.durationMinutes?.toString() ?? '',
+      highlights: draft.destinationDetails?.highlights ?? '',
+      travelTips: draft.destinationDetails?.travelTips ?? '',
+    },
   };
 }
 
@@ -332,6 +360,16 @@ function toUpdateInput(
             ? Number(form.restaurant.waitingMinutes)
             : null,
           revisitIntention: form.restaurant.revisitIntention || null,
+        }
+      : null,
+    destinationDetails: category === 'DESTINATION'
+      ? {
+          recommendedTime: form.destination.recommendedTime.trim() || null,
+          durationMinutes: form.destination.durationMinutes
+            ? Number(form.destination.durationMinutes)
+            : null,
+          highlights: form.destination.highlights.trim() || null,
+          travelTips: form.destination.travelTips.trim() || null,
         }
       : null,
   };

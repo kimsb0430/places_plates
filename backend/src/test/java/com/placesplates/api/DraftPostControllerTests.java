@@ -255,6 +255,156 @@ class DraftPostControllerTests {
 	}
 
 	@Test
+	void updatesAndReloadsDestinationEditorFields() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.DESTINATION
+		));
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "새벽의 후시미 이나리",
+					  "destinationDetails": {
+					    "recommendedTime": "해 뜨기 전 이른 아침",
+					    "durationMinutes": 120,
+					    "highlights": "붉은 도리이와 산길",
+					    "travelTips": "편한 신발과 물을 준비한다."
+					  }
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.destinationDetails.recommendedTime").value("해 뜨기 전 이른 아침"))
+			.andExpect(jsonPath("$.destinationDetails.durationMinutes").value(120))
+			.andExpect(jsonPath("$.destinationDetails.highlights").value("붉은 도리이와 산길"))
+			.andExpect(jsonPath("$.destinationDetails.travelTips").value("편한 신발과 물을 준비한다."));
+
+		mockMvc.perform(get("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.destinationDetails.recommendedTime").value("해 뜨기 전 이른 아침"))
+			.andExpect(jsonPath("$.destinationDetails.durationMinutes").value(120))
+			.andExpect(jsonPath("$.destinationDetails.highlights").value("붉은 도리이와 산길"))
+			.andExpect(jsonPath("$.destinationDetails.travelTips").value("편한 신발과 물을 준비한다."));
+	}
+
+	@Test
+	void preservesDestinationFieldsWhenLegacyRequestOmitsThem() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.DESTINATION
+		));
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "기존 여행지 초안",
+					  "destinationDetails": {"durationMinutes": 90, "highlights": "정원"}
+					}
+					"""))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"title\":\"공통 필드만 수정\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.destinationDetails.durationMinutes").value(90))
+			.andExpect(jsonPath("$.destinationDetails.highlights").value("정원"));
+	}
+
+	@Test
+	void clearsDestinationFieldsWhenAllValuesAreEmpty() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.DESTINATION
+		));
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "비울 여행지 초안",
+					  "destinationDetails": {"recommendedTime": "오전", "durationMinutes": 60}
+					}
+					"""))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "비운 여행지 초안",
+					  "destinationDetails": {
+					    "recommendedTime": " ",
+					    "durationMinutes": null,
+					    "highlights": "",
+					    "travelTips": null
+					  }
+					}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.destinationDetails").doesNotExist());
+	}
+
+	@Test
+	void rejectsDestinationFieldsForRestaurantDraft() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.RESTAURANT
+		));
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "맛집 초안",
+					  "destinationDetails": {"durationMinutes": 30}
+					}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("DRAFT_POST_DESTINATION_FIELDS_INVALID"));
+	}
+
+	@Test
+	void rejectsInvalidDestinationFieldValues() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.DESTINATION
+		));
+
+		mockMvc.perform(patch("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "title": "검증할 여행지 초안",
+					  "destinationDetails": {"durationMinutes": -1}
+					}
+					"""))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void savesPartialDraftWithOptionalFieldsCleared() throws Exception {
 		AuthenticatedSession authenticated = login();
 		DraftPost draft = draftPostRepository.save(DraftPost.create(

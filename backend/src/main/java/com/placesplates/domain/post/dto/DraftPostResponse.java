@@ -14,12 +14,17 @@ public record DraftPostResponse(
 	Integer publicVisitYear,
 	Integer publicVisitMonth,
 	RestaurantDetailResponse restaurantDetails,
+	DestinationDetailResponse destinationDetails,
 	String visibility,
 	String status,
 	OffsetDateTime createdAt,
 	OffsetDateTime updatedAt
 ) {
-	public static DraftPostResponse from(DraftPost draft, RestaurantDetailResponse restaurantDetails) {
+	public static DraftPostResponse from(
+		DraftPost draft,
+		RestaurantDetailResponse restaurantDetails,
+		DestinationDetailResponse destinationDetails
+	) {
 		return new DraftPostResponse(
 			draft.getId(),
 			draft.getCategory().name(),
@@ -29,6 +34,7 @@ public record DraftPostResponse(
 			draft.getPublicVisitYear() == null ? null : draft.getPublicVisitYear().intValue(),
 			draft.getPublicVisitMonth() == null ? null : draft.getPublicVisitMonth().intValue(),
 			restaurantDetails,
+			destinationDetails,
 			draft.getVisibility().name(),
 			draft.getStatus().name(),
 			draft.getCreatedAt(),
