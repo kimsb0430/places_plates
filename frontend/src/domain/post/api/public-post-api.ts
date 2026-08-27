@@ -1,6 +1,8 @@
-import type { PostCategory, PublicPostList } from '../types';
+import type { PostCategory, PublicPostList, PublicPostSort } from '../types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8080'
+).replace(/\/$/, '');
 
 export class PublicPostApiError extends Error {
   constructor(message: string) {
@@ -9,12 +11,17 @@ export class PublicPostApiError extends Error {
   }
 }
 
-export async function getPublicPosts(category?: PostCategory): Promise<PublicPostList> {
-  const parameters = category ? `?category=${category}` : '';
+export async function getPublicPosts(
+  category: PostCategory | undefined,
+  sort: PublicPostSort,
+): Promise<PublicPostList> {
+  const parameters = new URLSearchParams();
+  if (category) parameters.set('category', category);
+  parameters.set('sort', sort);
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/v1/public/posts${parameters}`, {
+    response = await fetch(`${API_BASE_URL}/api/v1/public/posts?${parameters.toString()}`, {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
@@ -27,4 +34,8 @@ export async function getPublicPosts(category?: PostCategory): Promise<PublicPos
   }
 
   return response.json() as Promise<PublicPostList>;
+}
+
+export function getPublicCoverUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
 }

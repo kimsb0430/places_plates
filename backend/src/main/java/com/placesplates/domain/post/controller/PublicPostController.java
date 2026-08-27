@@ -1,11 +1,20 @@
 package com.placesplates.domain.post.controller;
 
+import java.time.Duration;
+import java.util.UUID;
+
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.placesplates.domain.post.dto.PublicPostListResponse;
+import com.placesplates.domain.post.dto.PublicPostCoverContent;
+import com.placesplates.domain.post.dto.PublicPostSort;
 import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.service.PublicPostService;
 
@@ -21,8 +30,21 @@ public class PublicPostController {
 
 	@GetMapping
 	public PublicPostListResponse getPosts(
-		@RequestParam(required = false) PostCategory category
+		@RequestParam(required = false) PostCategory category,
+		@RequestParam(defaultValue = "LATEST") PublicPostSort sort
 	) {
-		return publicPostService.findPublicPosts(category);
+		return publicPostService.findPublicPosts(category, sort);
+	}
+
+	@GetMapping("/{postId}/cover")
+	public ResponseEntity<byte[]> getCover(@PathVariable UUID postId) {
+		PublicPostCoverContent content = publicPostService.findPublicCover(postId);
+		return ResponseEntity.ok()
+			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+			.header("Content-Disposition", "inline; filename=\"places-plates-cover.jpg\"")
+			.header("Cross-Origin-Resource-Policy", "cross-origin")
+			.header("X-Content-Type-Options", "nosniff")
+			.contentType(MediaType.parseMediaType(content.mimeType()))
+			.body(content.bytes());
 	}
 }

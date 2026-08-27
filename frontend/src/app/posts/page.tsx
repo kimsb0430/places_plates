@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { getPublicPosts, PublicPostApiError } from '@/domain/post/api/public-post-api';
 import { PublicPostIndex } from '@/domain/post/components/public-post-index';
+import { PublicPostSortLinks } from '@/domain/post/components/public-post-sort-links';
 import { PublicPostTabs } from '@/domain/post/components/public-post-tabs';
-import type { PublicPostCategoryFilter, PublicPostList } from '@/domain/post/types';
+import type { PublicPostCategoryFilter, PublicPostList, PublicPostSort } from '@/domain/post/types';
 import { EmptyState } from '@/shared/ui/empty-state';
 
 export const metadata: Metadata = {
@@ -13,17 +14,18 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 interface PostsPageProps {
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{ category?: string | string[]; sort?: string | string[] }>;
 }
 
 export default async function PostsPage({ searchParams }: PostsPageProps) {
   const parameters = await searchParams;
   const selected = parseCategory(parameters.category);
+  const sort = parseSort(parameters.sort);
   const apiCategory = selected === 'ALL' ? undefined : selected;
   let result: PublicPostList;
 
   try {
-    result = await getPublicPosts(apiCategory);
+    result = await getPublicPosts(apiCategory, sort);
   } catch (error: unknown) {
     const message = error instanceof PublicPostApiError
       ? error.message
@@ -59,7 +61,11 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
         <p>맛집과 여행지 기록을 한 장면씩 읽는 공간입니다.</p>
       </header>
 
-      <PublicPostTabs selected={selected} counts={result.counts} />
+      <div className="public-post-toolbar">
+        <PublicPostTabs selected={selected} counts={result.counts} sort={sort} />
+        <PublicPostSortLinks category={selected} selected={sort} />
+        <p>EXIF를 제거하고 워터마크를 적용한 공개용 사진만 표시됩니다.</p>
+      </div>
 
       {result.posts.length > 0 ? (
         <PublicPostIndex posts={result.posts} />
@@ -80,6 +86,11 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
 function parseCategory(value?: string | string[]): PublicPostCategoryFilter {
   const category = Array.isArray(value) ? value[0] : value;
   return category === 'RESTAURANT' || category === 'DESTINATION' ? category : 'ALL';
+}
+
+function parseSort(value?: string | string[]): PublicPostSort {
+  const sort = Array.isArray(value) ? value[0] : value;
+  return sort === 'OLDEST' ? 'OLDEST' : 'LATEST';
 }
 
 function emptyTitle(category: PublicPostCategoryFilter): string {

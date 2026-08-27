@@ -100,6 +100,7 @@ export interface PostPublicationResult {
 }
 
 export type PublicPostCategoryFilter = 'ALL' | PostCategory;
+export type PublicPostSort = 'LATEST' | 'OLDEST';
 
 export interface PublicPostCounts {
   all: number;
@@ -115,6 +116,14 @@ export interface PublicPostSummary {
   publicVisitYear: number;
   publicVisitMonth: number;
   publishedAt: string;
+  cover: PublicPostCover | null;
+}
+
+export interface PublicPostCover {
+  path: string;
+  altText: string;
+  width: number;
+  height: number;
 }
 
 export interface PublicPostList {

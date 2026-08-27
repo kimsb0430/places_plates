@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import type { PublicPostCategoryFilter, PublicPostCounts } from '../types';
+import type { PublicPostCategoryFilter, PublicPostCounts, PublicPostSort } from '../types';
 
 interface PublicPostTabsProps {
   selected: PublicPostCategoryFilter;
   counts: PublicPostCounts;
+  sort: PublicPostSort;
 }
 
 const TABS: Array<{
@@ -17,13 +18,17 @@ const TABS: Array<{
   { category: 'DESTINATION', label: '여행지', countKey: 'destination', tone: 'travel' },
 ];
 
-export function PublicPostTabs({ selected, counts }: PublicPostTabsProps) {
+export function PublicPostTabs({ selected, counts, sort }: PublicPostTabsProps) {
   return (
     <nav className="public-post-tabs" aria-label="공개 기록 카테고리">
       <div role="tablist">
         {TABS.map((tab) => {
           const isSelected = selected === tab.category;
-          const href = tab.category === 'ALL' ? '/posts' : `/posts?category=${tab.category}`;
+          const parameters = new URLSearchParams();
+          if (tab.category !== 'ALL') parameters.set('category', tab.category);
+          if (sort === 'OLDEST') parameters.set('sort', sort);
+          const query = parameters.toString();
+          const href = query ? `/posts?${query}` : '/posts';
           return (
             <Link
               key={tab.category}
@@ -39,7 +44,6 @@ export function PublicPostTabs({ selected, counts }: PublicPostTabsProps) {
           );
         })}
       </div>
-      <p>전체 공개로 게시한 기록만 표시됩니다.</p>
     </nav>
   );
 }
