@@ -17,6 +17,8 @@ import jakarta.persistence.LockModeType;
 
 public interface UploadItemRepository extends JpaRepository<UploadItem, UUID> {
 
+	List<UploadItem> findAllByResultPhotoIdIn(List<UUID> resultPhotoIds);
+
 	Optional<UploadItem> findByIdAndUploadBatchIdAndUploadBatchOwnerUserId(
 		UUID id,
 		UUID uploadBatchId,

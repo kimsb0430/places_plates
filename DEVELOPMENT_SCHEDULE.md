@@ -183,7 +183,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-09 ~ 2026-09-15
 
-진행 상태: C18~C20 게시물 입력과 C21 서버 전용 Places API (New)·직접 입력 장소 연결의 운영 검증을 완료했다. C22는 소유자 전용 썸네일, 사진 순서·대표 사진·대체 텍스트의 키보드 편집과 자동 저장을 구현했다.
+진행 상태: C18~C22 게시물 입력·장소 연결·사진 구성 편집의 운영 검증을 완료했다. C23은 비공개·링크 공개·전체 공개 선택과 게시 직전 입력·사진 보호 상태 재검사를 구현했다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -192,7 +192,7 @@ Sprint 종료 게이트:
 | C20 | `feat: add destination category fields` | 소요시간·추천시간·볼거리·여행 팁을 기존 700ms 자동 저장에 포함 | 여행지 초안에만 선택 항목을 표시·저장하고 맛집 요청은 거부하며 전체 값을 비우면 상세 행 제거 |
 | C21 | `feat: connect posts with google places and coordinates` | 명시적 Places API (New) 검색·Google Maps 링크·직접 좌표, Google 출처 표기와 30일 좌표 갱신 시각 | 소유자 초안에 Place ID와 좌표를 연결·해제하고 검색 실패·미설정 시 자유 장소 저장 가능 |
 | C22 | `feat: add photo ordering cover selection and alt text` | 인증 썸네일·배열 기반 정렬·대표 사진 최대 한 장·500자 대체 텍스트를 600ms 자동 저장 | 기본 버튼의 Tab·Enter·Space 동작으로 사진 순서와 대표 사진을 바꾸고 재조회 시 유지 가능 |
-| C23 | `feat: add private link and public publishing states` | 공개 범위와 게시 전 검사 | 안전 검사 미통과 사진이 있으면 공개 차단 |
+| C23 | `feat: add private link and public publishing states` | 비공개·링크 공개·전체 공개 선택, 제목·방문 월·한줄평·장소·대표 사진과 원본 삭제·메타데이터·워터마크 정책 재검사 | 모든 조건을 통과한 소유자 초안만 선택 범위의 `PUBLISHED`로 전환하고 한 항목이라도 실패하면 게시 차단 |
 
 Sprint 종료 게이트:
 

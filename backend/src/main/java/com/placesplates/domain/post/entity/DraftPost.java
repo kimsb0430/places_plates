@@ -60,6 +60,9 @@ public class DraftPost {
 	@Column(name = "updated_at", nullable = false)
 	private OffsetDateTime updatedAt;
 
+	@Column(name = "published_at")
+	private OffsetDateTime publishedAt;
+
 	protected DraftPost() {
 	}
 
@@ -112,6 +115,17 @@ public class DraftPost {
 	public void disconnectPlace() {
 		this.placeId = null;
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	/**
+	 * 公開前検査を通過した下書きを指定された公開範囲で発行する。
+	 */
+	public void publish(PostVisibility visibility) {
+		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+		this.visibility = visibility;
+		this.status = PostStatus.PUBLISHED;
+		this.publishedAt = now;
+		this.updatedAt = now;
 	}
 
 	private static String normalizeOptionalText(String value) {
@@ -171,5 +185,9 @@ public class DraftPost {
 
 	public OffsetDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public OffsetDateTime getPublishedAt() {
+		return publishedAt;
 	}
 }
