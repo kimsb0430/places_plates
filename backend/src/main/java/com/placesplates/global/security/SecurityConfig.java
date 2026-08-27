@@ -95,7 +95,7 @@ public class SecurityConfig {
 			.map(String::trim)
 			.filter(origin -> !origin.isEmpty())
 			.toList());
-		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
+		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("Content-Type", "X-CSRF-TOKEN"));
 		configuration.setAllowCredentials(true);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

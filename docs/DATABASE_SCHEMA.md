@@ -84,6 +84,8 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - 게시물 대표 카테고리는 맛집 또는 여행지 중 정확히 하나다.
 - `restaurant_details`는 맛집 게시물에만 연결하며 평점·추천 메뉴·가격대·대기시간·재방문 의사가 하나라도 있을 때만 행을 유지한다. 전용 값이 모두 비면 행을 삭제하고 기존 카테고리 트리거가 여행지 게시물과의 잘못된 연결을 차단한다.
 - `destination_details`는 여행지 게시물에만 연결하며 추천 방문 시간·소요시간·볼거리·여행 팁이 하나라도 있을 때만 행을 유지한다. 전용 값이 모두 비면 행을 삭제하고 기존 카테고리 트리거가 맛집 게시물과의 잘못된 연결을 차단한다. 추천 방문 시간은 100자, 볼거리와 여행 팁은 API에서 각각 5,000자로 제한하며 소요시간은 0분 이상의 정수다.
+- `places.source=GOOGLE`은 Google Place ID가 필수이고 같은 ID를 재선택하면 스냅샷과 `refreshed_at`을 갱신한다. Place ID는 장기 보관할 수 있지만 Places API 좌표는 최대 30일 캐시 규칙을 적용하며 C29 지도 조회는 만료 좌표를 재사용하지 않는다.
+- `places.source=MANUAL`은 장소명이 필수이고 Google Place ID를 허용하지 않는다. 위도와 경도는 둘 다 비우거나 둘 다 입력해야 하며 API와 DB가 범위를 함께 검증한다.
 - 사진 업로드 묶음을 만들 때 `PRIVATE`·`DRAFT` 게시물을 먼저 생성하고 `upload_batches.post_id`로 연결한다.
 - 공개 게시물은 장소, 공개 방문 연월, 게시 시각을 가져야 한다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.
@@ -151,6 +153,7 @@ PHOTO_ASSET
 DATABASE_URL=jdbc:postgresql://<host>:5432/<database>
 DATABASE_USERNAME=<database-user>
 DATABASE_PASSWORD=<database-password>
+GOOGLE_PLACES_API_KEY=<server-only-places-api-key>
 ```
 
 실제 값은 Git에 저장하지 않는다. 로컬 개발은 애플리케이션 시작 시 Flyway를 적용한다. Supabase 운영 DB는 `scripts/provision-supabase-database.ps1`에서 관리자 연결로 Flyway를 실행하고, 런타임은 제한된 `placesplates_app` 연결과 `FLYWAY_ENABLED=false`를 사용한다. 세부 절차는 `docs/SUPABASE_DATABASE.md`를 기준으로 한다.

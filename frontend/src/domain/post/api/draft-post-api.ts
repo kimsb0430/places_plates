@@ -1,4 +1,9 @@
-import type { DraftPost, DraftPostUpdateInput } from '../types';
+import type {
+  DraftPost,
+  DraftPostUpdateInput,
+  PlaceConnectionInput,
+  PlaceSearchResult,
+} from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 
@@ -77,5 +82,33 @@ export async function updateDraftPost(
       [csrfToken.headerName]: csrfToken.token,
     },
     body: JSON.stringify(input),
+  });
+}
+
+export function searchPlaces(query: string, signal?: AbortSignal): Promise<PlaceSearchResult[]> {
+  const parameters = new URLSearchParams({ query });
+  return request<PlaceSearchResult[]>(`/api/v1/manage/places/search?${parameters}`, { signal });
+}
+
+export async function connectDraftPlace(
+  draftPostId: string,
+  input: PlaceConnectionInput,
+): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}/place`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      [csrfToken.headerName]: csrfToken.token,
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectDraftPlace(draftPostId: string): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}/place`, {
+    method: 'DELETE',
+    headers: { [csrfToken.headerName]: csrfToken.token },
   });
 }

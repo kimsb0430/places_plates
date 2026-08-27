@@ -21,6 +21,7 @@ import {
   RestaurantDetailFields,
   type RestaurantEditorValues,
 } from './restaurant-detail-fields';
+import { PlaceFields } from './place-fields';
 
 type DraftState =
   | { status: 'loading' }
@@ -257,6 +258,15 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
             <small>{form.content.length.toLocaleString('ko-KR')}/50,000</small>
           </label>
         </div>
+
+        <PlaceFields
+          draftPostId={draft.id}
+          value={draft.place}
+          onSaved={setDraft}
+          onUnauthorized={() => router.replace(
+            `/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`,
+          )}
+        />
 
         {draft.category === 'RESTAURANT' && (
           <RestaurantDetailFields

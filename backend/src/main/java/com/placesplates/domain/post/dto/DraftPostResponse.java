@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.place.dto.PlaceResponse;
 
 public record DraftPostResponse(
 	UUID id,
@@ -13,6 +14,7 @@ public record DraftPostResponse(
 	String content,
 	Integer publicVisitYear,
 	Integer publicVisitMonth,
+	PlaceResponse place,
 	RestaurantDetailResponse restaurantDetails,
 	DestinationDetailResponse destinationDetails,
 	String visibility,
@@ -22,6 +24,7 @@ public record DraftPostResponse(
 ) {
 	public static DraftPostResponse from(
 		DraftPost draft,
+		PlaceResponse place,
 		RestaurantDetailResponse restaurantDetails,
 		DestinationDetailResponse destinationDetails
 	) {
@@ -33,6 +36,7 @@ public record DraftPostResponse(
 			draft.getContent(),
 			draft.getPublicVisitYear() == null ? null : draft.getPublicVisitYear().intValue(),
 			draft.getPublicVisitMonth() == null ? null : draft.getPublicVisitMonth().intValue(),
+			place,
 			restaurantDetails,
 			destinationDetails,
 			draft.getVisibility().name(),

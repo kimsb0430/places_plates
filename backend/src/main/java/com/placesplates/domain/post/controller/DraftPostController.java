@@ -7,6 +7,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +17,7 @@ import com.placesplates.domain.auth.service.AdministratorPrincipal;
 import com.placesplates.domain.post.dto.DraftPostResponse;
 import com.placesplates.domain.post.dto.DraftPostUpdateRequest;
 import com.placesplates.domain.post.service.DraftPostService;
+import com.placesplates.domain.place.dto.PlaceConnectionRequest;
 
 import jakarta.validation.Valid;
 
@@ -50,5 +53,22 @@ public class DraftPostController {
 		@Valid @RequestBody DraftPostUpdateRequest request
 	) {
 		return draftPostService.updateDraft(principal.userId(), draftId, request);
+	}
+
+	@PutMapping("/{draftId}/place")
+	public DraftPostResponse connectPlace(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID draftId,
+		@Valid @RequestBody PlaceConnectionRequest request
+	) {
+		return draftPostService.connectPlace(principal.userId(), draftId, request);
+	}
+
+	@DeleteMapping("/{draftId}/place")
+	public DraftPostResponse disconnectPlace(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID draftId
+	) {
+		return draftPostService.disconnectPlace(principal.userId(), draftId);
 	}
 }

@@ -21,6 +21,9 @@ public class DraftPost {
 	@Column(name = "owner_user_id", nullable = false)
 	private UUID ownerUserId;
 
+	@Column(name = "place_id")
+	private UUID placeId;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private PostCategory category;
@@ -95,6 +98,22 @@ public class DraftPost {
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
+	/**
+	 * 下書きへ場所を接続し、編集時刻を更新する。
+	 */
+	public void connectPlace(UUID placeId) {
+		this.placeId = placeId;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	/**
+	 * 下書きから場所接続を解除し、編集時刻を更新する。
+	 */
+	public void disconnectPlace() {
+		this.placeId = null;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
 	private static String normalizeOptionalText(String value) {
 		if (value == null || value.isBlank()) {
 			return null;
@@ -108,6 +127,10 @@ public class DraftPost {
 
 	public UUID getOwnerUserId() {
 		return ownerUserId;
+	}
+
+	public UUID getPlaceId() {
+		return placeId;
 	}
 
 	public PostCategory getCategory() {

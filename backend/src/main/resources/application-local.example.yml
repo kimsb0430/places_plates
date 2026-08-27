@@ -6,7 +6,7 @@ spring:
 
 places-plates:
   google-maps:
-    api-key: ${GOOGLE_MAPS_API_KEY}
+    places-api-key: ${GOOGLE_PLACES_API_KEY}
   security:
     allowed-origins: ${FRONTEND_ORIGINS:http://localhost:3000,http://localhost:3100}
   bootstrap-admin:

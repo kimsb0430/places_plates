@@ -18,6 +18,39 @@ export interface DestinationDetail {
   travelTips: string | null;
 }
 
+export interface Place {
+  id: string;
+  source: 'GOOGLE' | 'MANUAL';
+  googlePlaceId: string | null;
+  name: string;
+  placeType: string | null;
+  formattedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsUrl: string | null;
+  refreshedAt: string | null;
+}
+
+export interface PlaceSearchResult {
+  googlePlaceId: string;
+  name: string;
+  placeType: string | null;
+  formattedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsUrl: string | null;
+}
+
+export interface PlaceConnectionInput {
+  source: 'GOOGLE' | 'MANUAL';
+  googlePlaceId: string | null;
+  name: string;
+  placeType: string | null;
+  formattedAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface DraftPost {
   id: string;
   category: PostCategory;
@@ -26,6 +59,7 @@ export interface DraftPost {
   content: string | null;
   publicVisitYear: number | null;
   publicVisitMonth: number | null;
+  place: Place | null;
   restaurantDetails: RestaurantDetail | null;
   destinationDetails: DestinationDetail | null;
   visibility: 'PRIVATE';
