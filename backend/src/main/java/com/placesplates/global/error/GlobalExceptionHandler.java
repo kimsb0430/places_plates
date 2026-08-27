@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.placesplates.domain.photo.exception.ImageProcessingJobException;
 import com.placesplates.domain.photo.exception.PhotoUploadException;
 import com.placesplates.domain.post.exception.DraftPostException;
+import com.placesplates.domain.place.exception.PlaceException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(DraftPostException.class)
 	public ResponseEntity<ApiErrorResponse> handleDraftPostException(DraftPostException exception) {
+		return ResponseEntity.status(exception.getStatus())
+			.body(new ApiErrorResponse(exception.getCode(), exception.getMessage()));
+	}
+
+	@ExceptionHandler(PlaceException.class)
+	public ResponseEntity<ApiErrorResponse> handlePlaceException(PlaceException exception) {
 		return ResponseEntity.status(exception.getStatus())
 			.body(new ApiErrorResponse(exception.getCode(), exception.getMessage()));
 	}

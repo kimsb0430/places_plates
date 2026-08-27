@@ -170,8 +170,8 @@ backend/src/main/resources/
 |---|---|---|
 | auth | CSRF 발급·로그인·PostgreSQL 지속 세션·로그아웃 | `/api/v1/auth/**` |
 | profile | 회원별 개인 페이지 | `/api/v1/profiles/**` |
-| post | 맛집·여행지 게시물, 업로드 시작 초안, 공통·카테고리 전용 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `/api/v1/posts/**` |
-| place | Google Place ID·주소·좌표 | `/api/v1/places/**` |
+| post | 맛집·여행지 게시물, 업로드 시작 초안, 공통·카테고리 전용 필드 자동 저장과 공개 범위 | `GET/PATCH /api/v1/manage/drafts/**`, `PUT/DELETE /api/v1/manage/drafts/{draftId}/place`, `/api/v1/posts/**` |
+| place | 인증 소유자의 Places API (New) 검색, Google Place ID·좌표·직접 입력 장소 | `GET /api/v1/manage/places/search` |
 | photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
 | map | 지도 경계·마커·묶음 숫자 조회 | `/api/v1/map/posts` |
@@ -196,9 +196,11 @@ backend/src/test/java/com/placesplates/
 
 ## 7. 환경변수 원칙
 
-- `frontend/.env`: 브라우저에 공개 가능한 Google Maps 키와 백엔드 API 주소만 둔다. Supabase 서비스 역할 키는 두지 않는다.
+- `frontend/.env`: 브라우저에 공개 가능한 Maps JavaScript API 키와 백엔드 API 주소만 둔다. Supabase 서비스 역할 키나 Places Web Service 키는 두지 않는다.
 - `backend/src/main/resources/application-local.yml`은 로컬 전용이며 Git에 추가하지 않는다. 추적되는 `application-local.example.yml`을 복사하고 실제 값은 환경변수로 주입한다.
-- Google Maps 브라우저 키는 HTTP 리퍼러와 Maps JavaScript API·Places API로 제한한다.
+- Maps JavaScript 브라우저 키는 HTTP 리퍼러와 Maps JavaScript API로 제한한다. Places API (New) 검색 키는 `GOOGLE_PLACES_API_KEY`로 Spring Boot에만 주입하고 Places API만 허용하며 별도 할당량을 둔다.
+- 장소 검색은 사용자가 검색 버튼을 누를 때만 서버에서 최대 5건을 요청한다. 결과 영역 안에 `Google Maps` 출처를 표시하고, 검색이 실패하거나 키가 없으면 직접 장소명과 좌표 쌍을 저장할 수 있다.
+- Google Place ID는 장기 보관하되 Places API 좌표 스냅샷은 `refreshed_at`을 기준으로 30일 안에 재선택·갱신한다. 지도 조회에서는 만료 좌표를 그대로 재사용하지 않는 규칙을 C29에 적용한다.
 - `backend` 비밀값은 운영 환경에서만 주입하며 저장소에 커밋하지 않는다.
 - Supabase Storage 서비스 역할 키는 Cloud Run Secret Manager에만 저장하며, 백엔드는 소유자와 객체 키를 검증한 뒤 단기 업로드 토큰만 반환한다.
 - 정제 요청은 인증된 소유자 API에서 작업 행을 잠근 뒤 실행한다. JPG·PNG 픽셀을 최대 2,500만 픽셀까지 디코딩하고 방향 보정 후 품질 0.92 JPEG로 새로 인코딩하며, EXIF·XMP·IPTC 재검사를 통과한 결과만 `SANITIZED_MASTER`로 저장한다.

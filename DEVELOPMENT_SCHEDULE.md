@@ -183,14 +183,14 @@ Sprint 종료 게이트:
 
 기간: 2026-09-09 ~ 2026-09-15
 
-진행 상태: C18 공통 필드와 C19 맛집 전용 필드의 운영 검증을 완료했다. C20은 기존 `destination_details` 스키마를 사용해 여행지 전용 필드와 자동 저장을 구현했다.
+진행 상태: C18 공통 필드, C19 맛집 전용 필드, C20 여행지 전용 필드의 운영 검증을 완료했다. C21은 서버 전용 Places API (New) 검색과 Google·직접 입력 장소 연결을 구현 중이다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
 | C18 | `feat: add common post editor fields and autosave` | 제목·방문 월·한줄평·본문을 700ms 지연 후 CSRF 보호 자동 저장 | 제목·방문 월·한줄평 3개를 작성 완료 기준으로 안내하고 부분 초안도 소유자 DB에 저장·재조회 가능 |
 | C19 | `feat: add restaurant category fields` | 평점·메뉴·가격대·대기시간·재방문을 기존 700ms 자동 저장에 포함 | 맛집 초안에만 선택 항목을 표시·저장하고 여행지 요청은 거부하며 전체 값을 비우면 상세 행 제거 |
 | C20 | `feat: add destination category fields` | 소요시간·추천시간·볼거리·여행 팁을 기존 700ms 자동 저장에 포함 | 여행지 초안에만 선택 항목을 표시·저장하고 맛집 요청은 거부하며 전체 값을 비우면 상세 행 제거 |
-| C21 | `feat: connect posts with google places and coordinates` | Places API (New) 검색·Google Maps 링크·직접 좌표 | Place ID와 좌표를 저장하고 검색 실패 시 자유 장소 저장 가능 |
+| C21 | `feat: connect posts with google places and coordinates` | 명시적 Places API (New) 검색·Google Maps 링크·직접 좌표, Google 출처 표기와 30일 좌표 갱신 시각 | 소유자 초안에 Place ID와 좌표를 연결·해제하고 검색 실패·미설정 시 자유 장소 저장 가능 |
 | C22 | `feat: add photo ordering cover selection and alt text` | 대표 사진·정렬·대체 텍스트 | 키보드로 사진 순서와 대표 사진 변경 가능 |
 | C23 | `feat: add private link and public publishing states` | 공개 범위와 게시 전 검사 | 안전 검사 미통과 사진이 있으면 공개 차단 |
 
@@ -301,7 +301,7 @@ Sprint 종료 게이트:
 | 의존성 | 필요한 시점 | 대응 |
 |---|---|---|
 | PostgreSQL·객체 저장소 | Sprint 1 시작 전 | Supabase 서울 리전 Free `nano`와 PostGIS로 시작하고, 관리자 마이그레이션 역할과 RLS 런타임 역할을 분리하며 공개 전 운영 플랜 판단 |
-| Google Cloud 프로젝트·결제 계정·API 키 | Sprint 3 장소 연결 전 | Maps JavaScript API와 Places API (New)만 허용하고 HTTP 리퍼러 제한·월 9,000회 운영 한도 설정 |
+| Google Cloud 프로젝트·결제 계정·API 키 | Sprint 3 장소 연결 전 | 브라우저 Maps JavaScript 키와 서버 Places API (New) 키를 분리하고 API 제한·월 9,000회 운영 한도 설정 |
 | 이미지 워커 환경 | Sprint 2 시작 전 | 로컬 처리 프로토타입 후 운영 환경 선택 |
 | 워터마크 스타일 | Sprint 2 C16 | `Places & Plates`, 하단 오른쪽, 너비 16%, 여백 3%, 불투명도 28%, 배경 밝기 기반 흰색·검은색 자동 선택 |
 | 도메인 | Sprint 6 후반 | 이름 확정 후 구매, 그전에는 미리보기 URL 사용 |

@@ -64,3 +64,6 @@ places-plates:
     initial-delay: ${TEMPORARY_ORIGINAL_CLEANUP_INITIAL_DELAY:PT30S}
     interval: ${TEMPORARY_ORIGINAL_CLEANUP_INTERVAL:PT15M}
     batch-size: ${TEMPORARY_ORIGINAL_CLEANUP_BATCH_SIZE:25}
+  google-maps:
+    places-api-key: ${GOOGLE_PLACES_API_KEY:}
+    places-api-url: ${GOOGLE_PLACES_API_URL:https://places.googleapis.com/v1/places:searchText}
