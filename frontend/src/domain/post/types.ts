@@ -1,4 +1,5 @@
 import type { PostCategory } from '@/domain/photo/types';
+export type { PostCategory } from '@/domain/photo/types';
 
 export type RestaurantPriceRange = 'BUDGET' | 'MODERATE' | 'EXPENSIVE' | 'LUXURY';
 export type RevisitIntention = 'YES' | 'MAYBE' | 'NO';
@@ -96,4 +97,27 @@ export interface PostPublicationResult {
   visibility: PostVisibility;
   status: 'PUBLISHED';
   publishedAt: string;
+}
+
+export type PublicPostCategoryFilter = 'ALL' | PostCategory;
+
+export interface PublicPostCounts {
+  all: number;
+  restaurant: number;
+  destination: number;
+}
+
+export interface PublicPostSummary {
+  id: string;
+  category: PostCategory;
+  title: string;
+  summary: string | null;
+  publicVisitYear: number;
+  publicVisitMonth: number;
+  publishedAt: string;
+}
+
+export interface PublicPostList {
+  counts: PublicPostCounts;
+  posts: PublicPostSummary[];
 }
