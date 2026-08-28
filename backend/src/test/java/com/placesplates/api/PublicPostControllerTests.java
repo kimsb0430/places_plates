@@ -125,6 +125,64 @@ class PublicPostControllerTests {
 	}
 
 	@Test
+	void hidesEveryNonPublicStateFromListsDetailsPhotosAndPlaceHistory() throws Exception {
+		DraftPost publicRestaurant = publishedPost(
+			PostCategory.RESTAURANT,
+			PostVisibility.PUBLIC,
+			"모두에게 보이는 식당"
+		);
+		DraftPost publicDestination = publishedPost(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			"모두에게 보이는 여행지"
+		);
+		DraftPost unlisted = publishedPost(
+			PostCategory.RESTAURANT,
+			PostVisibility.UNLISTED,
+			"링크로만 보는 식당"
+		);
+		DraftPost privatePost = publishedPost(
+			PostCategory.DESTINATION,
+			PostVisibility.PRIVATE,
+			"소유자만 보는 여행지"
+		);
+		DraftPost draft = draftPost(PostCategory.RESTAURANT, "작성 중인 식당");
+		PhotoAsset unlistedPhoto = attachSafeDetailPhoto(unlisted, "링크 공개 사진", 1, false);
+		PhotoAsset privatePhoto = attachSafeDetailPhoto(privatePost, "비공개 사진", 1, false);
+		PhotoAsset draftPhoto = attachSafeDetailPhoto(draft, "초안 사진", 1, false);
+		attachSafeCover(unlisted, "링크 공개 대표 사진");
+		attachSafeCover(privatePost, "비공개 대표 사진");
+		attachSafeCover(draft, "초안 대표 사진");
+
+		mockMvc.perform(get("/api/v1/public/posts"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.counts.all").value(2))
+			.andExpect(jsonPath("$.counts.restaurant").value(1))
+			.andExpect(jsonPath("$.counts.destination").value(1))
+			.andExpect(jsonPath("$.posts.length()").value(2))
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(publicRestaurant.getId())).exists())
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(publicDestination.getId())).exists())
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(unlisted.getId())).doesNotExist())
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(privatePost.getId())).doesNotExist())
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(draft.getId())).doesNotExist());
+
+		mockMvc.perform(get("/api/v1/public/posts").queryParam("category", "RESTAURANT"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.counts.all").value(2))
+			.andExpect(jsonPath("$.posts.length()").value(1))
+			.andExpect(jsonPath("$.posts[0].id").value(publicRestaurant.getId().toString()));
+		mockMvc.perform(get("/api/v1/public/posts").queryParam("category", "DESTINATION"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.counts.all").value(2))
+			.andExpect(jsonPath("$.posts.length()").value(1))
+			.andExpect(jsonPath("$.posts[0].id").value(publicDestination.getId().toString()));
+
+		assertHiddenFromEveryPublicReadPath(unlisted, unlistedPhoto.getPhotoId());
+		assertHiddenFromEveryPublicReadPath(privatePost, privatePhoto.getPhotoId());
+		assertHiddenFromEveryPublicReadPath(draft, draftPhoto.getPhotoId());
+	}
+
+	@Test
 	void filtersPostsWithoutChangingGlobalCategoryCounts() throws Exception {
 		publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "첫 번째 맛집");
 		publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "두 번째 맛집");
@@ -419,6 +477,21 @@ class PublicPostControllerTests {
 		return publishedPostAtPlace(category, visibility, title, place, 2026, 8);
 	}
 
+	private DraftPost draftPost(PostCategory category, String title) {
+		Place place = placeRepository.save(Place.manual(
+			administrator.getId(),
+			title + " 장소",
+			"공개 범위 회귀 테스트 주소",
+			null,
+			null,
+			"https://www.google.com/maps/search/?api=1&query=visibility"
+		));
+		DraftPost post = DraftPost.create(administrator.getId(), category);
+		post.updateEditorFields(title, title + "의 한줄평", "공개되면 안 되는 초안 본문", 2026, 8);
+		post.connectPlace(place.getId());
+		return draftPostRepository.save(post);
+	}
+
 	private DraftPost publishedPostAtPlace(
 		PostCategory category,
 		PostVisibility visibility,
@@ -484,5 +557,27 @@ class PublicPostControllerTests {
 		photo.markReady();
 		photo.updateEditorState(displayOrder, cover, altText);
 		return photoRepository.save(photo);
+	}
+
+	/**
+	 * 非公開状態の投稿について、すべての公開読取経路が同じ404境界を維持することを確認する。
+	 */
+	private void assertHiddenFromEveryPublicReadPath(DraftPost post, UUID photoId) throws Exception {
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", post.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_NOT_FOUND"));
+		mockMvc.perform(get("/api/v1/public/posts/{postId}/cover", post.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_COVER_NOT_FOUND"));
+		mockMvc.perform(get(
+			"/api/v1/public/posts/{postId}/photos/{photoId}",
+			post.getId(),
+			photoId
+		))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_PHOTO_NOT_FOUND"));
+		mockMvc.perform(get("/api/v1/public/posts/{postId}/place", post.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_PLACE_HISTORY_NOT_FOUND"));
 	}
 }

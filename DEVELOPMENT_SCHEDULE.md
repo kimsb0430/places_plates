@@ -204,7 +204,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-16 ~ 2026-09-22
 
-진행 상태: C24 공개 목록·카테고리 합계, C25 안전한 대표 사진 카드·정렬, C25A 공개 오류 응답 보완, C26 카테고리별 상세를 완료했다. C27은 공개 게시물 ID를 안전한 진입점으로 사용하는 `/posts/{postId}/place`에서 같은 소유자·장소의 전체 공개 방문 수와 월 단위 기록을 오래된 순으로 제공하고, V15에서 공개 게시물에 연결된 장소만 읽는 RLS를 추가한다. 다음은 C28 공개 범위 회귀 테스트 보강이다.
+진행 상태: C24 공개 목록·카테고리 합계, C25 안전한 대표 사진 카드·정렬, C25A 공개 오류 응답 보완, C26 카테고리별 상세, C27 같은 장소 반복 방문 기록을 완료했다. C28은 전체·카테고리 목록과 상세·대표 사진·상세 사진·장소 이력의 모든 공개 읽기 경로에서 `PRIVATE`, `UNLISTED`, `DRAFT`를 404로 차단하고, PostgreSQL RLS에서도 `PUBLIC + PUBLISHED` 조합만 게시물·카테고리 상세·장소·사진·자산에 보이도록 회귀 행렬을 고정한다. 다음은 Sprint 5의 C29 지도 카테고리 마커다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -213,7 +213,7 @@ Sprint 종료 게이트:
 | C25A | `fix: preserve public api error responses` | 오류 응답 시 요청 트랜잭션 명시 롤백, `ERROR` 디스패치 허용, 잘못된 쿼리 응답 표준화 | 없는 공개 대표 사진은 `404`, 지원하지 않는 enum 쿼리는 `400 COMMON_INVALID_QUERY`로 유지되고 인증 오류나 `502`로 덮이지 않음 |
 | C26 | `feat: add category aware post detail pages` | `/posts/{postId}` 상세, 공통·맛집·여행지 분리 레이아웃, 검증된 `PUBLIC_DETAIL` 사진 API와 공개 방문월 | 사진과 개인 기록이 먼저 표시되고 일자·좌표·내부 ID·Storage 키 없이 장소명과 Google 지도 링크만 공개됨 |
 | C27 | `feat: add place details and repeat visit history` | `/posts/{postId}/place`, 같은 소유자·장소 공개 방문 수·월별 타임라인·대표 사진, V15 공개 연결 장소 RLS | 내부 소유자·장소 ID·좌표와 비공개·링크 공개 기록 없이 장소명·Google 지도 링크와 각 공개 상세 링크 확인 |
-| C28 | `test: cover category lists post details and visibility` | 목록·상세·공개 범위 테스트 | 비공개·링크 게시물이 전체 목록에 노출되지 않음 |
+| C28 | `test: cover category lists post details and visibility` | 전체·카테고리 목록, 상세·대표 사진·상세 사진·장소 이력, PostgreSQL 게시물·카테고리 상세·장소·사진·자산 공개 범위 회귀 행렬 | `PUBLIC + PUBLISHED`만 공개되고 `PRIVATE`, `UNLISTED`, `DRAFT`는 목록·합계에서 제외되며 모든 직접 조회가 404 |
 
 Sprint 종료 게이트:
 
