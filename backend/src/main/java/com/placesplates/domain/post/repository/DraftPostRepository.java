@@ -39,6 +39,14 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, UUID> {
 		PostStatus status
 	);
 
+	List<DraftPost> findAllByOwnerUserIdAndPlaceIdAndVisibilityAndStatus(
+		UUID ownerUserId,
+		UUID placeId,
+		PostVisibility visibility,
+		PostStatus status,
+		Sort sort
+	);
+
 	@Query("""
 		select post.category as category, count(post) as total
 		from DraftPost post
