@@ -45,6 +45,7 @@ export default async function MapPage({ searchParams }: MapPageProps) {
         <div className="map-marker-legend" aria-label="지도 마커 범례">
           <span><i className="is-restaurant">맛</i> 맛집</span>
           <span><i className="is-destination">여</i> 여행지</span>
+          <span><i className="is-cluster">2</i> 묶음 숫자</span>
         </div>
         <p>전체 공개·게시 완료 상태이며 지도 표시가 허용된 장소만 표시됩니다.</p>
       </div>

@@ -26,7 +26,7 @@
 - 최초 관리자 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 운영 환경변수에서 제거한다.
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
 - 운영 PostgreSQL에서 V1~V16 이력, 애플리케이션 테이블 14개, 세션 테이블 2개와 `FORCE ROW LEVEL SECURITY`가 13개 개인 데이터 테이블에 적용됐는지 확인한다. V11 적용 후 완료 작업·검사 통과 정제 마스터가 있으면서 `PROCESSING`에 남은 사진은 0건이어야 하며, V12 적용 후 안전 조건이 누락된 공개 사진 자산은 0건이어야 한다. V13의 만료 원본 제약·정리 인덱스, V14의 제한된 후보 소유자 함수, V15의 `places_public_select`, V16의 좌표 연결 게시물 지도 공개 보정이 있어야 한다. 공개 모드에서는 전체 공개·게시 완료 기록에 연결된 장소만 읽을 수 있어야 한다.
-- Vercel에는 HTTP 리퍼러와 Maps JavaScript API로 제한한 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`를 설정한다. Advanced Marker를 사용하려면 JavaScript용 Map ID를 만들고 `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`도 설정한다. `/map` 진입만으로 지도 요청이 발생하지 않고 “Google 지도 불러오기” 버튼 뒤에 로드되는지, 전체·맛집·여행지 필터와 마커 색상·글자가 일치하는지 확인한다.
+- Vercel에는 HTTP 리퍼러와 Maps JavaScript API로 제한한 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`를 설정한다. Advanced Marker를 사용하려면 JavaScript용 Map ID를 만들고 `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`도 설정한다. `/map` 진입만으로 지도 요청이 발생하지 않고 “Google 지도 불러오기” 버튼 뒤에 로드되는지, 전체·맛집·여행지 필터와 마커 색상·글자가 일치하는지 확인한다. 가까운 게시물이 두 개 이상인 fixture에서는 축소 시 묶음 숫자가 포함 게시물 수와 일치하고 묶음을 누르면 개별 마커 방향으로 확대되는지 확인한다.
 - 애플리케이션 배포 전에 V9·V10을 적용하고, `placesplates_app`만 `spring_session`·`spring_session_attributes`를 CRUD하며 `PUBLIC`·`anon`·`authenticated`는 접근할 수 없는지 확인한다.
 - 역할 비밀번호 갱신 직후 `28P01`이 발생하면 도구의 제한 재연결 결과를 기다리고, 반복 실패 시 추가 시도를 멈춘 뒤 Supabase Network Bans와 Pooler Logs를 확인한다.
 - Spring Boot에는 `placesplates_app` 접속 정보만 주입하고 `FLYWAY_ENABLED=false`, `DATABASE_MAX_POOL_SIZE=5`로 시작한다. Supabase 관리자 비밀번호는 호스팅사에 저장하지 않는다.
@@ -73,7 +73,7 @@
 - 初回管理者の作成確認後、`ADMIN_BOOTSTRAP_ENABLED=false`へ変更し、`ADMIN_PASSWORD`を本番環境変数から削除する。
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
 - 本番PostgreSQLでV1〜V16履歴、アプリケーション14テーブル、session 2テーブルと`FORCE ROW LEVEL SECURITY`が13個の個人データテーブルへ適用されたことを確認する。V11適用後、完了job・検査通過sanitized masterがありながら`PROCESSING`に残る写真は0件で、V12適用後は安全条件が欠落した公開写真assetが0件でなければならない。V13の期限切れ原本制約・cleanup index、V14の限定候補owner関数、V15の`places_public_select`、V16のcoordinate接続post map公開補正が存在し、public modeでは公開・配備済み記録へ接続されたplaceだけを読めなければならない。
-- VercelへHTTP referrerとMaps JavaScript APIで制限した`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`を設定する。Advanced Markerを使う場合はJavaScript用Map IDを作成し`NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`も設定する。`/map`へ入っただけではmap requestが発生せず「Google 지도 불러오기」button後にloadされること、all・restaurant・destination filterとmarker色・文字が一致することを確認する。
+- VercelへHTTP referrerとMaps JavaScript APIで制限した`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`を設定する。Advanced Markerを使う場合はJavaScript用Map IDを作成し`NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`も設定する。`/map`へ入っただけではmap requestが発生せず「Google 지도 불러오기」button後にloadされること、all・restaurant・destination filterとmarker色・文字が一致することを確認する。近接する投稿が2件以上あるfixtureでは、縮小時のcluster数が含まれる投稿数と一致し、cluster選択で個別markerへ向けて拡大することを確認する。
 - アプリ配備前にV9・V10を適用し、`placesplates_app`だけが`spring_session`・`spring_session_attributes`をCRUDでき、`PUBLIC`・`anon`・`authenticated`はアクセスできないことを確認する。
 - Role password更新直後に`28P01`が発生した場合はtoolの限定再接続結果を待ち、繰り返し失敗するときは追加試行を止めてSupabase Network BansとPooler Logsを確認する。
 - Spring Bootには`placesplates_app`接続情報だけを注入し、`FLYWAY_ENABLED=false`、`DATABASE_MAX_POOL_SIZE=5`から開始する。Supabase管理者パスワードはホスティングへ保存しない。
