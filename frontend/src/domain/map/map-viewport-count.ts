@@ -17,13 +17,19 @@ export function countPostsWithinMapBounds(
   posts: MapPostMarker[],
   bounds: MapViewportBounds,
 ): MapViewportPostCounts {
-  return posts.reduce<MapViewportPostCounts>((counts, post) => {
-    if (!isWithinMapBounds(post.latitude, post.longitude, bounds)) return counts;
+  return getPostsWithinMapBounds(posts, bounds).reduce<MapViewportPostCounts>((counts, post) => {
     counts.total += 1;
     if (post.category === 'RESTAURANT') counts.restaurant += 1;
     else counts.destination += 1;
     return counts;
   }, { total: 0, restaurant: 0, destination: 0 });
+}
+
+export function getPostsWithinMapBounds(
+  posts: MapPostMarker[],
+  bounds: MapViewportBounds,
+): MapPostMarker[] {
+  return posts.filter((post) => isWithinMapBounds(post.latitude, post.longitude, bounds));
 }
 
 function isWithinMapBounds(

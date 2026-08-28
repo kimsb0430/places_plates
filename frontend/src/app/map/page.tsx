@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { getMapPosts, PublicMapApiError } from '@/domain/map/api/public-map-api';
-import { GoogleMapExplorer } from '@/domain/map/components/google-map-explorer';
 import { MapCategoryTabs } from '@/domain/map/components/map-category-tabs';
-import type { MapCategoryFilter, MapPostList } from '@/domain/map/types';
+import { MapSplitExplorer } from '@/domain/map/components/map-split-explorer';
+import type { MapCategoryFilter, MapPostList, MapPostMarker, MapViewState } from '@/domain/map/types';
 import { EmptyState } from '@/shared/ui/empty-state';
 
 export const metadata: Metadata = {
@@ -13,7 +13,15 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 interface MapPageProps {
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{
+    category?: string | string[];
+    lat?: string | string[];
+    lng?: string | string[];
+    map?: string | string[];
+    post?: string | string[];
+    q?: string | string[];
+    zoom?: string | string[];
+  }>;
 }
 
 export default async function MapPage({ searchParams }: MapPageProps) {
@@ -51,10 +59,15 @@ export default async function MapPage({ searchParams }: MapPageProps) {
       </div>
 
       {result.posts.length > 0 ? (
-        <GoogleMapExplorer
+        <MapSplitExplorer
+          key={selected}
           apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? ''}
           mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() || undefined}
           posts={result.posts}
+          initialQuery={parseQuery(parameters.q)}
+          initialSelectedPostId={parseSelectedPostId(parameters.post, result.posts)}
+          initialView={parseMapView(parameters)}
+          initiallyLoaded={singleValue(parameters.map) === '1'}
         />
       ) : (
         <EmptyState
@@ -73,6 +86,36 @@ export default async function MapPage({ searchParams }: MapPageProps) {
 function parseCategory(value?: string | string[]): MapCategoryFilter {
   const category = Array.isArray(value) ? value[0] : value;
   return category === 'RESTAURANT' || category === 'DESTINATION' ? category : 'ALL';
+}
+
+function parseQuery(value?: string | string[]): string {
+  return (singleValue(value) ?? '').trim().slice(0, 80);
+}
+
+function parseSelectedPostId(
+  value: string | string[] | undefined,
+  posts: MapPostMarker[],
+): string | undefined {
+  const postId = singleValue(value);
+  return posts.some((post) => post.id === postId) ? postId : undefined;
+}
+
+function parseMapView(parameters: {
+  lat?: string | string[];
+  lng?: string | string[];
+  zoom?: string | string[];
+}): MapViewState | undefined {
+  const latitude = Number(singleValue(parameters.lat));
+  const longitude = Number(singleValue(parameters.lng));
+  const zoom = Number(singleValue(parameters.zoom));
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return undefined;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return undefined;
+  if (!Number.isFinite(zoom) || zoom < 2 || zoom > 21) return undefined;
+  return { latitude, longitude, zoom };
+}
+
+function singleValue(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function MapUnavailable({ message }: { message: string }) {

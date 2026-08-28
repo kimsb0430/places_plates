@@ -23,3 +23,9 @@ export interface MapPostList {
   counts: MapPostCounts;
   posts: MapPostMarker[];
 }
+
+export interface MapViewState {
+  latitude: number;
+  longitude: number;
+  zoom: number;
+}
