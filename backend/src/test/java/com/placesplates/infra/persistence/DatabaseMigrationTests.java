@@ -350,6 +350,59 @@ class DatabaseMigrationTests {
 		assertThat(photoStatus(unsafePhotoId)).isEqualTo("PROCESSING");
 	}
 
+	@Test
+	void coordinateBackfillEnablesOnlyPostsConnectedToCoordinatePlaces() throws IOException {
+		UUID userId = createUser();
+		UUID coordinatePlaceId = UUID.randomUUID();
+		UUID addressOnlyPlaceId = UUID.randomUUID();
+		UUID mappablePostId = UUID.randomUUID();
+		UUID hiddenPostId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"""
+			INSERT INTO places (id, created_by_user_id, source, name, latitude, longitude)
+			VALUES (?, ?, 'MANUAL', 'coordinate place', 37.566500, 126.978000)
+			""",
+			coordinatePlaceId,
+			userId
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO places (id, created_by_user_id, source, name)
+			VALUES (?, ?, 'MANUAL', 'address only place')
+			""",
+			addressOnlyPlaceId,
+			userId
+		);
+		jdbcTemplate.update(
+			"INSERT INTO posts (id, owner_user_id, place_id, category, title) VALUES (?, ?, ?, 'RESTAURANT', 'mappable')",
+			mappablePostId,
+			userId,
+			coordinatePlaceId
+		);
+		jdbcTemplate.update(
+			"INSERT INTO posts (id, owner_user_id, place_id, category, title) VALUES (?, ?, ?, 'DESTINATION', 'hidden')",
+			hiddenPostId,
+			userId,
+			addressOnlyPlaceId
+		);
+
+		ClassPathResource migration = new ClassPathResource(
+			"db/migration/common/V16__enable_map_coordinates_for_connected_places.sql"
+		);
+		jdbcTemplate.execute(migration.getContentAsString(StandardCharsets.UTF_8));
+
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT coordinate_visibility FROM posts WHERE id = ?",
+			String.class,
+			mappablePostId
+		)).isEqualTo("EXACT");
+		assertThat(jdbcTemplate.queryForObject(
+			"SELECT coordinate_visibility FROM posts WHERE id = ?",
+			String.class,
+			hiddenPostId
+		)).isEqualTo("HIDDEN");
+	}
+
 	private void insertProcessingPhoto(UUID photoId, UUID userId, UUID postId) {
 		jdbcTemplate.update(
 			"INSERT INTO photos (id, owner_user_id, post_id, processing_status) VALUES (?, ?, ?, 'PROCESSING')",

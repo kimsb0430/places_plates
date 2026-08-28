@@ -47,8 +47,9 @@ public class DraftPost {
 	@Column(nullable = false, length = 20)
 	private PostVisibility visibility;
 
+	@Enumerated(EnumType.STRING)
 	@Column(name = "coordinate_visibility", nullable = false, length = 20)
-	private String coordinateVisibility;
+	private PostCoordinateVisibility coordinateVisibility;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -73,7 +74,7 @@ public class DraftPost {
 		this.category = category;
 		this.title = category == PostCategory.RESTAURANT ? "새 맛집 기록" : "새 여행지 기록";
 		this.visibility = PostVisibility.PRIVATE;
-		this.coordinateVisibility = "HIDDEN";
+		this.coordinateVisibility = PostCoordinateVisibility.HIDDEN;
 		this.status = PostStatus.DRAFT;
 		this.createdAt = now;
 		this.updatedAt = now;
@@ -105,7 +106,15 @@ public class DraftPost {
 	 * 下書きへ場所を接続し、編集時刻を更新する。
 	 */
 	public void connectPlace(UUID placeId) {
+		connectPlace(placeId, PostCoordinateVisibility.HIDDEN);
+	}
+
+	/**
+	 * 下書きへ場所と地図上の座標公開精度を接続する。
+	 */
+	public void connectPlace(UUID placeId, PostCoordinateVisibility coordinateVisibility) {
 		this.placeId = placeId;
+		this.coordinateVisibility = coordinateVisibility;
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
@@ -114,6 +123,7 @@ public class DraftPost {
 	 */
 	public void disconnectPlace() {
 		this.placeId = null;
+		this.coordinateVisibility = PostCoordinateVisibility.HIDDEN;
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
@@ -173,6 +183,10 @@ public class DraftPost {
 
 	public PostVisibility getVisibility() {
 		return visibility;
+	}
+
+	public PostCoordinateVisibility getCoordinateVisibility() {
+		return coordinateVisibility;
 	}
 
 	public PostStatus getStatus() {

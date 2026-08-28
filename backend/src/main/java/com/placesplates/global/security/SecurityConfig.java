@@ -55,6 +55,7 @@ public class SecurityConfig {
 				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1/health", "/api/v1/auth/csrf").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/v1/map/**").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
 				.anyRequest().authenticated())
 			.addFilterAfter(ownerScopeFilter, AuthorizationFilter.class)

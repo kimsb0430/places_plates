@@ -23,6 +23,7 @@ import com.placesplates.domain.post.dto.RestaurantDetailUpdateRequest;
 import com.placesplates.domain.post.entity.DestinationDetail;
 import com.placesplates.domain.post.entity.DraftPost;
 import com.placesplates.domain.post.entity.PostCategory;
+import com.placesplates.domain.post.entity.PostCoordinateVisibility;
 import com.placesplates.domain.post.entity.PostStatus;
 import com.placesplates.domain.post.entity.RestaurantDetail;
 import com.placesplates.domain.post.exception.DraftPostException;
@@ -122,7 +123,10 @@ public class DraftPostService {
 		Place place = request.source() == PlaceSource.GOOGLE
 			? connectGooglePlace(ownerUserId, request)
 			: connectManualPlace(ownerUserId, request);
-		draft.connectPlace(place.getId());
+		PostCoordinateVisibility coordinateVisibility = place.getLatitude() == null
+			? PostCoordinateVisibility.HIDDEN
+			: PostCoordinateVisibility.EXACT;
+		draft.connectPlace(place.getId(), coordinateVisibility);
 		return toResponse(draft, place, findRestaurantDetail(draft), findDestinationDetail(draft));
 	}
 
