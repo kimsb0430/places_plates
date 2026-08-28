@@ -104,6 +104,7 @@ app → domain → shared
 - 사진 편집은 `photo/components/draft-photo-editor.tsx`가 담당한다. 소유자 전용 썸네일을 자격 증명 포함 Blob으로 읽어 원격 최적화 캐시에 노출하지 않고, 기본 버튼의 키보드 동작으로 순서·대표 사진을 바꾸며 대체 텍스트를 600ms 지연 자동 저장한다.
 - 게시 패널은 `post/components/draft-publication-panel.tsx`가 담당한다. 비공개·링크 공개·전체 공개를 선택하고 서버의 게시 준비 검사 결과를 항목별로 표시하며, 입력 자동 저장이 끝나고 모든 검사에 통과했을 때만 게시 요청을 보낸다. 공개 목록·상세 URL 제공은 C24~C27의 공개 조회 화면에서 연결한다.
 - 공개 기록 화면은 `/posts` 서버 컴포넌트가 `post/api/public-post-api.ts`로 비로그인 목록을 읽고, 쿼리 문자열의 카테고리와 `LATEST`·`OLDEST` 정렬을 링크에 반영한다. `public-post-index.tsx`는 검증된 `MAP_CARD` 대표 사진·카테고리·제목·한줄평·월 단위 방문 시기를 반응형 카드로 표시하고 `/posts/[postId]` 상세로 연결한다. 상세 서버 컴포넌트는 `GET /api/v1/public/posts/{postId}`에서 `PUBLIC + PUBLISHED` 기록만 읽고 공통 본문·월 단위 방문 시기·장소명·Google 지도 링크와 현재 카테고리의 전용 정보만 렌더링한다. 상세 사진은 `READY` 사진의 검증된 현재 워터마크 `PUBLIC_DETAIL`만 `/api/v1/public/posts/{postId}/photos/{photoId}`로 제공하며 소유자 ID·내부 장소 ID·좌표·게시 일자·Storage 키는 응답하지 않는다. 사진 위 보호 레이어는 일반적인 우클릭 저장을 억제하지만 브라우저 표시 사진의 복사·캡처를 완전히 차단한다고 표현하지 않으며, 실제 보호 경계는 원본 미제공·메타데이터 제거·픽셀 워터마크다.
+- 같은 장소 방문 기록은 내부 장소 ID 대신 이미 공개된 게시물 ID를 진입점으로 하는 `/posts/[postId]/place` 서버 컴포넌트가 담당한다. `GET /api/v1/public/posts/{postId}/place`는 진입 게시물의 소유자와 장소를 내부적으로 해석하고 같은 `owner_user_id + place_id`의 `PUBLIC + PUBLISHED`만 공개 방문 월 오래된 순으로 반환한다. `public-place-history.tsx`는 방문 수·장소명·Google 지도 링크·검증된 `MAP_CARD`·각 상세 링크를 타임라인으로 표시하며 다른 회원의 기록, 비공개·링크 공개 게시물, 내부 소유자·장소 ID, 좌표, 게시 시각은 응답하지 않는다. PostgreSQL V15는 공개 게시물에 연결된 장소 행만 `PUBLIC` 모드에서 읽도록 허용한다.
 
 ## 4. 백엔드 구조
 

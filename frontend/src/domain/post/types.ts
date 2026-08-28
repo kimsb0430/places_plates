@@ -150,6 +150,22 @@ export interface PublicPostDetail {
   photos: PublicPostPhoto[];
 }
 
+export interface PublicPlaceVisit {
+  id: string;
+  category: PostCategory;
+  title: string;
+  summary: string | null;
+  publicVisitYear: number;
+  publicVisitMonth: number;
+  cover: PublicPostCover | null;
+}
+
+export interface PublicPlaceHistory {
+  place: PublicPostPlace;
+  visitCount: number;
+  visits: PublicPlaceVisit[];
+}
+
 export interface PublicPostList {
   counts: PublicPostCounts;
   posts: PublicPostSummary[];

@@ -29,6 +29,8 @@ import com.placesplates.domain.post.dto.PublicPostPhotoResponse;
 import com.placesplates.domain.post.dto.PublicPostPlaceResponse;
 import com.placesplates.domain.post.dto.PublicPostSort;
 import com.placesplates.domain.post.dto.PublicPostSummaryResponse;
+import com.placesplates.domain.post.dto.PublicPlaceHistoryResponse;
+import com.placesplates.domain.post.dto.PublicPlaceVisitResponse;
 import com.placesplates.domain.post.dto.RestaurantDetailResponse;
 import com.placesplates.domain.post.dto.DestinationDetailResponse;
 import com.placesplates.domain.post.entity.DraftPost;
@@ -122,6 +124,31 @@ public class PublicPostService {
 			restaurantDetails,
 			destinationDetails,
 			publicDetailPhotos(post)
+		);
+	}
+
+	public PublicPlaceHistoryResponse findPublicPlaceHistory(UUID postId) {
+		DraftPost anchorPost = requirePublicPost(postId, PublicPostService::placeHistoryNotFound);
+		if (anchorPost.getPlaceId() == null) {
+			throw placeHistoryNotFound();
+		}
+		PublicPostPlaceResponse place = placeRepository.findById(anchorPost.getPlaceId())
+			.map(PublicPostPlaceResponse::from)
+			.orElseThrow(PublicPostService::placeHistoryNotFound);
+		List<DraftPost> visits = draftPostRepository.findAllByOwnerUserIdAndPlaceIdAndVisibilityAndStatus(
+			anchorPost.getOwnerUserId(),
+			anchorPost.getPlaceId(),
+			PostVisibility.PUBLIC,
+			PostStatus.PUBLISHED,
+			publicVisitSort()
+		);
+		Map<UUID, PublicPostCoverResponse> covers = publicCovers(visits);
+		return new PublicPlaceHistoryResponse(
+			place,
+			visits.size(),
+			visits.stream()
+				.map(visit -> PublicPlaceVisitResponse.from(visit, covers.get(visit.getId())))
+				.toList()
 		);
 	}
 
@@ -259,6 +286,12 @@ public class PublicPostService {
 		return Sort.by(direction, "publishedAt").and(Sort.by(direction, "id"));
 	}
 
+	private static Sort publicVisitSort() {
+		return Sort.by(Sort.Direction.ASC, "publicVisitYear")
+			.and(Sort.by(Sort.Direction.ASC, "publicVisitMonth"))
+			.and(Sort.by(Sort.Direction.ASC, "id"));
+	}
+
 	private DraftPost requirePublicPost(UUID postId) {
 		return requirePublicPost(postId, PublicPostService::postNotFound);
 	}
@@ -295,6 +328,14 @@ public class PublicPostService {
 			HttpStatus.NOT_FOUND,
 			"PUBLIC_POST_PHOTO_NOT_FOUND",
 			"공개 상세 사진을 찾을 수 없습니다."
+		);
+	}
+
+	private static PublicPostException placeHistoryNotFound() {
+		return new PublicPostException(
+			HttpStatus.NOT_FOUND,
+			"PUBLIC_PLACE_HISTORY_NOT_FOUND",
+			"공개 장소 방문 기록을 찾을 수 없습니다."
 		);
 	}
 

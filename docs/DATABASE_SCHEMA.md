@@ -1,7 +1,7 @@
 # Places & Plates 데이터베이스 설계
 
-문서 버전: v1.7
-작성일: 2026-08-26
+문서 버전: v1.8
+작성일: 2026-08-28
 
 ## 1. 적용 범위
 
@@ -61,6 +61,7 @@ SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 | `db/migration/common/V12__record_server_watermark_policy.sql` | 모든 DB | 워터마크 위치와 정책 버전의 일관성 제약, 정제 마스터 워터마크 금지 |
 | `db/migration/common/V13__enforce_temporary_original_purge.sql` | 모든 DB | 만료 항목의 원본 삭제 상태 제약과 원본 정리 조회 인덱스 |
 | `db/migration/postgresql/V14__list_temporary_original_cleanup_owners.sql` | PostgreSQL | 런타임 역할에 후보 소유자 UUID만 제한 공개하는 예약 정리 함수 |
+| `db/migration/postgresql/V15__allow_public_linked_place_read.sql` | PostgreSQL | 공개 게시물에 연결된 장소만 PUBLIC 모드에서 읽는 장소 RLS 정책 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -70,7 +71,7 @@ Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경�
 - 공개 API 요청은 사용자 UUID를 비우고 `app.request_mode=PUBLIC`을 설정한다.
 - 프로필·여행·장소·게시물·전용 상세·태그 관계·사진·사진 자산·업로드 테이블은 `ENABLE`과 `FORCE ROW LEVEL SECURITY`를 모두 적용한다.
 - `OWNER` 모드는 직접 `owner_user_id`를 비교하거나 부모 테이블의 소유자를 확인한다.
-- `PUBLIC` 모드는 전체 공개·게시 완료 행과 안전 검사를 통과한 공개 사진 자산만 읽을 수 있다.
+- `PUBLIC` 모드는 전체 공개·게시 완료 행과 안전 검사를 통과한 공개 사진 자산, 전체 공개 게시물에 연결된 장소만 읽을 수 있다.
 - 임시 업로드, 정제 마스터와 다른 사용자의 초안은 공개 정책이 없으므로 조회 결과에 포함되지 않는다.
 - `app_users`는 로그인 시 이메일로 계정을 찾아야 하므로 RLS 대상에서 제외하고 인증 Repository 외의 접근과 API 노출을 금지한다.
 - `spring_session`과 `spring_session_attributes`는 서버 내부 인프라 테이블이라 소유자 RLS를 적용하지 않는다. 대신 `placesplates_app`만 CRUD할 수 있고 `PUBLIC`·`anon`·`authenticated`에는 권한을 부여하지 않는다.
@@ -92,6 +93,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - C24 공개 목록은 `visibility=PUBLIC AND status=PUBLISHED`를 애플리케이션 쿼리와 PostgreSQL 공개 RLS 정책에 모두 적용한다. 카테고리별 `GROUP BY` 합계와 최신 게시 시각 목록은 V2의 공개 게시물 부분 인덱스를 사용하며, 소유자 ID·본문·내부 장소 ID는 목록 DTO에 포함하지 않는다. 기존 인덱스를 사용하므로 새 마이그레이션은 없다.
 - C25 공개 카드 대표 사진은 `photos.is_cover=TRUE AND processing_status=READY`와 `photo_assets.variant_type=MAP_CARD`, `access_level=PUBLIC`, 메타데이터 검사·워터마크 적용·현재 정책 버전을 애플리케이션과 공개 RLS에서 함께 확인한다. 게시물 묶음 조회는 기존 `photos(post_id, display_order)`, 대표 사진 UNIQUE 부분 인덱스와 자산 UNIQUE 제약을 사용하고 게시 정렬은 V2 공개 부분 인덱스를 정방향·역방향으로 재사용하므로 새 마이그레이션은 없다.
 - C26 공개 상세 사진은 게시물의 `READY` 사진을 표시 순서로 읽은 뒤 `photo_assets.variant_type=PUBLIC_DETAIL`, `access_level=PUBLIC`, 메타데이터 검사·워터마크 적용·현재 정책 버전을 모두 통과한 자산만 노출한다. 공통 게시물과 카테고리 전용 상세는 기존 기본 키·외래 키 조회를 사용하고 장소 응답에서 ID와 좌표를 제거하므로 새 마이그레이션이나 인덱스는 없다.
+- C27 장소 이력은 공개 게시물 ID로 진입해 그 게시물의 `owner_user_id`와 `place_id`를 서버 내부에서만 사용하고 같은 소유자·장소의 `visibility=PUBLIC AND status=PUBLISHED`를 공개 방문 연·월 오래된 순으로 반환한다. V15는 공개 게시물에 연결된 장소에만 `places_public_select`를 허용한다. 내부 소유자·장소 ID·좌표·게시 시각은 DTO에서 제외하며 기존 `posts(owner_user_id, place_id, category)` 공개 부분 인덱스를 사용하므로 새 인덱스는 없다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.
 - 한 게시물의 대표 사진은 최대 한 장이다.
 - 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과하고 정책 버전·지원 위치를 가져야 한다.

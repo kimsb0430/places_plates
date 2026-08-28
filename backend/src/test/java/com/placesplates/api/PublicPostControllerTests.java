@@ -233,6 +233,85 @@ class PublicPostControllerTests {
 	}
 
 	@Test
+	void returnsChronologicalPublicVisitsForTheSamePlace() throws Exception {
+		Place sharedPlace = placeRepository.save(Place.manual(
+			administrator.getId(),
+			"계절마다 다시 찾는 정원",
+			"공개 장소 방문 기록 테스트 주소",
+			null,
+			null,
+			"https://www.google.com/maps/search/?api=1&query=garden"
+		));
+		DraftPost firstVisit = publishedPostAtPlace(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			"봄의 정원",
+			sharedPlace,
+			2025,
+			4
+		);
+		DraftPost latestVisit = publishedPostAtPlace(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			"가을의 정원",
+			sharedPlace,
+			2026,
+			10
+		);
+		AdministratorAccount anotherOwner = accountRepository.save(AdministratorAccount.create(
+			"other-place-owner-" + UUID.randomUUID() + "@example.test",
+			passwordEncoder.encode("other-local-public-post-password")
+		));
+		DraftPost otherOwnersVisit = DraftPost.create(anotherOwner.getId(), PostCategory.DESTINATION);
+		otherOwnersVisit.updateEditorFields(
+			"다른 회원의 겨울 정원",
+			"다른 회원에게만 속한 방문",
+			null,
+			2026,
+			12
+		);
+		otherOwnersVisit.connectPlace(sharedPlace.getId());
+		otherOwnersVisit.publish(PostVisibility.PUBLIC);
+		draftPostRepository.save(otherOwnersVisit);
+		publishedPostAtPlace(
+			PostCategory.DESTINATION,
+			PostVisibility.UNLISTED,
+			"링크로만 보는 여름 정원",
+			sharedPlace,
+			2026,
+			7
+		);
+		attachSafeCover(firstVisit, "봄 정원의 대표 사진");
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}/place", latestVisit.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.place.name").value("계절마다 다시 찾는 정원"))
+			.andExpect(jsonPath("$.place.googleMapsUrl").value(containsString("google.com/maps")))
+			.andExpect(jsonPath("$.place.id").doesNotExist())
+			.andExpect(jsonPath("$.place.latitude").doesNotExist())
+			.andExpect(jsonPath("$.visitCount").value(2))
+			.andExpect(jsonPath("$.visits.length()").value(2))
+			.andExpect(jsonPath("$.visits[0].id").value(firstVisit.getId().toString()))
+			.andExpect(jsonPath("$.visits[0].publicVisitYear").value(2025))
+			.andExpect(jsonPath("$.visits[0].cover.path").value(
+				"/api/v1/public/posts/%s/cover".formatted(firstVisit.getId())
+			))
+			.andExpect(jsonPath("$.visits[1].id").value(latestVisit.getId().toString()))
+			.andExpect(jsonPath("$.visits[1].publishedAt").doesNotExist())
+			.andExpect(jsonPath("$.visits[?(@.title == '링크로만 보는 여름 정원')]").doesNotExist())
+			.andExpect(jsonPath("$.visits[?(@.title == '다른 회원의 겨울 정원')]").doesNotExist());
+	}
+
+	@Test
+	void hidesPlaceHistoryWhenTheAnchorPostIsNotPublic() throws Exception {
+		DraftPost unlisted = publishedPost(PostCategory.RESTAURANT, PostVisibility.UNLISTED, "숨은 장소 기록");
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}/place", unlisted.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_PLACE_HISTORY_NOT_FOUND"));
+	}
+
+	@Test
 	void hidesNonPublicPostsFromThePublicDetailEndpoint() throws Exception {
 		DraftPost unlisted = publishedPost(PostCategory.RESTAURANT, PostVisibility.UNLISTED, "링크 공개 식당");
 		DraftPost privatePost = publishedPost(PostCategory.DESTINATION, PostVisibility.PRIVATE, "비공개 여행지");
@@ -337,8 +416,25 @@ class PublicPostControllerTests {
 			null,
 			"https://www.google.com/maps/search/?api=1&query=test"
 		));
+		return publishedPostAtPlace(category, visibility, title, place, 2026, 8);
+	}
+
+	private DraftPost publishedPostAtPlace(
+		PostCategory category,
+		PostVisibility visibility,
+		String title,
+		Place place,
+		int visitYear,
+		int visitMonth
+	) {
 		DraftPost post = DraftPost.create(administrator.getId(), category);
-		post.updateEditorFields(title, title + "의 한줄평", "공개 상세 이전의 비공개 본문", 2026, 8);
+		post.updateEditorFields(
+			title,
+			title + "의 한줄평",
+			"공개 상세 이전의 비공개 본문",
+			visitYear,
+			visitMonth
+		);
 		post.connectPlace(place.getId());
 		post.publish(visibility);
 		return draftPostRepository.save(post);

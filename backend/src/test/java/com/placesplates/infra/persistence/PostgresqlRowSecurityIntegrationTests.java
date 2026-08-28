@@ -113,6 +113,33 @@ class PostgresqlRowSecurityIntegrationTests {
 	}
 
 	@Test
+	void publicModeShowsOnlyPlacesLinkedToPublishedPublicPosts() {
+		UUID ownerId = createAccount();
+		setDatabaseContext(ownerId, "OWNER");
+		UUID publicPlaceId = UUID.randomUUID();
+		UUID privatePlaceId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
+			publicPlaceId,
+			ownerId,
+			"public linked place"
+		);
+		jdbcTemplate.update(
+			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
+			privatePlaceId,
+			ownerId,
+			"private linked place"
+		);
+		insertPostAtPlace(ownerId, publicPlaceId, "PUBLIC", "PUBLISHED");
+		insertPostAtPlace(ownerId, privatePlaceId, "PRIVATE", "DRAFT");
+
+		setDatabaseContext(null, "PUBLIC");
+		List<UUID> visiblePlaceIds = jdbcTemplate.queryForList("SELECT id FROM places ORDER BY id", UUID.class);
+
+		assertThat(visiblePlaceIds).containsExactly(publicPlaceId).doesNotContain(privatePlaceId);
+	}
+
+	@Test
 	void ownerCannotInsertRowsForAnotherAccount() {
 		UUID ownerA = createAccount();
 		UUID ownerB = createAccount();
@@ -313,6 +340,29 @@ class PostgresqlRowSecurityIntegrationTests {
 				status
 			);
 		}
+		return postId;
+	}
+
+	private UUID insertPostAtPlace(UUID ownerId, UUID placeId, String visibility, String status) {
+		UUID postId = UUID.randomUUID();
+		OffsetDateTime publishedAt = "PUBLISHED".equals(status) ? OffsetDateTime.now() : null;
+		jdbcTemplate.update(
+			"""
+			INSERT INTO posts (
+			    id, owner_user_id, place_id, category, title, visibility, status,
+			    public_visit_year, public_visit_month, published_at
+			) VALUES (?, ?, ?, 'DESTINATION', ?, ?, ?, ?, ?, ?)
+			""",
+			postId,
+			ownerId,
+			placeId,
+			"place visibility post",
+			visibility,
+			status,
+			publishedAt == null ? null : 2026,
+			publishedAt == null ? null : 8,
+			publishedAt
+		);
 		return postId;
 	}
 

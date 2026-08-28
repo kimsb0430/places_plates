@@ -7,7 +7,7 @@
 - Supabase 프로젝트 `placesplates`는 GitHub 저장소와 연결되어 있다.
 - PostgreSQL 리전은 서울이며 무료 `nano` 컴퓨팅을 사용한다.
 - PostGIS 3.3.7은 Supabase의 `extensions` 스키마에 활성화되어 있다.
-- 운영 DB의 실제 적용 버전은 `flyway_schema_history`로 확인한다. 저장소 기준선은 V14이며 C17 애플리케이션 배포 전에 V13 원본 정리 제약·인덱스와 V14 제한 정리 함수를 프로비저닝해야 한다. 애플리케이션 테이블은 14개, 서버 전용 세션 테이블은 2개, 강제 RLS 테이블은 13개다.
+- 운영 DB의 실제 적용 버전은 `flyway_schema_history`로 확인한다. 저장소 기준선은 V15이며 C27 애플리케이션 배포 전에 공개 게시물에 연결된 장소만 허용하는 V15 `places_public_select` 정책까지 프로비저닝해야 한다. 애플리케이션 테이블은 14개, 서버 전용 세션 테이블은 2개, 강제 RLS 테이블은 13개다.
 - `placesplates_app` 역할은 로그인만 허용되며 `SUPERUSER`·`CREATEROLE`·`CREATEDB`·`REPLICATION`·`BYPASSRLS` 권한이 없다.
 - GitHub 연결은 저장소 연동일 뿐이며 Spring Boot의 Flyway 마이그레이션을 자동 실행하지 않는다.
 - 프론트엔드는 Supabase Database·Data API를 직접 사용하지 않는다. 사진 제어 권한은 Spring Boot에서 받고, 사진 본문만 단기 서명 토큰으로 비공개 Storage TUS 엔드포인트에 직접 전송한다.
@@ -49,11 +49,11 @@ Supabase Dashboard의 **Connect → Session pooler**에서 프로젝트 참조�
 프로비저닝은 다음을 한 번에 수행한다.
 
 1. `placesplates_app` 로그인 역할 생성 또는 비밀번호 교체
-2. Flyway V1~V14 적용
+2. Flyway V1~V15 적용
 3. PostGIS·마이그레이션 이력·애플리케이션 테이블 14개·세션 테이블 2개·13개 강제 RLS 테이블 확인
 4. Supabase `anon`·`authenticated` 역할의 애플리케이션·세션 테이블 권한 제거 확인
 5. 운영 역할이 `SUPERUSER`·`BYPASSRLS`가 아님을 확인
-6. 운영 역할의 세션 테이블 CRUD, 요청 범위가 없는 연결의 게시물 조회 결과 0건, 후보 소유자 정리 함수의 제한된 실행 권한 확인
+6. 운영 역할의 세션 테이블 CRUD, 요청 범위가 없는 연결의 게시물 조회 결과 0건, 후보 소유자 정리 함수의 제한된 실행 권한과 공개 연결 장소 정책 확인
 
 역할 비밀번호 갱신 직후 Session pooler의 인증 정보 전파가 늦으면 `28P01 password authentication failed`가 일시적으로 발생할 수 있다. 프로비저닝 도구는 이 SQL 상태에만 10초 간격으로 최대 4회 재연결하며, 다른 연결·권한 오류는 즉시 실패시킨다. 반복 실패 시 잘못된 비밀번호로 계속 접속하지 말고 Supabase의 **Database Settings → Network Bans**와 Pooler Logs를 확인한다.
 
@@ -113,6 +113,7 @@ V13은 `EXPIRED` 업로드 항목에 원본 키가 없고 삭제 시각이 있�
 - 로그인 후 Cloud Run 리비전이 교체되어도 같은 쿠키로 세션이 복구되고, 로그아웃 후 세션 행과 속성 행이 제거되어야 한다.
 - 운영 배포 전 비로그인 공개 모드와 두 소유자 계정의 격리 테스트를 실행한다.
 - C17 배포 전 V13·V14까지 적용하고 제한 정리 함수의 실행 권한과 만료 원본 제약을 확인한다. 배포 후 처리된 세 파생본의 저장 바이트 검사, 워터마크 정책·위치, 임시 원본 키 제거와 삭제 시각을 함께 확인한다.
+- C27 배포 전 V15를 적용해 `places_public_select`가 존재하는지 확인한다. `PUBLIC` 요청은 전체 공개·게시 완료 게시물에 연결된 장소만 읽고, 비공개·링크 공개 기록에만 연결된 장소는 읽지 못해야 한다.
 - 스키마 마이그레이션은 자동 역실행하지 않는다. 실패 시 애플리케이션 배포를 중단하고 Flyway 실패 원인을 수정하며, 데이터가 생긴 뒤의 복구는 Supabase 백업 또는 새 프로젝트 복원을 사용한다.
 
 공식 참고: [Supabase 데이터베이스 연결](https://supabase.com/docs/guides/database/connecting-to-postgres), [Postgres 역할](https://supabase.com/docs/guides/database/postgres/roles), [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
@@ -124,7 +125,7 @@ V13은 `EXPIRED` 업로드 항목에 원본 키가 없고 삭제 시각이 있�
 - Supabaseの`placesplates`プロジェクトはGitHubリポジトリへ接続済みである。
 - PostgreSQLはソウルリージョンの無料`nano`コンピュートを使用する。
 - PostGIS 3.3.7はSupabaseの`extensions`スキーマで有効化済みである。
-- 本番DBの実適用versionは`flyway_schema_history`で確認する。Repository基準はV14であり、C17 application配備前にV13原本cleanup制約・indexとV14限定cleanup関数をprovisioningする。Application tableは14個、server専用session tableは2個、強制RLS tableは13個である。
+- 本番DBの実適用versionは`flyway_schema_history`で確認する。Repository基準はV15であり、C27 application配備前に公開postへ接続されたplaceだけを許可するV15 `places_public_select` policyまでprovisioningする。Application tableは14個、server専用session tableは2個、強制RLS tableは13個である。
 - `placesplates_app`はログインだけが許可され、`SUPERUSER`・`CREATEROLE`・`CREATEDB`・`REPLICATION`・`BYPASSRLS`権限を持たない。
 - GitHub接続だけではSpring BootのFlywayマイグレーションは自動実行されない。
 - フロントエンドはSupabase Database・Data APIへ直接接続しない。写真制御権限はSpring Bootから取得し、写真本文だけを短期署名トークンで非公開Storage TUSエンドポイントへ直接送信する。
@@ -157,7 +158,7 @@ Supabase Dashboardの**Connect → Session pooler**でプロジェクト参照�
 
 スクリプトは管理者パスワード、新しい`placesplates_app`パスワード（20文字以上）、確認用パスワードをマスク入力で受け取る。値はファイル・コマンドライン・ログへ保存せず、実行プロセスの環境からも終了時に削除する。管理者パスワードが不明な場合は、ユーザー自身がDashboardで再設定してから実行する。
 
-処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V14、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示、候補owner cleanup関数の限定権限をまとめて検証する。
+処理内容は、実行ロールの作成またはパスワード更新、Flyway V1〜V15、PostGIS・マイグレーション履歴・アプリケーション14テーブル・session 2テーブル・13個の強制RLSテーブル、Data API権限の除去、実行ロールの非管理者性、session CRUD、リクエスト範囲なしでの0件表示、候補owner cleanup関数の限定権限、公開接続place policyをまとめて検証する。
 
 Role password更新直後にSession poolerへの認証情報伝播が遅れると、一時的に`28P01 password authentication failed`となる場合がある。Provisioning toolはこのSQL stateだけを10秒間隔で最大4回再接続し、他の接続・権限errorは直ちに失敗させる。繰り返し失敗する場合は誤ったpasswordで接続を続けず、Supabaseの**Database Settings → Network Bans**とPooler Logsを確認する。
 
@@ -217,6 +218,7 @@ V13は`EXPIRED` upload itemに原本keyがなく削除時刻があり、結果�
 - Login後にCloud Run revisionを交換しても同じCookieで認証を復元でき、logout後にsessionと属性行が削除されることを確認する。
 - 本番配備前に公開モードと二所有者の分離テストを実行する。
 - C17配備前にV13・V14まで適用し、限定cleanup関数の実行権限と期限切れ原本制約を確認する。配備後は3 variantの保存bytes検査、watermark policy・位置、一時原本key削除と削除時刻を同時に確認する。
+- C27配備前にV15を適用して`places_public_select`の存在を確認する。`PUBLIC` requestは公開・配備済みpostへ接続されたplaceだけを読み、private・unlisted記録だけに接続されたplaceは読めないことを確認する。
 - スキーママイグレーションは自動で逆実行しない。失敗時はアプリ配備を止めて原因を修正し、データ作成後の復旧にはSupabaseバックアップまたは新規プロジェクトへの復元を使用する。
 
 公式資料: [Supabaseデータベース接続](https://supabase.com/docs/guides/database/connecting-to-postgres)、[Postgresロール](https://supabase.com/docs/guides/database/postgres/roles)、[Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)

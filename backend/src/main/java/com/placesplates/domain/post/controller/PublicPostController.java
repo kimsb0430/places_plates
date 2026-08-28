@@ -17,6 +17,7 @@ import com.placesplates.domain.post.dto.PublicPostCoverContent;
 import com.placesplates.domain.post.dto.PublicPostDetailResponse;
 import com.placesplates.domain.post.dto.PublicPostPhotoContent;
 import com.placesplates.domain.post.dto.PublicPostSort;
+import com.placesplates.domain.post.dto.PublicPlaceHistoryResponse;
 import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.service.PublicPostService;
 
@@ -41,6 +42,11 @@ public class PublicPostController {
 	@GetMapping("/{postId}")
 	public PublicPostDetailResponse getPost(@PathVariable UUID postId) {
 		return publicPostService.findPublicPost(postId);
+	}
+
+	@GetMapping("/{postId}/place")
+	public PublicPlaceHistoryResponse getPlaceHistory(@PathVariable UUID postId) {
+		return publicPostService.findPublicPlaceHistory(postId);
 	}
 
 	@GetMapping("/{postId}/cover")

@@ -1,4 +1,10 @@
-import type { PostCategory, PublicPostDetail, PublicPostList, PublicPostSort } from '../types';
+import type {
+  PostCategory,
+  PublicPlaceHistory,
+  PublicPostDetail,
+  PublicPostList,
+  PublicPostSort,
+} from '../types';
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8080'
@@ -57,6 +63,25 @@ export async function getPublicPost(postId: string): Promise<PublicPostDetail> {
   }
 
   return response.json() as Promise<PublicPostDetail>;
+}
+
+export async function getPublicPlaceHistory(postId: string): Promise<PublicPlaceHistory> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/public/posts/${postId}/place`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+  } catch {
+    throw new PublicPostApiError('공개 장소 기록 서버에 연결할 수 없습니다.');
+  }
+
+  if (!response.ok) {
+    throw await createApiError(response, '공개 장소 방문 기록을 불러오지 못했습니다.');
+  }
+
+  return response.json() as Promise<PublicPlaceHistory>;
 }
 
 export function getPublicCoverUrl(path: string): string {

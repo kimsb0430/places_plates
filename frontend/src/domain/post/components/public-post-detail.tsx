@@ -84,6 +84,11 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
           ) : (
             <DestinationFacts details={post.destinationDetails} />
           )}
+          {post.place && (
+            <Link href={`/posts/${post.id}/place`}>
+              이 장소의 방문 기록 보기 <span aria-hidden="true">→</span>
+            </Link>
+          )}
           {post.place?.googleMapsUrl && (
             <a href={post.place.googleMapsUrl} target="_blank" rel="noreferrer">
               Google 지도에서 장소 보기 <span aria-hidden="true">↗</span>

@@ -14,7 +14,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 public final class SupabaseDatabaseProvisioner {
 
 	private static final String RUNTIME_ROLE = "placesplates_app";
-	private static final int EXPECTED_MIGRATION_COUNT = 14;
+	private static final int EXPECTED_MIGRATION_COUNT = 15;
 	private static final int EXPECTED_FORCED_RLS_TABLE_COUNT = 13;
 	private static final int RUNTIME_VERIFICATION_ATTEMPTS = 4;
 	private static final long RUNTIME_VERIFICATION_RETRY_DELAY_MILLIS = 10_000L;
@@ -108,6 +108,19 @@ public final class SupabaseDatabaseProvisioner {
 				"SELECT COUNT(*) FROM pg_extension WHERE extname = 'postgis'",
 				1,
 				"PostGIS extensions"
+			);
+			assertCount(
+				connection,
+				"""
+				SELECT COUNT(*)
+				FROM pg_policies
+				WHERE schemaname = 'public'
+				  AND tablename = 'places'
+				  AND policyname = 'places_public_select'
+				  AND cmd = 'SELECT'
+				""",
+				1,
+				"public linked place policy"
 			);
 			assertNoSupabaseDataApiPrivilege(connection, "anon");
 			assertNoSupabaseDataApiPrivilege(connection, "authenticated");

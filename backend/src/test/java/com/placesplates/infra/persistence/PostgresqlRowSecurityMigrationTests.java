@@ -69,6 +69,18 @@ class PostgresqlRowSecurityMigrationTests {
 			.doesNotContain("image_processing_jobs_public");
 	}
 
+	@Test
+	void publicPlacePolicyRequiresALinkedPublishedPublicPost() throws IOException {
+		String migration = readMigration("db/migration/postgresql/V15__allow_public_linked_place_read.sql");
+
+		assertThat(migration)
+			.contains("CREATE POLICY places_public_select ON places")
+			.contains("app_request_mode() = 'PUBLIC'")
+			.contains("posts.place_id = places.id")
+			.contains("posts.visibility = 'PUBLIC'")
+			.contains("posts.status = 'PUBLISHED'");
+	}
+
 	private String readMigration() throws IOException {
 		return readMigration("db/migration/postgresql/V4__enforce_owner_scoped_row_security.sql")
 			+ readMigration("db/migration/postgresql/V8__secure_image_processing_jobs.sql");
