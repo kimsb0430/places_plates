@@ -18,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -25,6 +26,8 @@ import com.jayway.jsonpath.JsonPath;
 import com.placesplates.domain.auth.entity.AdministratorAccount;
 import com.placesplates.domain.auth.repository.AdministratorAccountRepository;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
@@ -67,6 +70,18 @@ class AuthenticationControllerTests {
 	void publicApiBoundaryDoesNotRequireAuthentication() throws Exception {
 		mockMvc.perform(get("/api/v1/public/missing"))
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void errorDispatchPreservesTheFrameworkErrorStatusWithoutLogin() throws Exception {
+		mockMvc.perform(servletContext -> {
+			MockHttpServletRequest request = get("/error").buildRequest(servletContext);
+			request.setDispatcherType(DispatcherType.ERROR);
+			request.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, 400);
+			request.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, "/api/v1/public/posts");
+			return request;
+		})
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test

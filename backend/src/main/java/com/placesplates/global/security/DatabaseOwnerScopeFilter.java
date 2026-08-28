@@ -59,6 +59,10 @@ public class DatabaseOwnerScopeFilter extends OncePerRequestFilter {
 					filterChain.doFilter(request, response);
 				} catch (IOException | ServletException exception) {
 					throw new FilterChainException(exception);
+				} finally {
+					if (response.getStatus() >= HttpServletResponse.SC_BAD_REQUEST) {
+						status.setRollbackOnly();
+					}
 				}
 			});
 		} catch (FilterChainException exception) {

@@ -6,6 +6,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.placesplates.domain.photo.exception.ImageProcessingJobException;
 import com.placesplates.domain.photo.exception.DraftPhotoException;
@@ -27,6 +28,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiErrorResponse> handleValidationException() {
 		return ResponseEntity.badRequest()
 			.body(new ApiErrorResponse("COMMON_INVALID_INPUT", "입력값을 확인해주세요."));
+	}
+
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ApiErrorResponse> handleArgumentTypeMismatchException() {
+		return ResponseEntity.badRequest()
+			.body(new ApiErrorResponse("COMMON_INVALID_QUERY", "요청 조건을 확인해주세요."));
 	}
 
 	@ExceptionHandler(PhotoUploadException.class)

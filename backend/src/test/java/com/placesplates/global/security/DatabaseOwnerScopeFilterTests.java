@@ -111,6 +111,28 @@ class DatabaseOwnerScopeFilterTests {
 	}
 
 	@Test
+	void handledErrorResponseMarksRequestTransactionForRollback() throws Exception {
+		JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+		TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+		TransactionStatus transactionStatus = mock(TransactionStatus.class);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			Consumer<TransactionStatus> action = invocation.getArgument(0);
+			action.accept(transactionStatus);
+			return null;
+		}).when(transactionTemplate).executeWithoutResult(any(Consumer.class));
+		DatabaseOwnerScopeFilter filter = new DatabaseOwnerScopeFilter(transactionTemplate, jdbcTemplate, true);
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/public/posts/missing/cover");
+		request.setRequestURI("/api/v1/public/posts/missing/cover");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain filterChain = (ignoredRequest, handledResponse) ->
+			((MockHttpServletResponse) handledResponse).setStatus(404);
+
+		filter.doFilter(request, response, filterChain);
+
+		verify(transactionStatus).setRollbackOnly();
+	}
+
+	@Test
 	void frameworkRoleWithoutAdministratorPrincipalCannotOpenOwnerScope() {
 		JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 		TransactionTemplate transactionTemplate = synchronousTransactionTemplate();
