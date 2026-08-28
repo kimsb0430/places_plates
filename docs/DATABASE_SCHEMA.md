@@ -62,6 +62,7 @@ SPRING_SESSION.primary_id ─── SPRING_SESSION_ATTRIBUTES.session_primary_id
 | `db/migration/common/V13__enforce_temporary_original_purge.sql` | 모든 DB | 만료 항목의 원본 삭제 상태 제약과 원본 정리 조회 인덱스 |
 | `db/migration/postgresql/V14__list_temporary_original_cleanup_owners.sql` | PostgreSQL | 런타임 역할에 후보 소유자 UUID만 제한 공개하는 예약 정리 함수 |
 | `db/migration/postgresql/V15__allow_public_linked_place_read.sql` | PostgreSQL | 공개 게시물에 연결된 장소만 PUBLIC 모드에서 읽는 장소 RLS 정책 |
+| `db/migration/common/V16__enable_map_coordinates_for_connected_places.sql` | 모든 DB | 위도·경도 쌍이 연결된 기존 게시물의 지도 좌표 공개 상태를 EXACT로 보정 |
 
 Spring Boot는 데이터베이스 종류에 맞춰 `db/migration/{vendor}` 경로를 추가한다. 테스트에서는 H2에 공통 마이그레이션을 적용해 관계와 안전 제약을 빠르게 확인한다.
 
@@ -94,6 +95,7 @@ RLS는 행 경계를 보호하며 열 마스킹을 대신하지 않는다. 공�
 - C25 공개 카드 대표 사진은 `photos.is_cover=TRUE AND processing_status=READY`와 `photo_assets.variant_type=MAP_CARD`, `access_level=PUBLIC`, 메타데이터 검사·워터마크 적용·현재 정책 버전을 애플리케이션과 공개 RLS에서 함께 확인한다. 게시물 묶음 조회는 기존 `photos(post_id, display_order)`, 대표 사진 UNIQUE 부분 인덱스와 자산 UNIQUE 제약을 사용하고 게시 정렬은 V2 공개 부분 인덱스를 정방향·역방향으로 재사용하므로 새 마이그레이션은 없다.
 - C26 공개 상세 사진은 게시물의 `READY` 사진을 표시 순서로 읽은 뒤 `photo_assets.variant_type=PUBLIC_DETAIL`, `access_level=PUBLIC`, 메타데이터 검사·워터마크 적용·현재 정책 버전을 모두 통과한 자산만 노출한다. 공통 게시물과 카테고리 전용 상세는 기존 기본 키·외래 키 조회를 사용하고 장소 응답에서 ID와 좌표를 제거하므로 새 마이그레이션이나 인덱스는 없다.
 - C27 장소 이력은 공개 게시물 ID로 진입해 그 게시물의 `owner_user_id`와 `place_id`를 서버 내부에서만 사용하고 같은 소유자·장소의 `visibility=PUBLIC AND status=PUBLISHED`를 공개 방문 연·월 오래된 순으로 반환한다. V15는 공개 게시물에 연결된 장소에만 `places_public_select`를 허용한다. 내부 소유자·장소 ID·좌표·게시 시각은 DTO에서 제외하며 기존 `posts(owner_user_id, place_id, category)` 공개 부분 인덱스를 사용하므로 새 인덱스는 없다.
+- C29 지도 API는 `PUBLIC + PUBLISHED` 게시물 중 `coordinate_visibility`이 `EXACT` 또는 `APPROXIMATE`이고 연결 장소에 위도·경도 쌍이 있는 기록만 반환한다. `APPROXIMATE`는 소수점 둘째 자리로 반올림하며 Google 장소는 `refreshed_at` 30일 안의 좌표만 사용한다. 장소 연결 시 좌표가 있으면 `EXACT`, 없으면 `HIDDEN`으로 저장하고 V16은 기존 좌표 연결 게시물도 같은 상태로 보정한다. V2의 공개 게시물 부분 인덱스와 장소 기본 키를 사용하며 C30~C31의 대규모 경계·묶음 조회 전까지 새 인덱스는 추가하지 않는다.
 - 여행에 포함된 게시물 순서는 한 여행 안에서 중복될 수 없다.
 - 한 게시물의 대표 사진은 최대 한 장이다.
 - 공개 이미지 자산은 메타데이터 검사와 워터마크 적용을 모두 통과하고 정책 버전·지원 위치를 가져야 한다.

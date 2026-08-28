@@ -22,6 +22,7 @@ public class DatabaseOwnerScopeFilter extends OncePerRequestFilter {
 	private static final String API_ROOT = "/api/v1";
 	private static final String AUTH_ROOT = "/api/v1/auth";
 	private static final String PUBLIC_ROOT = "/api/v1/public";
+	private static final String MAP_ROOT = "/api/v1/map";
 	private static final String HEALTH_PATH = "/api/v1/health";
 
 	private final TransactionTemplate transactionTemplate;
@@ -83,7 +84,7 @@ public class DatabaseOwnerScopeFilter extends OncePerRequestFilter {
 	}
 
 	static DatabaseAccessMode resolveAccessMode(String requestUri) {
-		return isWithinPath(requestUri, PUBLIC_ROOT)
+		return isWithinPath(requestUri, PUBLIC_ROOT) || isWithinPath(requestUri, MAP_ROOT)
 			? DatabaseAccessMode.PUBLIC
 			: DatabaseAccessMode.OWNER;
 	}

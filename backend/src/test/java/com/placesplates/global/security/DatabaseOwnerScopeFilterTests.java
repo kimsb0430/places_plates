@@ -43,6 +43,10 @@ class DatabaseOwnerScopeFilterTests {
 			.isEqualTo(DatabaseAccessMode.PUBLIC);
 		assertThat(DatabaseOwnerScopeFilter.resolveAccessMode("/api/v1/publicity"))
 			.isEqualTo(DatabaseAccessMode.OWNER);
+		assertThat(DatabaseOwnerScopeFilter.resolveAccessMode("/api/v1/map/posts"))
+			.isEqualTo(DatabaseAccessMode.PUBLIC);
+		assertThat(DatabaseOwnerScopeFilter.resolveAccessMode("/api/v1/mapping"))
+			.isEqualTo(DatabaseAccessMode.OWNER);
 	}
 
 	@Test

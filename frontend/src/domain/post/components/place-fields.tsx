@@ -288,7 +288,7 @@ function ManualPlaceForm({
           placeholder="135.768029"
         />
       </label>
-      <small>좌표는 지도에서 위치를 정확히 표시하려는 경우에만 함께 입력하세요.</small>
+      <small>좌표를 함께 입력한 기록은 전체 공개로 게시할 때 공개 지도에 정확한 위치로 표시됩니다.</small>
       {message && <p className="place-error" role="alert">{message}</p>}
       <button type="submit" disabled={isSaving}>{isSaving ? '저장 중…' : '직접 입력 장소 저장'}</button>
     </form>
