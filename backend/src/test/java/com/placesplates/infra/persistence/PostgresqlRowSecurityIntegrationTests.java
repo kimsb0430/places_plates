@@ -42,12 +42,19 @@ class PostgresqlRowSecurityIntegrationTests {
 		UUID ownerA = createAccount();
 		UUID ownerB = createAccount();
 		UUID ownerAPublicPost = createPost(ownerA, "PUBLIC", "PUBLISHED");
-		UUID ownerAPrivatePost = createPost(ownerA, "PRIVATE", "DRAFT");
+		UUID ownerAPublicDraft = createPost(ownerA, "PUBLIC", "DRAFT");
+		UUID ownerAUnlistedPost = createPost(ownerA, "UNLISTED", "PUBLISHED");
+		UUID ownerAPrivatePost = createPost(ownerA, "PRIVATE", "PUBLISHED");
 		UUID ownerBPublicPost = createPost(ownerB, "PUBLIC", "PUBLISHED");
 		UUID ownerBPrivatePost = createPost(ownerB, "PRIVATE", "DRAFT");
 
 		setDatabaseContext(ownerA, "OWNER");
-		assertThat(findVisiblePostIds()).containsExactlyInAnyOrder(ownerAPublicPost, ownerAPrivatePost);
+		assertThat(findVisiblePostIds()).containsExactlyInAnyOrder(
+			ownerAPublicPost,
+			ownerAPublicDraft,
+			ownerAUnlistedPost,
+			ownerAPrivatePost
+		);
 
 		setDatabaseContext(ownerB, "OWNER");
 		assertThat(findVisiblePostIds()).containsExactlyInAnyOrder(ownerBPublicPost, ownerBPrivatePost);
@@ -57,6 +64,41 @@ class PostgresqlRowSecurityIntegrationTests {
 
 		setDatabaseContext(null, "NONE");
 		assertThat(findVisiblePostIds()).isEmpty();
+	}
+
+	@Test
+	void publicModeHidesDetailsPhotosAndAssetsForEveryNonPublicPostState() {
+		UUID ownerId = createAccount();
+		UUID publicPostId = createPost(ownerId, "PUBLIC", "PUBLISHED");
+		UUID publicDraftId = createPost(ownerId, "PUBLIC", "DRAFT");
+		UUID unlistedPostId = createPost(ownerId, "UNLISTED", "PUBLISHED");
+		UUID privatePostId = createPost(ownerId, "PRIVATE", "PUBLISHED");
+		PublicPhotoGraph publicGraph = insertReadyPublicPhoto(ownerId, publicPostId);
+		PublicPhotoGraph publicDraftGraph = insertReadyPublicPhoto(ownerId, publicDraftId);
+		PublicPhotoGraph unlistedGraph = insertReadyPublicPhoto(ownerId, unlistedPostId);
+		PublicPhotoGraph privateGraph = insertReadyPublicPhoto(ownerId, privatePostId);
+		insertRestaurantDetails(publicPostId, publicDraftId, unlistedPostId, privatePostId);
+
+		setDatabaseContext(null, "PUBLIC");
+		List<UUID> visibleDetailPostIds = jdbcTemplate.queryForList(
+			"SELECT post_id FROM restaurant_details ORDER BY post_id",
+			UUID.class
+		);
+		List<UUID> visiblePhotoIds = jdbcTemplate.queryForList("SELECT id FROM photos ORDER BY id", UUID.class);
+		List<UUID> visibleAssetIds = jdbcTemplate.queryForList(
+			"SELECT id FROM photo_assets ORDER BY id",
+			UUID.class
+		);
+
+		assertThat(visibleDetailPostIds)
+			.containsExactly(publicPostId)
+			.doesNotContain(publicDraftId, unlistedPostId, privatePostId);
+		assertThat(visiblePhotoIds)
+			.containsExactly(publicGraph.photoId())
+			.doesNotContain(publicDraftGraph.photoId(), unlistedGraph.photoId(), privateGraph.photoId());
+		assertThat(visibleAssetIds)
+			.containsExactly(publicGraph.assetId())
+			.doesNotContain(publicDraftGraph.assetId(), unlistedGraph.assetId(), privateGraph.assetId());
 	}
 
 	@Test
@@ -117,26 +159,24 @@ class PostgresqlRowSecurityIntegrationTests {
 		UUID ownerId = createAccount();
 		setDatabaseContext(ownerId, "OWNER");
 		UUID publicPlaceId = UUID.randomUUID();
+		UUID publicDraftPlaceId = UUID.randomUUID();
+		UUID unlistedPlaceId = UUID.randomUUID();
 		UUID privatePlaceId = UUID.randomUUID();
-		jdbcTemplate.update(
-			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
-			publicPlaceId,
-			ownerId,
-			"public linked place"
-		);
-		jdbcTemplate.update(
-			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
-			privatePlaceId,
-			ownerId,
-			"private linked place"
-		);
+		insertPlace(ownerId, publicPlaceId, "public linked place");
+		insertPlace(ownerId, publicDraftPlaceId, "public draft linked place");
+		insertPlace(ownerId, unlistedPlaceId, "unlisted linked place");
+		insertPlace(ownerId, privatePlaceId, "private linked place");
 		insertPostAtPlace(ownerId, publicPlaceId, "PUBLIC", "PUBLISHED");
-		insertPostAtPlace(ownerId, privatePlaceId, "PRIVATE", "DRAFT");
+		insertPostAtPlace(ownerId, publicDraftPlaceId, "PUBLIC", "DRAFT");
+		insertPostAtPlace(ownerId, unlistedPlaceId, "UNLISTED", "PUBLISHED");
+		insertPostAtPlace(ownerId, privatePlaceId, "PRIVATE", "PUBLISHED");
 
 		setDatabaseContext(null, "PUBLIC");
 		List<UUID> visiblePlaceIds = jdbcTemplate.queryForList("SELECT id FROM places ORDER BY id", UUID.class);
 
-		assertThat(visiblePlaceIds).containsExactly(publicPlaceId).doesNotContain(privatePlaceId);
+		assertThat(visiblePlaceIds)
+			.containsExactly(publicPlaceId)
+			.doesNotContain(publicDraftPlaceId, unlistedPlaceId, privatePlaceId);
 	}
 
 	@Test
@@ -366,6 +406,47 @@ class PostgresqlRowSecurityIntegrationTests {
 		return postId;
 	}
 
+	private void insertPlace(UUID ownerId, UUID placeId, String name) {
+		jdbcTemplate.update(
+			"INSERT INTO places (id, created_by_user_id, source, name) VALUES (?, ?, 'MANUAL', ?)",
+			placeId,
+			ownerId,
+			name
+		);
+	}
+
+	private PublicPhotoGraph insertReadyPublicPhoto(UUID ownerId, UUID postId) {
+		setDatabaseContext(ownerId, "OWNER");
+		UUID photoId = UUID.randomUUID();
+		UUID assetId = UUID.randomUUID();
+		jdbcTemplate.update(
+			"INSERT INTO photos (id, owner_user_id, post_id, processing_status) VALUES (?, ?, ?, 'READY')",
+			photoId,
+			ownerId,
+			postId
+		);
+		jdbcTemplate.update(
+			"""
+			INSERT INTO photo_assets (
+			    id, photo_id, variant_type, access_level, storage_key, mime_type,
+			    width, height, byte_size, metadata_scan_passed, watermark_applied,
+			    watermark_version, watermark_position
+			) VALUES (?, ?, 'PUBLIC_DETAIL', 'PUBLIC', ?, 'image/jpeg',
+			    1200, 900, 800, TRUE, TRUE, 'places-plates-corner-v1', 'BOTTOM_RIGHT')
+			""",
+			assetId,
+			photoId,
+			"public/" + assetId + ".jpg"
+		);
+		return new PublicPhotoGraph(photoId, assetId);
+	}
+
+	private void insertRestaurantDetails(UUID... postIds) {
+		for (UUID postId : postIds) {
+			jdbcTemplate.update("INSERT INTO restaurant_details (post_id) VALUES (?)", postId);
+		}
+	}
+
 	private OwnerGraph createOwnerGraph(UUID ownerId) {
 		setDatabaseContext(ownerId, "OWNER");
 		String idPart = ownerId.toString();
@@ -530,6 +611,9 @@ class PostgresqlRowSecurityIntegrationTests {
 
 	private List<UUID> findVisiblePostIds() {
 		return jdbcTemplate.queryForList("SELECT id FROM posts ORDER BY id", UUID.class);
+	}
+
+	private record PublicPhotoGraph(UUID photoId, UUID assetId) {
 	}
 
 	private record OwnerGraph(
