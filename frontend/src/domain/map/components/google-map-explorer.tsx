@@ -9,6 +9,10 @@ import {
 } from '@googlemaps/markerclusterer';
 import { useEffect, useRef, useState } from 'react';
 import type { MapPostMarker } from '../types';
+import {
+  countPostsWithinMapBounds,
+  type MapViewportPostCounts,
+} from '../map-viewport-count';
 
 interface GoogleMapExplorerProps {
   apiKey: string;
@@ -23,6 +27,7 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
   const [shouldLoadMap, setShouldLoadMap] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [viewportCounts, setViewportCounts] = useState<MapViewportPostCounts | null>(null);
 
   useEffect(() => {
     if (!shouldLoadMap || !mapContainerRef.current) return;
@@ -32,10 +37,12 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
     const markerCategories = new Map<ClusterMarker, MapPostMarker['category']>();
     let activeClusterer: MarkerClusterer | null = null;
     let activeInfoWindow: google.maps.InfoWindow | null = null;
+    let activeIdleListener: google.maps.MapsEventListener | null = null;
 
     async function initializeMap() {
       setIsLoading(true);
       setErrorMessage(null);
+      setViewportCounts(null);
       try {
         if (configuredApiKey && configuredApiKey !== apiKey) {
           throw new Error('Google Maps API key changed after initialization.');
@@ -95,6 +102,12 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
           algorithm: new SuperClusterAlgorithm({ radius: 72, maxZoom: 17 }),
           renderer: createClusterRenderer(markerLibrary, markerCategories),
         });
+        activeIdleListener = map.addListener('idle', () => {
+          const currentBounds = map.getBounds();
+          if (!isCancelled && currentBounds) {
+            setViewportCounts(countPostsWithinMapBounds(posts, currentBounds.toJSON()));
+          }
+        });
 
         if (posts.length === 1) {
           map.setCenter(bounds.getCenter());
@@ -114,6 +127,7 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
     void initializeMap();
     return () => {
       isCancelled = true;
+      activeIdleListener?.remove();
       activeInfoWindow?.close();
       activeClusterer?.clearMarkers();
       activeClusterer?.setMap(null);
@@ -152,6 +166,12 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
         aria-label="공개 맛집과 여행지 기록 지도"
       />
       {isLoading && <p className="google-map-status">지도를 불러오는 중입니다…</p>}
+      {shouldLoadMap && !isLoading && !errorMessage && viewportCounts && (
+        <output className="google-map-viewport-count" aria-live="polite" aria-atomic="true">
+          <strong>현재 지도 영역 {viewportCounts.total}개</strong>
+          <span>맛집 {viewportCounts.restaurant} · 여행지 {viewportCounts.destination}</span>
+        </output>
+      )}
       {shouldLoadMap && !isLoading && !errorMessage && posts.length > 1 && (
         <p className="google-map-cluster-guide">숫자 마커를 누르면 포함된 기록이 보이도록 확대됩니다.</p>
       )}

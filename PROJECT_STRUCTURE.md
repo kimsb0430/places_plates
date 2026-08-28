@@ -105,7 +105,7 @@ app → domain → shared
 - 게시 패널은 `post/components/draft-publication-panel.tsx`가 담당한다. 비공개·링크 공개·전체 공개를 선택하고 서버의 게시 준비 검사 결과를 항목별로 표시하며, 입력 자동 저장이 끝나고 모든 검사에 통과했을 때만 게시 요청을 보낸다. 공개 목록·상세 URL 제공은 C24~C27의 공개 조회 화면에서 연결한다.
 - 공개 기록 화면은 `/posts` 서버 컴포넌트가 `post/api/public-post-api.ts`로 비로그인 목록을 읽고, 쿼리 문자열의 카테고리와 `LATEST`·`OLDEST` 정렬을 링크에 반영한다. `public-post-index.tsx`는 검증된 `MAP_CARD` 대표 사진·카테고리·제목·한줄평·월 단위 방문 시기를 반응형 카드로 표시하고 `/posts/[postId]` 상세로 연결한다. 상세 서버 컴포넌트는 `GET /api/v1/public/posts/{postId}`에서 `PUBLIC + PUBLISHED` 기록만 읽고 공통 본문·월 단위 방문 시기·장소명·Google 지도 링크와 현재 카테고리의 전용 정보만 렌더링한다. 상세 사진은 `READY` 사진의 검증된 현재 워터마크 `PUBLIC_DETAIL`만 `/api/v1/public/posts/{postId}/photos/{photoId}`로 제공하며 소유자 ID·내부 장소 ID·좌표·게시 일자·Storage 키는 응답하지 않는다. 사진 위 보호 레이어는 일반적인 우클릭 저장을 억제하지만 브라우저 표시 사진의 복사·캡처를 완전히 차단한다고 표현하지 않으며, 실제 보호 경계는 원본 미제공·메타데이터 제거·픽셀 워터마크다.
 - 같은 장소 방문 기록은 내부 장소 ID 대신 이미 공개된 게시물 ID를 진입점으로 하는 `/posts/[postId]/place` 서버 컴포넌트가 담당한다. `GET /api/v1/public/posts/{postId}/place`는 진입 게시물의 소유자와 장소를 내부적으로 해석하고 같은 `owner_user_id + place_id`의 `PUBLIC + PUBLISHED`만 공개 방문 월 오래된 순으로 반환한다. `public-place-history.tsx`는 방문 수·장소명·Google 지도 링크·검증된 `MAP_CARD`·각 상세 링크를 타임라인으로 표시하며 다른 회원의 기록, 비공개·링크 공개 게시물, 내부 소유자·장소 ID, 좌표, 게시 시각은 응답하지 않는다. PostgreSQL V15는 공개 게시물에 연결된 장소 행만 `PUBLIC` 모드에서 읽도록 허용한다.
-- 공개 지도는 `/map` 서버 컴포넌트가 `map/api/public-map-api.ts`로 `GET /api/v1/map/posts`를 읽고 URL의 전체·맛집·여행지 필터를 API 쿼리와 일치시킨다. `google-map-explorer.tsx`는 사용자가 버튼을 누른 뒤에만 Maps JavaScript API를 동적 로드하고, Map ID가 있으면 Advanced Marker를 사용하며 없으면 호환 기본 마커를 사용한다. 맛집은 주황색 ‘맛’, 여행지는 초록색 ‘여’ 마커로 구분하고 안전한 DOM 조립 정보창에서 공개 상세로 이동한다. 지도 API는 `PUBLIC + PUBLISHED`, 좌표 공개 허용, 위도·경도 쌍을 모두 검사하며 30일이 지난 Google 좌표를 제외하고 `APPROXIMATE`는 소수점 둘째 자리로 낮춘다. C30은 `@googlemaps/markerclusterer`의 Supercluster를 반경 72px·최대 묶음 확대 17로 적용하고 묶음 마커 숫자를 포함 게시물 수로 직접 표시한다. 단일 카테고리 묶음은 해당 색상, 혼합 묶음은 브랜드 색상을 사용하며 묶음 선택은 기본 범위 확대 동작을 유지한다. 현재 영역 합계와 분할 화면은 C31~C32에 둔다.
+- 공개 지도는 `/map` 서버 컴포넌트가 `map/api/public-map-api.ts`로 `GET /api/v1/map/posts`를 읽고 URL의 전체·맛집·여행지 필터를 API 쿼리와 일치시킨다. `google-map-explorer.tsx`는 사용자가 버튼을 누른 뒤에만 Maps JavaScript API를 동적 로드하고, Map ID가 있으면 Advanced Marker를 사용하며 없으면 호환 기본 마커를 사용한다. 맛집은 주황색 ‘맛’, 여행지는 초록색 ‘여’ 마커로 구분하고 안전한 DOM 조립 정보창에서 공개 상세로 이동한다. 지도 API는 `PUBLIC + PUBLISHED`, 좌표 공개 허용, 위도·경도 쌍을 모두 검사하며 30일이 지난 Google 좌표를 제외하고 `APPROXIMATE`는 소수점 둘째 자리로 낮춘다. C30은 `@googlemaps/markerclusterer`의 Supercluster를 반경 72px·최대 묶음 확대 17로 적용하고 묶음 마커 숫자를 포함 게시물 수로 직접 표시한다. 단일 카테고리 묶음은 해당 색상, 혼합 묶음은 브랜드 색상을 사용하며 묶음 선택은 기본 범위 확대 동작을 유지한다. C31의 `map-viewport-count.ts`는 날짜 변경선까지 고려해 현재 경계 안의 개별 게시물을 전체·맛집·여행지로 계산하고, 탐색 컴포넌트가 지도 `idle` 이벤트마다 표시를 즉시 갱신한다. 지도 중심 분할 화면은 C32에 둔다.
 
 ## 4. 백엔드 구조
 
@@ -181,7 +181,7 @@ backend/src/main/resources/
 | place | 인증 소유자의 Places API (New) 검색, Google Place ID·좌표·직접 입력 장소 | `GET /api/v1/manage/places/search` |
 | photo | 초안과 연결된 임시 업로드, 중복 방지 이미지 처리 큐, 정제 마스터·워터마크 반응형 파생본·사진 READY 전환·삭제 상태, 소유자 전용 썸네일·순서·대표·대체 텍스트 편집, 공개 카드 대표 사진 | `/api/v1/manage/photo-uploads/**`, `/api/v1/manage/photo-uploads/{batchId}/items/{itemId}/sanitize`, `/api/v1/manage/image-processing-jobs/**`, `GET/PUT /api/v1/manage/drafts/{draftId}/photos`, `GET /api/v1/manage/drafts/{draftId}/photos/{photoId}/thumbnail`, `GET /api/v1/public/posts/{postId}/cover`, `/api/v1/photos/**` |
 | trip | 여행 묶음·대표 여행 | `/api/v1/trips/**` |
-| map | 공개 좌표·30일 Google 스냅샷·카테고리별 개별 마커와 클라이언트 확대 수준별 묶음 숫자, 이후 지도 경계 합계 | `GET /api/v1/map/posts` |
+| map | 공개 좌표·30일 Google 스냅샷·카테고리별 개별 마커, 클라이언트 확대 수준별 묶음 숫자와 현재 지도 경계의 전체·카테고리 합계 | `GET /api/v1/map/posts` |
 
 ## 6. 테스트 구조
 
