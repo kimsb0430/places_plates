@@ -31,6 +31,17 @@ public interface PhotoRepository extends JpaRepository<Photo, UUID> {
 		PhotoProcessingStatus processingStatus
 	);
 
+	List<Photo> findAllByPostIdAndProcessingStatusOrderByDisplayOrderAscCreatedAtAsc(
+		UUID postId,
+		PhotoProcessingStatus processingStatus
+	);
+
+	Optional<Photo> findByIdAndPostIdAndProcessingStatus(
+		UUID id,
+		UUID postId,
+		PhotoProcessingStatus processingStatus
+	);
+
 	@Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
 	@Query("""
 		SELECT photo

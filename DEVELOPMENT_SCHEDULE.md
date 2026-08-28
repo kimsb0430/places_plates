@@ -204,14 +204,14 @@ Sprint 종료 게이트:
 
 기간: 2026-09-16 ~ 2026-09-22
 
-진행 상태: C24의 공개 목록·카테고리 합계에 이어 C25는 안전한 대표 사진 카드와 최신순·오래된순 정렬을 구현했다. C25A는 운영에서 발견된 공개 API 오류 응답의 트랜잭션 롤백·`ERROR` 디스패치 회귀를 보완한다. 공개 상세 링크는 C26에서 연결한다.
+진행 상태: C24의 공개 목록·카테고리 합계, C25의 안전한 대표 사진 카드와 최신순·오래된순 정렬, C25A의 공개 API 오류 응답 회귀 보완을 완료했다. C26은 목록 카드를 `/posts/{postId}`에 연결하고 공통 기록과 맛집·여행지 전용 정보를 분리한 반응형 상세 화면, 검증된 `PUBLIC_DETAIL` 사진 스트리밍, 월 단위 방문 시기와 Google 지도 링크를 구현한다. 다음은 C27의 같은 장소 반복 방문 기록이다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
 | C24 | `feat: add all restaurant and destination list tabs` | `GET /api/v1/public/posts`, 전체·맛집·여행지 탭과 전역 합계, 로딩·빈 목록·API 장애 상태 | 비공개·링크·초안을 제외하고 카테고리 합계가 실제 전체 공개 게시물 수와 일치 |
 | C25 | `feat: add readable post cards and sorting` | 검증된 `MAP_CARD` 대표 사진 스트리밍, 반응형 카드, URL 기반 최신순·오래된순 | 비로그인 카드에서 워터마크 대표 사진·카테고리·제목·한줄평·월 단위 방문 시기를 확인하고 카테고리 전환 후에도 정렬 유지 |
 | C25A | `fix: preserve public api error responses` | 오류 응답 시 요청 트랜잭션 명시 롤백, `ERROR` 디스패치 허용, 잘못된 쿼리 응답 표준화 | 없는 공개 대표 사진은 `404`, 지원하지 않는 enum 쿼리는 `400 COMMON_INVALID_QUERY`로 유지되고 인증 오류나 `502`로 덮이지 않음 |
-| C26 | `feat: add category aware post detail pages` | 공통·맛집·여행지 상세 레이아웃과 공개 방문월 | 사진과 개인 기록이 먼저 표시되고 공개 날짜에는 일자가 노출되지 않음 |
+| C26 | `feat: add category aware post detail pages` | `/posts/{postId}` 상세, 공통·맛집·여행지 분리 레이아웃, 검증된 `PUBLIC_DETAIL` 사진 API와 공개 방문월 | 사진과 개인 기록이 먼저 표시되고 일자·좌표·내부 ID·Storage 키 없이 장소명과 Google 지도 링크만 공개됨 |
 | C27 | `feat: add place details and repeat visit history` | 같은 장소의 여러 게시물 표시 | 장소 페이지에서 방문 기록 수와 링크 확인 |
 | C28 | `test: cover category lists post details and visibility` | 목록·상세·공개 범위 테스트 | 비공개·링크 게시물이 전체 목록에 노출되지 않음 |
 

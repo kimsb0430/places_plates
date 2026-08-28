@@ -126,6 +126,30 @@ export interface PublicPostCover {
   height: number;
 }
 
+export interface PublicPostPhoto extends PublicPostCover {
+  id: string;
+  cover: boolean;
+}
+
+export interface PublicPostPlace {
+  name: string;
+  googleMapsUrl: string | null;
+}
+
+export interface PublicPostDetail {
+  id: string;
+  category: PostCategory;
+  title: string;
+  summary: string | null;
+  content: string | null;
+  publicVisitYear: number;
+  publicVisitMonth: number;
+  place: PublicPostPlace | null;
+  restaurantDetails: RestaurantDetail | null;
+  destinationDetails: DestinationDetail | null;
+  photos: PublicPostPhoto[];
+}
+
 export interface PublicPostList {
   counts: PublicPostCounts;
   posts: PublicPostSummary[];
