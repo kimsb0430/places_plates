@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import type { MapCategoryFilter, MapPostCounts } from '../types';
 
 interface MapCategoryTabsProps {
@@ -18,12 +21,14 @@ const TABS: Array<{
 ];
 
 export function MapCategoryTabs({ selected, counts }: MapCategoryTabsProps) {
+  const searchParameters = useSearchParams();
+
   return (
     <nav className="map-category-tabs" aria-label="지도 기록 카테고리">
       <div role="tablist">
         {TABS.map((tab) => {
           const isSelected = tab.category === selected;
-          const href = tab.category === 'ALL' ? '/map' : `/map?category=${tab.category}`;
+          const href = createCategoryHref(tab.category, searchParameters);
           return (
             <Link
               key={tab.category}
@@ -41,4 +46,15 @@ export function MapCategoryTabs({ selected, counts }: MapCategoryTabsProps) {
       </div>
     </nav>
   );
+}
+
+function createCategoryHref(
+  category: MapCategoryFilter,
+  currentParameters: ReturnType<typeof useSearchParams>,
+): string {
+  const parameters = new URLSearchParams(currentParameters.toString());
+  if (category === 'ALL') parameters.delete('category');
+  else parameters.set('category', category);
+  const query = parameters.toString();
+  return query ? `/map?${query}` : '/map';
 }

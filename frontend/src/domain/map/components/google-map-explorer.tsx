@@ -8,9 +8,10 @@ import {
   type Renderer,
 } from '@googlemaps/markerclusterer';
 import { useEffect, useRef, useState } from 'react';
-import type { MapPostMarker } from '../types';
+import type { MapPostMarker, MapViewState } from '../types';
 import {
   countPostsWithinMapBounds,
+  getPostsWithinMapBounds,
   type MapViewportPostCounts,
 } from '../map-viewport-count';
 
@@ -18,22 +19,68 @@ interface GoogleMapExplorerProps {
   apiKey: string;
   mapId?: string;
   posts: MapPostMarker[];
+  visiblePostIds: string[];
+  selectedPostId: string | null;
+  highlightedPostId: string | null;
+  initialView?: MapViewState;
+  initiallyLoaded: boolean;
+  onLoadRequest: () => void;
+  onSelectPost: (postId: string) => void;
+  onViewChange: (view: MapViewState) => void;
+  onViewportPostIdsChange: (postIds: string[]) => void;
+}
+
+interface MapMarkerRecord {
+  marker: ClusterMarker;
+  post: MapPostMarker;
 }
 
 let configuredApiKey: string | null = null;
 
-export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerProps) {
+export function GoogleMapExplorer({
+  apiKey,
+  mapId,
+  posts,
+  visiblePostIds,
+  selectedPostId,
+  highlightedPostId,
+  initialView,
+  initiallyLoaded,
+  onLoadRequest,
+  onSelectPost,
+  onViewChange,
+  onViewportPostIdsChange,
+}: GoogleMapExplorerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [shouldLoadMap, setShouldLoadMap] = useState(false);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const markerRecordsRef = useRef<Map<string, MapMarkerRecord>>(new Map());
+  const refreshViewportRef = useRef<() => void>(() => undefined);
+  const visiblePostIdsRef = useRef<Set<string>>(new Set(visiblePostIds));
+  const selectedPostIdRef = useRef<string | null>(selectedPostId);
+  const onSelectPostRef = useRef(onSelectPost);
+  const onViewChangeRef = useRef(onViewChange);
+  const onViewportPostIdsChangeRef = useRef(onViewportPostIdsChange);
+  const [shouldLoadMap, setShouldLoadMap] = useState(initiallyLoaded);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [viewportCounts, setViewportCounts] = useState<MapViewportPostCounts | null>(null);
+
+  useEffect(() => {
+    visiblePostIdsRef.current = new Set(visiblePostIds);
+    selectedPostIdRef.current = selectedPostId;
+    onSelectPostRef.current = onSelectPost;
+    onViewChangeRef.current = onViewChange;
+    onViewportPostIdsChangeRef.current = onViewportPostIdsChange;
+  }, [onSelectPost, onViewChange, onViewportPostIdsChange, selectedPostId, visiblePostIds]);
 
   useEffect(() => {
     if (!shouldLoadMap || !mapContainerRef.current) return;
 
     let isCancelled = false;
     const activeMarkers: ClusterMarker[] = [];
+    const activeMarkerCleanups: Array<() => void> = [];
     const markerCategories = new Map<ClusterMarker, MapPostMarker['category']>();
     let activeClusterer: MarkerClusterer | null = null;
     let activeInfoWindow: google.maps.InfoWindow | null = null;
@@ -57,16 +104,17 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
           });
           configuredApiKey = apiKey;
         }
-        const { Map, InfoWindow } = await importLibrary('maps') as google.maps.MapsLibrary;
+        const { Map: GoogleMap, InfoWindow } = await importLibrary('maps') as google.maps.MapsLibrary;
         const markerLibrary = mapId
           ? await importLibrary('marker') as google.maps.MarkerLibrary
           : null;
         if (isCancelled || !mapContainerRef.current) return;
 
-        const bounds = new google.maps.LatLngBounds();
-        const map = new Map(mapContainerRef.current, {
-          center: { lat: posts[0].latitude, lng: posts[0].longitude },
-          zoom: 12,
+        const map = new GoogleMap(mapContainerRef.current, {
+          center: initialView
+            ? { lat: initialView.latitude, lng: initialView.longitude }
+            : { lat: posts[0].latitude, lng: posts[0].longitude },
+          zoom: initialView?.zoom ?? 12,
           mapId: mapId || undefined,
           clickableIcons: false,
           fullscreenControl: true,
@@ -74,6 +122,7 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
           streetViewControl: false,
         });
         activeInfoWindow = new InfoWindow();
+        const markerRecords = new Map<string, MapMarkerRecord>();
 
         for (const post of posts) {
           const position = { lat: post.latitude, lng: post.longitude };
@@ -83,37 +132,73 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
             : createClassicMarker(position, title, post);
           const openPostInfo = () => {
             if (!activeInfoWindow) return;
-            activeInfoWindow.setContent(createInfoWindowContent(post));
-            activeInfoWindow.open({ map, anchor: marker });
+            onSelectPostRef.current(post.id);
+            openMapPostInfo(map, activeInfoWindow, marker, post);
           };
           if (markerLibrary && 'addEventListener' in marker) {
             marker.addEventListener('gmp-click', openPostInfo);
+            activeMarkerCleanups.push(() => marker.removeEventListener('gmp-click', openPostInfo));
           } else {
-            marker.addListener('click', openPostInfo);
+            const listener = marker.addListener('click', openPostInfo);
+            activeMarkerCleanups.push(() => listener.remove());
           }
           activeMarkers.push(marker);
+          markerRecords.set(post.id, { marker, post });
           markerCategories.set(marker, post.category);
-          bounds.extend(position);
         }
 
+        const visibleMarkers = [...markerRecords.values()]
+          .filter((record) => visiblePostIdsRef.current.has(record.post.id))
+          .map((record) => record.marker);
         activeClusterer = new MarkerClusterer({
           map,
-          markers: activeMarkers,
+          markers: visibleMarkers,
           algorithm: new SuperClusterAlgorithm({ radius: 72, maxZoom: 17 }),
           renderer: createClusterRenderer(markerLibrary, markerCategories),
         });
-        activeIdleListener = map.addListener('idle', () => {
-          const currentBounds = map.getBounds();
-          if (!isCancelled && currentBounds) {
-            setViewportCounts(countPostsWithinMapBounds(posts, currentBounds.toJSON()));
-          }
-        });
+        mapRef.current = map;
+        clustererRef.current = activeClusterer;
+        infoWindowRef.current = activeInfoWindow;
+        markerRecordsRef.current = markerRecords;
 
-        if (posts.length === 1) {
-          map.setCenter(bounds.getCenter());
-          map.setZoom(14);
-        } else {
-          map.fitBounds(bounds, 64);
+        const refreshViewport = () => {
+          const currentBounds = map.getBounds();
+          if (isCancelled || !currentBounds) return;
+          const visiblePosts = posts.filter((post) => visiblePostIdsRef.current.has(post.id));
+          const boundsLiteral = currentBounds.toJSON();
+          const viewportPosts = getPostsWithinMapBounds(visiblePosts, boundsLiteral);
+          setViewportCounts(countPostsWithinMapBounds(visiblePosts, boundsLiteral));
+          onViewportPostIdsChangeRef.current(viewportPosts.map((post) => post.id));
+          const center = map.getCenter();
+          const zoom = map.getZoom();
+          if (center && zoom !== undefined) {
+            onViewChangeRef.current({
+              latitude: center.lat(),
+              longitude: center.lng(),
+              zoom,
+            });
+          }
+        };
+        refreshViewportRef.current = refreshViewport;
+        activeIdleListener = map.addListener('idle', refreshViewport);
+
+        if (!initialView) {
+          const initialVisiblePosts = posts.filter((post) => visiblePostIdsRef.current.has(post.id));
+          const focusPosts = initialVisiblePosts.length > 0 ? initialVisiblePosts : posts;
+          const focusBounds = new google.maps.LatLngBounds();
+          focusPosts.forEach((post) => focusBounds.extend({ lat: post.latitude, lng: post.longitude }));
+          if (focusPosts.length === 1) {
+            map.setCenter(focusBounds.getCenter());
+            map.setZoom(14);
+          } else {
+            map.fitBounds(focusBounds, 64);
+          }
+        }
+
+        const initialSelectedPostId = selectedPostIdRef.current;
+        const selectedRecord = initialSelectedPostId ? markerRecords.get(initialSelectedPostId) : undefined;
+        if (selectedRecord && visiblePostIdsRef.current.has(selectedRecord.post.id)) {
+          focusMapPost(map, activeInfoWindow, selectedRecord);
         }
       } catch {
         if (!isCancelled) {
@@ -128,6 +213,7 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
     return () => {
       isCancelled = true;
       activeIdleListener?.remove();
+      activeMarkerCleanups.forEach((cleanup) => cleanup());
       activeInfoWindow?.close();
       activeClusterer?.clearMarkers();
       activeClusterer?.setMap(null);
@@ -135,8 +221,48 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
         if ('setMap' in marker) marker.setMap(null);
         else marker.map = null;
       });
+      if (mapRef.current) mapRef.current = null;
+      if (clustererRef.current === activeClusterer) clustererRef.current = null;
+      if (infoWindowRef.current === activeInfoWindow) infoWindowRef.current = null;
+      markerRecordsRef.current = new Map();
+      refreshViewportRef.current = () => undefined;
     };
-  }, [apiKey, mapId, posts, shouldLoadMap]);
+  }, [apiKey, initialView, mapId, posts, shouldLoadMap]);
+
+  useEffect(() => {
+    const clusterer = clustererRef.current;
+    if (!clusterer) return;
+    clusterer.clearMarkers(true);
+    const visibleMarkers = visiblePostIds
+      .map((postId) => markerRecordsRef.current.get(postId)?.marker)
+      .filter((marker): marker is ClusterMarker => Boolean(marker));
+    clusterer.addMarkers(visibleMarkers);
+    const currentSelectedPostId = selectedPostIdRef.current;
+    if (currentSelectedPostId && !visiblePostIdsRef.current.has(currentSelectedPostId)) {
+      infoWindowRef.current?.close();
+    }
+    refreshViewportRef.current();
+  }, [visiblePostIds]);
+
+  useEffect(() => {
+    markerRecordsRef.current.forEach((record) => {
+      setMapMarkerHighlighted(record, record.post.id === highlightedPostId);
+    });
+  }, [highlightedPostId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const infoWindow = infoWindowRef.current;
+    if (!map || !infoWindow) return;
+    if (!selectedPostId) {
+      infoWindow.close();
+      return;
+    }
+    const record = markerRecordsRef.current.get(selectedPostId);
+    if (record && visiblePostIdsRef.current.has(selectedPostId)) {
+      focusMapPost(map, infoWindow, record);
+    }
+  }, [selectedPostId]);
 
   if (!apiKey) {
     return (
@@ -153,9 +279,9 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
       {!shouldLoadMap && (
         <div className="google-map-gate">
           <p className="overline">ON-DEMAND GOOGLE MAP</p>
-          <h2>{posts.length}개의 공개 기록을 지도에서 봅니다.</h2>
+          <h2>{visiblePostIds.length}개의 공개 기록을 지도에서 봅니다.</h2>
           <p>지도는 버튼을 누를 때만 불러와 무료 사용량을 아낍니다.</p>
-          <button type="button" onClick={() => setShouldLoadMap(true)}>
+          <button type="button" onClick={() => { setShouldLoadMap(true); onLoadRequest(); }}>
             Google 지도 불러오기 <span aria-hidden="true">→</span>
           </button>
         </div>
@@ -172,7 +298,7 @@ export function GoogleMapExplorer({ apiKey, mapId, posts }: GoogleMapExplorerPro
           <span>맛집 {viewportCounts.restaurant} · 여행지 {viewportCounts.destination}</span>
         </output>
       )}
-      {shouldLoadMap && !isLoading && !errorMessage && posts.length > 1 && (
+      {shouldLoadMap && !isLoading && !errorMessage && visiblePostIds.length > 1 && (
         <p className="google-map-cluster-guide">숫자 마커를 누르면 포함된 기록이 보이도록 확대됩니다.</p>
       )}
       {errorMessage && (
@@ -212,16 +338,56 @@ function createClassicMarker(
       fontSize: '11px',
       fontWeight: '800',
     },
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      fillColor: post.category === 'RESTAURANT' ? '#c24c20' : '#477f6c',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeOpacity: 1,
-      strokeWeight: 3,
-      scale: 16,
-    },
+    icon: createClassicMarkerIcon(post, false),
   });
+}
+
+function focusMapPost(
+  map: google.maps.Map,
+  infoWindow: google.maps.InfoWindow,
+  record: MapMarkerRecord,
+): void {
+  map.panTo({ lat: record.post.latitude, lng: record.post.longitude });
+  if ((map.getZoom() ?? 0) < 18) map.setZoom(18);
+  setMapMarkerHighlighted(record, true);
+  openMapPostInfo(map, infoWindow, record.marker, record.post);
+}
+
+function openMapPostInfo(
+  map: google.maps.Map,
+  infoWindow: google.maps.InfoWindow,
+  marker: ClusterMarker,
+  post: MapPostMarker,
+): void {
+  infoWindow.setContent(createInfoWindowContent(post));
+  infoWindow.open({ map, anchor: marker });
+}
+
+function setMapMarkerHighlighted(record: MapMarkerRecord, isHighlighted: boolean): void {
+  if ('setIcon' in record.marker) {
+    record.marker.setIcon(createClassicMarkerIcon(record.post, isHighlighted));
+    record.marker.setZIndex(isHighlighted ? 900 : undefined);
+    return;
+  }
+  if (record.marker.content instanceof HTMLElement) {
+    record.marker.content.classList.toggle('is-highlighted', isHighlighted);
+  }
+  record.marker.zIndex = isHighlighted ? 900 : null;
+}
+
+function createClassicMarkerIcon(
+  post: MapPostMarker,
+  isHighlighted: boolean,
+): google.maps.Symbol {
+  return {
+    path: google.maps.SymbolPath.CIRCLE,
+    fillColor: post.category === 'RESTAURANT' ? '#c24c20' : '#477f6c',
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeOpacity: 1,
+    strokeWeight: isHighlighted ? 5 : 3,
+    scale: isHighlighted ? 20 : 16,
+  };
 }
 
 function createClusterRenderer(
