@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +31,15 @@ import com.placesplates.domain.photo.entity.PhotoAssetVariantType;
 import com.placesplates.domain.photo.repository.PhotoAssetRepository;
 import com.placesplates.domain.photo.repository.PhotoRepository;
 import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.post.entity.DestinationDetail;
 import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.entity.PostVisibility;
+import com.placesplates.domain.post.entity.RestaurantDetail;
+import com.placesplates.domain.post.entity.RestaurantPriceRange;
+import com.placesplates.domain.post.entity.RevisitIntention;
+import com.placesplates.domain.post.repository.DestinationDetailRepository;
 import com.placesplates.domain.post.repository.DraftPostRepository;
+import com.placesplates.domain.post.repository.RestaurantDetailRepository;
 import com.placesplates.infra.storage.PrivatePhotoStorage;
 
 @SpringBootTest
@@ -50,6 +57,12 @@ class PublicPostControllerTests {
 
 	@Autowired
 	private DraftPostRepository draftPostRepository;
+
+	@Autowired
+	private RestaurantDetailRepository restaurantDetailRepository;
+
+	@Autowired
+	private DestinationDetailRepository destinationDetailRepository;
 
 	@Autowired
 	private PlaceRepository placeRepository;
@@ -72,6 +85,8 @@ class PublicPostControllerTests {
 	void setUp() {
 		photoAssetRepository.deleteAll();
 		photoRepository.deleteAll();
+		restaurantDetailRepository.deleteAll();
+		destinationDetailRepository.deleteAll();
 		draftPostRepository.deleteAll();
 		placeRepository.deleteAll();
 		accountRepository.deleteAll();
@@ -159,6 +174,124 @@ class PublicPostControllerTests {
 	}
 
 	@Test
+	void returnsRestaurantPostDetailsAndOnlySafeDetailPhotosWithoutLogin() throws Exception {
+		DraftPost post = publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "골목의 저녁 식탁");
+		RestaurantDetail details = RestaurantDetail.create(post.getId());
+		details.update(
+			new BigDecimal("4.5"),
+			"제철 생선구이",
+			RestaurantPriceRange.MODERATE,
+			15,
+			RevisitIntention.YES
+		);
+		restaurantDetailRepository.save(details);
+		attachSafeDetailPhoto(post, "식탁 전체가 보이는 사진", 0, true);
+		attachSafeDetailPhoto(post, "생선구이 한 접시", 1, false);
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", post.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(post.getId().toString()))
+			.andExpect(jsonPath("$.category").value("RESTAURANT"))
+			.andExpect(jsonPath("$.title").value("골목의 저녁 식탁"))
+			.andExpect(jsonPath("$.summary").value("골목의 저녁 식탁의 한줄평"))
+			.andExpect(jsonPath("$.content").value("공개 상세 이전의 비공개 본문"))
+			.andExpect(jsonPath("$.publicVisitYear").value(2026))
+			.andExpect(jsonPath("$.publicVisitMonth").value(8))
+			.andExpect(jsonPath("$.place.name").value("골목의 저녁 식탁 장소"))
+			.andExpect(jsonPath("$.restaurantDetails.rating").value(4.5))
+			.andExpect(jsonPath("$.restaurantDetails.recommendedMenu").value("제철 생선구이"))
+			.andExpect(jsonPath("$.restaurantDetails.priceRange").value("MODERATE"))
+			.andExpect(jsonPath("$.restaurantDetails.waitingMinutes").value(15))
+			.andExpect(jsonPath("$.restaurantDetails.revisitIntention").value("YES"))
+			.andExpect(jsonPath("$.destinationDetails").value(org.hamcrest.Matchers.nullValue()))
+			.andExpect(jsonPath("$.photos.length()").value(2))
+			.andExpect(jsonPath("$.photos[0].cover").value(true))
+			.andExpect(jsonPath("$.photos[0].path").value(containsString("/photos/")))
+			.andExpect(jsonPath("$.photos[1].altText").value("생선구이 한 접시"))
+			.andExpect(jsonPath("$.ownerUserId").doesNotExist())
+			.andExpect(jsonPath("$.place.id").doesNotExist())
+			.andExpect(jsonPath("$.place.latitude").doesNotExist())
+			.andExpect(jsonPath("$.publishedAt").doesNotExist())
+			.andExpect(jsonPath("$.visibility").doesNotExist());
+	}
+
+	@Test
+	void returnsDestinationSpecificDetailsWithoutRestaurantFields() throws Exception {
+		DraftPost post = publishedPost(PostCategory.DESTINATION, PostVisibility.PUBLIC, "비 오는 숲길");
+		DestinationDetail details = DestinationDetail.create(post.getId());
+		details.update("이른 아침", 120, "안개 낀 산책로", "미끄럽지 않은 신발을 준비하세요.");
+		destinationDetailRepository.save(details);
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", post.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.category").value("DESTINATION"))
+			.andExpect(jsonPath("$.restaurantDetails").value(org.hamcrest.Matchers.nullValue()))
+			.andExpect(jsonPath("$.destinationDetails.recommendedTime").value("이른 아침"))
+			.andExpect(jsonPath("$.destinationDetails.durationMinutes").value(120))
+			.andExpect(jsonPath("$.destinationDetails.highlights").value("안개 낀 산책로"))
+			.andExpect(jsonPath("$.destinationDetails.travelTips").value("미끄럽지 않은 신발을 준비하세요."));
+	}
+
+	@Test
+	void hidesNonPublicPostsFromThePublicDetailEndpoint() throws Exception {
+		DraftPost unlisted = publishedPost(PostCategory.RESTAURANT, PostVisibility.UNLISTED, "링크 공개 식당");
+		DraftPost privatePost = publishedPost(PostCategory.DESTINATION, PostVisibility.PRIVATE, "비공개 여행지");
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", unlisted.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_NOT_FOUND"));
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", privatePost.getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_NOT_FOUND"));
+	}
+
+	@Test
+	void streamsOnlyTheSafeWatermarkedPublicDetailPhoto() throws Exception {
+		byte[] imageBytes = new byte[] { 5, 6, 7, 8 };
+		DraftPost post = publishedPost(PostCategory.DESTINATION, PostVisibility.PUBLIC, "워터마크 상세 여행지");
+		PhotoAsset asset = attachSafeDetailPhoto(post, "상세 풍경", 0, true);
+		when(privatePhotoStorage.downloadResponsiveVariant(asset.getStorageKey())).thenReturn(imageBytes);
+
+		mockMvc.perform(get(
+			"/api/v1/public/posts/{postId}/photos/{photoId}",
+			post.getId(),
+			asset.getPhotoId()
+		))
+			.andExpect(status().isOk())
+			.andExpect(content().contentType("image/jpeg"))
+			.andExpect(content().bytes(imageBytes))
+			.andExpect(header().string("Cache-Control", containsString("max-age=3600")))
+			.andExpect(header().string("Content-Disposition", "inline; filename=\"places-plates-photo.jpg\""))
+			.andExpect(header().string("X-Content-Type-Options", "nosniff"));
+	}
+
+	@Test
+	void hidesPrivateResponsiveAssetsFromThePublicDetailEndpoint() throws Exception {
+		DraftPost post = publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "비공개 상세 파생본");
+		Photo photo = readyCover(post, "아직 공개할 수 없는 상세 사진");
+		photoAssetRepository.save(PhotoAsset.privateResponsiveVariant(
+			photo.getId(),
+			PhotoAssetVariantType.PUBLIC_DETAIL,
+			"variants/%s/public-detail-private.jpg".formatted(photo.getId()),
+			"image/jpeg",
+			1600,
+			1200,
+			8192
+		));
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", post.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.photos.length()").value(0));
+		mockMvc.perform(get(
+			"/api/v1/public/posts/{postId}/photos/{photoId}",
+			post.getId(),
+			photo.getId()
+		))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("PUBLIC_POST_PHOTO_NOT_FOUND"));
+	}
+
+	@Test
 	void hidesPrivateResponsiveAssetsFromThePublicCoverEndpoint() throws Exception {
 		DraftPost post = publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "검사 전 대표 사진");
 		Photo photo = readyCover(post, "검사 전 사진");
@@ -226,10 +359,34 @@ class PublicPostControllerTests {
 		));
 	}
 
+	private PhotoAsset attachSafeDetailPhoto(
+		DraftPost post,
+		String altText,
+		int displayOrder,
+		boolean cover
+	) {
+		Photo photo = readyPhoto(post, altText, displayOrder, cover);
+		return photoAssetRepository.save(PhotoAsset.publicWatermarkedVariant(
+			photo.getId(),
+			PhotoAssetVariantType.PUBLIC_DETAIL,
+			"variants/%s/public-detail.jpg".formatted(photo.getId()),
+			"image/jpeg",
+			1600,
+			1200,
+			8192,
+			"places-plates-corner-v1",
+			"BOTTOM_RIGHT"
+		));
+	}
+
 	private Photo readyCover(DraftPost post, String altText) {
+		return readyPhoto(post, altText, 0, true);
+	}
+
+	private Photo readyPhoto(DraftPost post, String altText, int displayOrder, boolean cover) {
 		Photo photo = Photo.processing(administrator.getId(), post.getId());
 		photo.markReady();
-		photo.updateEditorState(0, true, altText);
+		photo.updateEditorState(displayOrder, cover, altText);
 		return photoRepository.save(photo);
 	}
 }

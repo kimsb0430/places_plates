@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.placesplates.domain.post.dto.PublicPostListResponse;
 import com.placesplates.domain.post.dto.PublicPostCoverContent;
+import com.placesplates.domain.post.dto.PublicPostDetailResponse;
+import com.placesplates.domain.post.dto.PublicPostPhotoContent;
 import com.placesplates.domain.post.dto.PublicPostSort;
 import com.placesplates.domain.post.entity.PostCategory;
 import com.placesplates.domain.post.service.PublicPostService;
@@ -36,12 +38,32 @@ public class PublicPostController {
 		return publicPostService.findPublicPosts(category, sort);
 	}
 
+	@GetMapping("/{postId}")
+	public PublicPostDetailResponse getPost(@PathVariable UUID postId) {
+		return publicPostService.findPublicPost(postId);
+	}
+
 	@GetMapping("/{postId}/cover")
 	public ResponseEntity<byte[]> getCover(@PathVariable UUID postId) {
 		PublicPostCoverContent content = publicPostService.findPublicCover(postId);
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
 			.header("Content-Disposition", "inline; filename=\"places-plates-cover.jpg\"")
+			.header("Cross-Origin-Resource-Policy", "cross-origin")
+			.header("X-Content-Type-Options", "nosniff")
+			.contentType(MediaType.parseMediaType(content.mimeType()))
+			.body(content.bytes());
+	}
+
+	@GetMapping("/{postId}/photos/{photoId}")
+	public ResponseEntity<byte[]> getPhoto(
+		@PathVariable UUID postId,
+		@PathVariable UUID photoId
+	) {
+		PublicPostPhotoContent content = publicPostService.findPublicDetailPhoto(postId, photoId);
+		return ResponseEntity.ok()
+			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+			.header("Content-Disposition", "inline; filename=\"places-plates-photo.jpg\"")
 			.header("Cross-Origin-Resource-Policy", "cross-origin")
 			.header("X-Content-Type-Options", "nosniff")
 			.contentType(MediaType.parseMediaType(content.mimeType()))
