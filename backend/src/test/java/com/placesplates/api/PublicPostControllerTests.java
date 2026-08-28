@@ -180,13 +180,15 @@ class PublicPostControllerTests {
 	@Test
 	void rejectsUnsupportedCategoryValue() throws Exception {
 		mockMvc.perform(get("/api/v1/public/posts").queryParam("category", "ALL"))
-			.andExpect(status().isBadRequest());
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON_INVALID_QUERY"));
 	}
 
 	@Test
 	void rejectsUnsupportedSortValue() throws Exception {
 		mockMvc.perform(get("/api/v1/public/posts").queryParam("sort", "POPULAR"))
-			.andExpect(status().isBadRequest());
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON_INVALID_QUERY"));
 	}
 
 	private DraftPost publishedPost(

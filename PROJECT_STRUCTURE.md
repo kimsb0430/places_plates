@@ -167,6 +167,8 @@ backend/src/main/resources/
 | Infra | Google Maps·이미지 처리·저장소 같은 외부 연동 |
 | Global | 인증·설정·공통 오류 처리 |
 
+공개 API도 요청별 PostgreSQL RLS 컨텍스트를 유지하기 위해 보안 필터의 트랜잭션 안에서 실행한다. 컨트롤러가 `4xx`·`5xx` 오류 응답을 정상적으로 작성한 경우 필터는 해당 요청 트랜잭션을 명시적으로 롤백해 이미 작성된 응답이 `UnexpectedRollbackException`으로 바뀌지 않게 한다. Spring의 `ERROR` 디스패치는 인증 없이 통과시키되 직접 보호 API 접근은 기존 인증 규칙을 유지하며, 잘못된 enum 쿼리는 전역 예외 처리에서 `400 COMMON_INVALID_QUERY`로 통일한다.
+
 ## 5. 핵심 도메인과 API 경계
 
 | 도메인 | 주요 책임 | API 예시 |
