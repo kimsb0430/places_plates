@@ -7,7 +7,7 @@ interface ProtectedPublicImageProps {
   src: string;
   alt: string;
   sizes: string;
-  priority?: boolean;
+  preload?: boolean;
   shieldClassName: string;
 }
 
@@ -15,7 +15,7 @@ export function ProtectedPublicImage({
   src,
   alt,
   sizes,
-  priority = false,
+  preload = false,
   shieldClassName,
 }: ProtectedPublicImageProps) {
   return (
@@ -31,7 +31,9 @@ export function ProtectedPublicImage({
         alt={alt}
         fill
         sizes={sizes}
-        priority={priority}
+        preload={preload}
+        loading={preload ? undefined : 'lazy'}
+        decoding="async"
         draggable={false}
         unoptimized
       />

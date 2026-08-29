@@ -1,11 +1,9 @@
 'use client';
 
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
-import {
+import type {
   MarkerClusterer,
-  SuperClusterAlgorithm,
-  type Marker as ClusterMarker,
-  type Renderer,
+  Marker as ClusterMarker,
+  Renderer,
 } from '@googlemaps/markerclusterer';
 import { useEffect, useRef, useState } from 'react';
 import type { MapPostMarker, MapViewState } from '../types';
@@ -92,6 +90,12 @@ export function GoogleMapExplorer({
       setErrorMessage(null);
       setViewportCounts(null);
       try {
+        const [mapsLoader, clustererLibrary] = await Promise.all([
+          import('@googlemaps/js-api-loader'),
+          import('@googlemaps/markerclusterer'),
+        ]);
+        const { importLibrary, setOptions } = mapsLoader;
+        const { MarkerClusterer, SuperClusterAlgorithm } = clustererLibrary;
         if (configuredApiKey && configuredApiKey !== apiKey) {
           throw new Error('Google Maps API key changed after initialization.');
         }

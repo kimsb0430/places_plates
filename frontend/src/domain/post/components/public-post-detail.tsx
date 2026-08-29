@@ -50,7 +50,7 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
             className="public-detail-primary-photo"
             photo={primaryPhoto}
             sizes="(max-width: 980px) 100vw, 72vw"
-            priority
+            preload
           />
         ) : (
           <div className="public-detail-photo-placeholder" aria-label="표시할 공개 사진이 없습니다.">
@@ -108,17 +108,17 @@ interface ProtectedPhotoProps {
   className: string;
   photo: PublicPostDetailData['photos'][number];
   sizes: string;
-  priority?: boolean;
+  preload?: boolean;
 }
 
-function ProtectedPhoto({ className, photo, sizes, priority = false }: ProtectedPhotoProps) {
+function ProtectedPhoto({ className, photo, sizes, preload = false }: ProtectedPhotoProps) {
   return (
     <figure className={className}>
       <ProtectedPublicImage
         src={getPublicPhotoUrl(photo.path)}
         alt={photo.altText}
         sizes={sizes}
-        priority={priority}
+        preload={preload}
         shieldClassName="public-detail-photo-shield"
       />
     </figure>

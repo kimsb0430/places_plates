@@ -22,6 +22,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend type check failed.' }
     pnpm build:vercel
     if ($LASTEXITCODE -ne 0) { throw 'Vercel Next.js build failed.' }
+    & (Join-Path $PSScriptRoot 'check-map-lazy-load-artifact.ps1') -Path (Join-Path $frontendRoot '.next')
+    if ($LASTEXITCODE -ne 0) { throw 'Map lazy-load artifact verification failed.' }
     & (Join-Path $PSScriptRoot 'check-public-artifact.ps1') -Path (Join-Path $frontendRoot '.next')
     if ($LASTEXITCODE -ne 0) { throw 'Vercel artifact scan failed.' }
     pnpm build
