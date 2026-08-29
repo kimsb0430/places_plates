@@ -43,7 +43,10 @@ public class TemporaryOriginalCleanupWorker {
 			ownerRepository.findCandidateOwnerIds(batchSize)
 				.forEach(ownerUserId -> cleanupService.purgeOwner(ownerUserId, batchSize));
 		} catch (RuntimeException exception) {
-			log.warn("Temporary original cleanup run failed; the next scheduled run will retry", exception);
+			log.warn(
+				"Temporary original cleanup run failed; the next scheduled run will retry; failureType={}",
+				exception.getClass().getSimpleName()
+			);
 		}
 	}
 }

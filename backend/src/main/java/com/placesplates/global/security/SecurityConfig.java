@@ -19,6 +19,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.cors.CorsConfiguration;
@@ -29,6 +31,11 @@ import jakarta.servlet.DispatcherType;
 
 @Configuration
 public class SecurityConfig {
+
+	private static final String API_CONTENT_SECURITY_POLICY =
+		"default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+	private static final String API_PERMISSIONS_POLICY =
+		"camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()";
 
 	@Bean
 	SecurityFilterChain securityFilterChain(
@@ -49,6 +56,12 @@ public class SecurityConfig {
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.formLogin(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
+			.headers(headers -> headers
+				.contentSecurityPolicy(policy -> policy.policyDirectives(API_CONTENT_SECURITY_POLICY))
+				.permissionsPolicyHeader(policy -> policy.policy(API_PERMISSIONS_POLICY))
+				.referrerPolicy(policy -> policy.policy(ReferrerPolicy.NO_REFERRER))
+				.frameOptions(frame -> frame.deny())
+				.addHeaderWriter(new StaticHeadersWriter("X-Permitted-Cross-Domain-Policies", "none")))
 			.cors(cors -> cors.configurationSource(corsConfigurationSource))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 			.authorizeHttpRequests(authorize -> authorize
