@@ -9,6 +9,7 @@ import type {
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8080'
 ).replace(/\/$/, '');
+const PUBLIC_IMAGE_PATH_PATTERN = /^\/api\/v1\/public\/posts\/([0-9a-f-]{36})\/(cover|photos\/[0-9a-f-]{36})$/i;
 
 export class PublicPostApiError extends Error {
   constructor(
@@ -85,11 +86,19 @@ export async function getPublicPlaceHistory(postId: string): Promise<PublicPlace
 }
 
 export function getPublicCoverUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
+  return getProtectedPublicImageUrl(path);
 }
 
 export function getPublicPhotoUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
+  return getProtectedPublicImageUrl(path);
+}
+
+export function getProtectedPublicImageUrl(path: string): string {
+  const match = PUBLIC_IMAGE_PATH_PATTERN.exec(path);
+  if (!match) {
+    throw new Error('공개 사진 경로가 올바르지 않습니다.');
+  }
+  return `/api/public-images/posts/${match[1]}/${match[2]}`;
 }
 
 async function createApiError(response: Response, fallbackMessage: string): Promise<PublicPostApiError> {

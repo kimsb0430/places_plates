@@ -22,7 +22,7 @@
 - 배포 대상 브랜치·프로젝트·환경·도메인과 롤백 커밋을 확인한다.
 - 실제 배포 산출물에 `scripts/check-public-artifact.ps1`을 실행한다.
 - 배포 후 HTTPS, 주요 페이지, `/api/v1/health`, 지도 로딩, 이미지 워터마크를 확인한다.
-- 공개 목록·상세·장소 이력 사진에서 우클릭 메뉴와 드래그가 억제되는지 확인한다. Cloud Run 대표·상세 사진 API와 Vercel `/_next/image` 응답은 `Cross-Origin-Resource-Policy: same-origin`, `Content-Security-Policy`의 `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`를 유지해야 한다. 운영 공개 페이지의 Next 이미지 프록시는 정상 표시되고, 다른 출처의 단순 `<img>` 직접 삽입은 차단되는지 별도 테스트 페이지에서 확인한다. 서버 프록시와 화면 캡처까지 막는 기능으로 판단하지 않는다.
+- 공개 목록·상세·장소 이력 사진에서 우클릭 메뉴와 드래그가 억제되는지 확인한다. Cloud Run 대표·상세 사진 API와 Vercel 같은 출처 `/api/public-images/**` 응답은 `Cross-Origin-Resource-Policy: same-origin`, `Content-Security-Policy`의 `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`를 유지해야 한다. `scripts/check-production-image-protection.ps1`로 실제 공개 대표 사진의 두 응답을 함께 검사하고, 브라우저 사진 요청이 `/_next/image`나 Cloud Run 직접 URL이 아니라 `/api/public-images/**`인지 확인한다. 다른 출처의 단순 `<img>` 직접 삽입은 차단되는지 별도 테스트 페이지에서 확인하되 서버 프록시와 화면 캡처까지 막는 기능으로 판단하지 않는다.
 - 운영 API의 `FRONTEND_ORIGINS`를 실제 프론트 도메인으로 제한하고 세션 쿠키에 `HttpOnly`, `Secure`, `SameSite=None`이 적용됐는지 확인한다.
 - 최초 관리자 생성 확인 후 `ADMIN_BOOTSTRAP_ENABLED=false`로 바꾸고 `ADMIN_PASSWORD`를 운영 환경변수에서 제거한다.
 - Supabase에서 PostGIS가 `extensions` 스키마에 활성화됐는지 확인하고 관리자 연결로 `scripts/provision-supabase-database.ps1`을 실행한다.
@@ -70,7 +70,7 @@
 - 対象ブランチ、プロジェクト、環境、ドメイン、ロールバックコミットを確認する。
 - 実際のデプロイ成果物に`scripts/check-public-artifact.ps1`を実行する。
 - デプロイ後にHTTPS、主要ページ、`/api/v1/health`、地図読込、画像透かしを確認する。
-- Public list・detail・place history写真でcontext menuとdragが抑制されることを確認する。Cloud Run cover・detail photo APIとVercel `/_next/image` responseは`Cross-Origin-Resource-Policy: same-origin`、`Content-Security-Policy`の`frame-ancestors 'none'`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`を維持しなければならない。Production public pageのNext image proxyが正常表示され、別originの単純な`<img>`直接埋込みが拒否されることを別test pageで確認する。Server proxyやscreen captureまで防ぐ機能とは判断しない。
+- Public list・detail・place history写真でcontext menuとdragが抑制されることを確認する。Cloud Run cover・detail photo APIとVercel same-origin `/api/public-images/**` responseは`Cross-Origin-Resource-Policy: same-origin`、`Content-Security-Policy`の`frame-ancestors 'none'`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`を維持しなければならない。`scripts/check-production-image-protection.ps1`で実際のpublic cover写真の両responseを検査し、browser photo requestが`/_next/image`やCloud Run direct URLではなく`/api/public-images/**`であることを確認する。別originの単純な`<img>`直接埋込みが拒否されることも別test pageで確認するが、server proxyやscreen captureまで防ぐ機能とは判断しない。
 - 本番APIの`FRONTEND_ORIGINS`を実際のフロントエンドドメインに限定し、セッションCookieに`HttpOnly`、`Secure`、`SameSite=None`が適用されていることを確認する。
 - 初回管理者の作成確認後、`ADMIN_BOOTSTRAP_ENABLED=false`へ変更し、`ADMIN_PASSWORD`を本番環境変数から削除する。
 - Supabaseの`extensions`スキーマでPostGISを有効化し、管理者接続で`scripts/provision-supabase-database.ps1`を実行する。
