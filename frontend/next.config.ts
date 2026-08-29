@@ -5,6 +5,19 @@ const publicApiUrl = new URL(
 );
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/_next/image',
+        headers: [
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+          { key: 'Content-Security-Policy', value: "default-src 'none'; frame-ancestors 'none'; sandbox" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

@@ -24,6 +24,7 @@ import com.placesplates.domain.post.service.PublicPostService;
 @RestController
 @RequestMapping("/api/v1/public/posts")
 public class PublicPostController {
+	private static final String PUBLIC_IMAGE_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox";
 
 	private final PublicPostService publicPostService;
 
@@ -52,13 +53,7 @@ public class PublicPostController {
 	@GetMapping("/{postId}/cover")
 	public ResponseEntity<byte[]> getCover(@PathVariable UUID postId) {
 		PublicPostCoverContent content = publicPostService.findPublicCover(postId);
-		return ResponseEntity.ok()
-			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
-			.header("Content-Disposition", "inline; filename=\"places-plates-cover.jpg\"")
-			.header("Cross-Origin-Resource-Policy", "cross-origin")
-			.header("X-Content-Type-Options", "nosniff")
-			.contentType(MediaType.parseMediaType(content.mimeType()))
-			.body(content.bytes());
+		return publicImageResponse(content.bytes(), content.mimeType(), "places-plates-cover.jpg");
 	}
 
 	@GetMapping("/{postId}/photos/{photoId}")
@@ -67,12 +62,18 @@ public class PublicPostController {
 		@PathVariable UUID photoId
 	) {
 		PublicPostPhotoContent content = publicPostService.findPublicDetailPhoto(postId, photoId);
+		return publicImageResponse(content.bytes(), content.mimeType(), "places-plates-photo.jpg");
+	}
+
+	private ResponseEntity<byte[]> publicImageResponse(byte[] bytes, String mimeType, String filename) {
 		return ResponseEntity.ok()
 			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
-			.header("Content-Disposition", "inline; filename=\"places-plates-photo.jpg\"")
-			.header("Cross-Origin-Resource-Policy", "cross-origin")
+			.header("Content-Disposition", "inline; filename=\"%s\"".formatted(filename))
+			.header("Cross-Origin-Resource-Policy", "same-origin")
+			.header("Content-Security-Policy", PUBLIC_IMAGE_CSP)
+			.header("X-Frame-Options", "DENY")
 			.header("X-Content-Type-Options", "nosniff")
-			.contentType(MediaType.parseMediaType(content.mimeType()))
-			.body(content.bytes());
+			.contentType(MediaType.parseMediaType(mimeType))
+			.body(bytes);
 	}
 }

@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { getPublicPhotoUrl } from '../api/public-post-api';
 import type {
@@ -8,6 +7,7 @@ import type {
   RestaurantPriceRange,
   RevisitIntention,
 } from '../types';
+import { ProtectedPublicImage } from './protected-public-image';
 
 interface PublicPostDetailProps {
   post: PublicPostDetailData;
@@ -114,15 +114,13 @@ interface ProtectedPhotoProps {
 function ProtectedPhoto({ className, photo, sizes, priority = false }: ProtectedPhotoProps) {
   return (
     <figure className={className}>
-      <Image
+      <ProtectedPublicImage
         src={getPublicPhotoUrl(photo.path)}
         alt={photo.altText}
-        fill
         sizes={sizes}
         priority={priority}
-        draggable={false}
+        shieldClassName="public-detail-photo-shield"
       />
-      <span className="public-detail-photo-shield" aria-hidden="true" />
     </figure>
   );
 }
