@@ -316,6 +316,14 @@ class PublicPostControllerTests {
 			2026,
 			10
 		);
+		DraftPost summerVisit = publishedPostAtPlace(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			"여름의 정원",
+			sharedPlace,
+			2026,
+			7
+		);
 		AdministratorAccount anotherOwner = accountRepository.save(AdministratorAccount.create(
 			"other-place-owner-" + UUID.randomUUID() + "@example.test",
 			passwordEncoder.encode("other-local-public-post-password")
@@ -334,10 +342,10 @@ class PublicPostControllerTests {
 		publishedPostAtPlace(
 			PostCategory.DESTINATION,
 			PostVisibility.UNLISTED,
-			"링크로만 보는 여름 정원",
+			"링크로만 보는 늦여름 정원",
 			sharedPlace,
 			2026,
-			7
+			8
 		);
 		attachSafeCover(firstVisit, "봄 정원의 대표 사진");
 
@@ -347,16 +355,18 @@ class PublicPostControllerTests {
 			.andExpect(jsonPath("$.place.googleMapsUrl").value(containsString("google.com/maps")))
 			.andExpect(jsonPath("$.place.id").doesNotExist())
 			.andExpect(jsonPath("$.place.latitude").doesNotExist())
-			.andExpect(jsonPath("$.visitCount").value(2))
-			.andExpect(jsonPath("$.visits.length()").value(2))
+			.andExpect(jsonPath("$.visitCount").value(3))
+			.andExpect(jsonPath("$.visits.length()").value(3))
 			.andExpect(jsonPath("$.visits[0].id").value(firstVisit.getId().toString()))
 			.andExpect(jsonPath("$.visits[0].publicVisitYear").value(2025))
 			.andExpect(jsonPath("$.visits[0].cover.path").value(
 				"/api/v1/public/posts/%s/cover".formatted(firstVisit.getId())
 			))
-			.andExpect(jsonPath("$.visits[1].id").value(latestVisit.getId().toString()))
-			.andExpect(jsonPath("$.visits[1].publishedAt").doesNotExist())
-			.andExpect(jsonPath("$.visits[?(@.title == '링크로만 보는 여름 정원')]").doesNotExist())
+			.andExpect(jsonPath("$.visits[1].id").value(summerVisit.getId().toString()))
+			.andExpect(jsonPath("$.visits[1].publicVisitMonth").value(7))
+			.andExpect(jsonPath("$.visits[2].id").value(latestVisit.getId().toString()))
+			.andExpect(jsonPath("$.visits[2].publishedAt").doesNotExist())
+			.andExpect(jsonPath("$.visits[?(@.title == '링크로만 보는 늦여름 정원')]").doesNotExist())
 			.andExpect(jsonPath("$.visits[?(@.title == '다른 회원의 겨울 정원')]").doesNotExist());
 	}
 
