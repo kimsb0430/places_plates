@@ -21,7 +21,7 @@ const TABS: Array<{
 export function PublicPostTabs({ selected, counts, sort }: PublicPostTabsProps) {
   return (
     <nav className="public-post-tabs" aria-label="공개 기록 카테고리">
-      <div role="tablist">
+      <div>
         {TABS.map((tab) => {
           const isSelected = selected === tab.category;
           const parameters = new URLSearchParams();
@@ -33,8 +33,8 @@ export function PublicPostTabs({ selected, counts, sort }: PublicPostTabsProps) 
             <Link
               key={tab.category}
               href={href}
-              role="tab"
-              aria-selected={isSelected}
+              aria-current={isSelected ? 'page' : undefined}
+              aria-label={`${tab.label} 공개 기록 ${counts[tab.countKey]}개`}
               className={isSelected ? 'is-selected' : undefined}
             >
               {tab.tone && <i className={tab.tone} aria-hidden="true">●</i>}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getPublicCoverUrl } from '../api/public-post-api';
+import { resolvePublicPhotoAltText } from '../public-photo-alt';
 import type { PublicPlaceHistory as PublicPlaceHistoryData } from '../types';
 import { ProtectedPublicImage } from './protected-public-image';
 
@@ -55,7 +56,7 @@ export function PublicPlaceHistory({ anchorPostId, history }: PublicPlaceHistory
                   {visit.cover ? (
                     <ProtectedPublicImage
                       src={getPublicCoverUrl(visit.cover.path)}
-                      alt={visit.cover.altText}
+                      alt={resolvePublicPhotoAltText(visit.cover.altText, `${visit.title} 대표 사진`)}
                       sizes="(max-width: 640px) 100vw, 300px"
                       shieldClassName="public-place-cover-shield"
                     />

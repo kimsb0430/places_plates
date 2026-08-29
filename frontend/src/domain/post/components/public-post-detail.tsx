@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getPublicPhotoUrl } from '../api/public-post-api';
+import { resolvePublicPhotoAltText } from '../public-photo-alt';
 import type {
   DestinationDetail,
   PublicPostDetail as PublicPostDetailData,
@@ -49,6 +50,7 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
           <ProtectedPhoto
             className="public-detail-primary-photo"
             photo={primaryPhoto}
+            fallbackAlt={`${post.title} 대표 사진`}
             sizes="(max-width: 980px) 100vw, 72vw"
             preload
           />
@@ -59,11 +61,12 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
         )}
         {secondaryPhotos.length > 0 && (
           <div className="public-detail-secondary-photos">
-            {secondaryPhotos.map((photo) => (
+            {secondaryPhotos.map((photo, index) => (
               <ProtectedPhoto
                 key={photo.id}
                 className="public-detail-secondary-photo"
                 photo={photo}
+                fallbackAlt={`${post.title} 사진 ${index + 2}`}
                 sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
               />
             ))}
@@ -107,16 +110,17 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
 interface ProtectedPhotoProps {
   className: string;
   photo: PublicPostDetailData['photos'][number];
+  fallbackAlt: string;
   sizes: string;
   preload?: boolean;
 }
 
-function ProtectedPhoto({ className, photo, sizes, preload = false }: ProtectedPhotoProps) {
+function ProtectedPhoto({ className, photo, fallbackAlt, sizes, preload = false }: ProtectedPhotoProps) {
   return (
     <figure className={className}>
       <ProtectedPublicImage
         src={getPublicPhotoUrl(photo.path)}
-        alt={photo.altText}
+        alt={resolvePublicPhotoAltText(photo.altText, fallbackAlt)}
         sizes={sizes}
         preload={preload}
         shieldClassName="public-detail-photo-shield"

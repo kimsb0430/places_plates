@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getPublicCoverUrl } from '../api/public-post-api';
+import { resolvePublicPhotoAltText } from '../public-photo-alt';
 import type { PublicPostSummary } from '../types';
 import { ProtectedPublicImage } from './protected-public-image';
 
@@ -18,7 +19,7 @@ export function PublicPostIndex({ posts }: PublicPostIndexProps) {
                 {post.cover ? (
                   <ProtectedPublicImage
                     src={getPublicCoverUrl(post.cover.path)}
-                    alt={post.cover.altText}
+                    alt={resolvePublicPhotoAltText(post.cover.altText, `${post.title} 대표 사진`)}
                     sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
                     preload={index === 0}
                     shieldClassName="public-post-cover-shield"
