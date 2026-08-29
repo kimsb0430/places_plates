@@ -147,6 +147,7 @@ button:focus-visible,a:focus-visible,[tabindex="0"]:focus-visible { outline:2px 
 .public-post-card { height:100%; overflow:hidden; border:1px solid var(--color-border); border-radius:var(--radius-sm) var(--space-6) var(--radius-sm) var(--radius-sm); background:var(--color-background); transition:transform var(--duration-normal) var(--ease-standard),box-shadow var(--duration-normal) var(--ease-standard); }
 .public-post-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-raised); }
 .public-post-cover { aspect-ratio:1.42; position:relative; overflow:hidden; display:grid; place-items:center; background:var(--color-sand-300); }
+.protected-public-image { position:absolute; inset:0; display:block; user-select:none; -webkit-user-select:none; -webkit-user-drag:none; -webkit-touch-callout:none; }
 .public-post-cover img { object-fit:cover; user-select:none; -webkit-user-drag:none; transition:transform var(--duration-normal) var(--ease-standard); }
 .public-post-card:hover .public-post-cover img { transform:scale(1.025); }
 .public-post-cover-shield { position:absolute; inset:0; z-index:2; cursor:default; }
@@ -375,7 +376,7 @@ button:focus-visible,a:focus-visible,[tabindex="0"]:focus-visible { outline:2px 
 .public-place-cover { min-height:190px; position:relative; overflow:hidden; display:grid; place-items:center; border-radius:var(--radius-sm) var(--space-6) var(--radius-sm) var(--radius-sm); color:var(--color-text-subtle); background:var(--color-sand-300); }
 .public-place-cover img { object-fit:cover; user-select:none; -webkit-user-drag:none; transition:transform var(--duration-normal) var(--ease-standard); }
 .public-place-timeline a:hover .public-place-cover img { transform:scale(1.025); }
-.public-place-cover>span { position:absolute; inset:0; z-index:2; cursor:default; }
+.public-place-cover-shield { position:absolute; inset:0; z-index:2; cursor:default; }
 .public-place-cover b { font-family:var(--font-display); font-size:32px; font-weight:500; letter-spacing:.12em; }
 .public-place-visit-copy { min-width:0; padding:var(--space-4) var(--space-10) var(--space-4) 0; display:flex; align-items:start; flex-direction:column; justify-content:center; }
 .public-place-visit-copy>p { margin:0; color:var(--color-accent); font-size:9px; font-weight:900; }

@@ -228,6 +228,9 @@ class PublicPostControllerTests {
 			.andExpect(content().bytes(imageBytes))
 			.andExpect(header().string("Cache-Control", containsString("max-age=3600")))
 			.andExpect(header().string("Content-Disposition", "inline; filename=\"places-plates-cover.jpg\""))
+			.andExpect(header().string("Cross-Origin-Resource-Policy", "same-origin"))
+			.andExpect(header().string("Content-Security-Policy", containsString("frame-ancestors 'none'")))
+			.andExpect(header().string("X-Frame-Options", "DENY"))
 			.andExpect(header().string("X-Content-Type-Options", "nosniff"));
 	}
 
@@ -409,6 +412,9 @@ class PublicPostControllerTests {
 			.andExpect(content().bytes(imageBytes))
 			.andExpect(header().string("Cache-Control", containsString("max-age=3600")))
 			.andExpect(header().string("Content-Disposition", "inline; filename=\"places-plates-photo.jpg\""))
+			.andExpect(header().string("Cross-Origin-Resource-Policy", "same-origin"))
+			.andExpect(header().string("Content-Security-Policy", containsString("frame-ancestors 'none'")))
+			.andExpect(header().string("X-Frame-Options", "DENY"))
 			.andExpect(header().string("X-Content-Type-Options", "nosniff"));
 	}
 

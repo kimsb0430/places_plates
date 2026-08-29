@@ -10,7 +10,7 @@
     "build": "vinext build",
     "build:vercel": "next build",
     "start": "vinext start",
-    "test": "tsx --test tests/unit/map-counts.test.ts",
+    "test": "tsx --test tests/unit/map-counts.test.ts tests/unit/public-image-protection.test.ts tests/unit/public-image-headers.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "next typegen && tsc --noEmit"
   },

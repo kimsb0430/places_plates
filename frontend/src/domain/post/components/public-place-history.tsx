@@ -1,7 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { getPublicCoverUrl } from '../api/public-post-api';
 import type { PublicPlaceHistory as PublicPlaceHistoryData } from '../types';
+import { ProtectedPublicImage } from './protected-public-image';
 
 interface PublicPlaceHistoryProps {
   anchorPostId: string;
@@ -53,16 +53,12 @@ export function PublicPlaceHistory({ anchorPostId, history }: PublicPlaceHistory
               <Link href={`/posts/${visit.id}`}>
                 <div className="public-place-cover">
                   {visit.cover ? (
-                    <>
-                      <Image
-                        src={getPublicCoverUrl(visit.cover.path)}
-                        alt={visit.cover.altText}
-                        fill
-                        sizes="(max-width: 640px) 100vw, 300px"
-                        draggable={false}
-                      />
-                      <span aria-hidden="true" />
-                    </>
+                    <ProtectedPublicImage
+                      src={getPublicCoverUrl(visit.cover.path)}
+                      alt={visit.cover.altText}
+                      sizes="(max-width: 640px) 100vw, 300px"
+                      shieldClassName="public-place-cover-shield"
+                    />
                   ) : (
                     <b>{visit.category === 'RESTAURANT' ? 'PLATE' : 'PLACE'}</b>
                   )}

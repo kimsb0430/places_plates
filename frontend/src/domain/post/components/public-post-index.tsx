@@ -1,7 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { getPublicCoverUrl } from '../api/public-post-api';
 import type { PublicPostSummary } from '../types';
+import { ProtectedPublicImage } from './protected-public-image';
 
 interface PublicPostIndexProps {
   posts: PublicPostSummary[];
@@ -16,16 +16,12 @@ export function PublicPostIndex({ posts }: PublicPostIndexProps) {
             <article className="public-post-card">
               <div className="public-post-cover">
                 {post.cover ? (
-                  <>
-                    <Image
-                      src={getPublicCoverUrl(post.cover.path)}
-                      alt={post.cover.altText}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
-                      draggable={false}
-                    />
-                    <span className="public-post-cover-shield" aria-hidden="true" />
-                  </>
+                  <ProtectedPublicImage
+                    src={getPublicCoverUrl(post.cover.path)}
+                    alt={post.cover.altText}
+                    sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
+                    shieldClassName="public-post-cover-shield"
+                  />
                 ) : (
                   <span className="public-post-cover-placeholder" aria-hidden="true">
                     {post.category === 'RESTAURANT' ? 'PLATE' : 'PLACE'}
