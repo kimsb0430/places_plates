@@ -1,4 +1,6 @@
 const PUBLIC_IMAGE_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox";
+const PUBLIC_IMAGE_REVALIDATE_SECONDS = 3600;
+const PUBLIC_IMAGE_STALE_SECONDS = 86400;
 
 interface PublicImageProxyOptions {
   upstreamPath: string;
@@ -21,8 +23,8 @@ export async function proxyPublicImage({
 
   try {
     upstreamResponse = await fetcher(`${apiBaseUrl}${upstreamPath}`, {
-      cache: 'no-store',
       headers: { Accept: 'image/*' },
+      next: { revalidate: PUBLIC_IMAGE_REVALIDATE_SECONDS },
     });
   } catch {
     return imageProxyError(502, '공개 사진 서버에 연결할 수 없습니다.');
@@ -37,15 +39,21 @@ export async function proxyPublicImage({
     return imageProxyError(502, '공개 사진 응답 형식이 올바르지 않습니다.');
   }
 
+  const headers = publicImageHeaders(contentType, filename);
+  const contentLength = upstreamResponse.headers.get('Content-Length');
+  if (contentLength && /^\d+$/.test(contentLength)) {
+    headers.set('Content-Length', contentLength);
+  }
+
   return new Response(upstreamResponse.body, {
     status: 200,
-    headers: publicImageHeaders(contentType, filename),
+    headers,
   });
 }
 
 export function publicImageHeaders(contentType: string, filename: string): Headers {
   return new Headers({
-    'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+    'Cache-Control': `public, max-age=${PUBLIC_IMAGE_REVALIDATE_SECONDS}, s-maxage=${PUBLIC_IMAGE_REVALIDATE_SECONDS}, stale-while-revalidate=${PUBLIC_IMAGE_STALE_SECONDS}`,
     'Content-Disposition': `inline; filename="${filename}"`,
     'Content-Security-Policy': PUBLIC_IMAGE_CSP,
     'Content-Type': contentType,

@@ -67,7 +67,7 @@ public class PublicPostController {
 
 	private ResponseEntity<byte[]> publicImageResponse(byte[] bytes, String mimeType, String filename) {
 		return ResponseEntity.ok()
-			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+			.cacheControl(CacheControl.maxAge(Duration.ofHours(1)).staleWhileRevalidate(Duration.ofDays(1)).cachePublic())
 			.header("Content-Disposition", "inline; filename=\"%s\"".formatted(filename))
 			.header("Cross-Origin-Resource-Policy", "same-origin")
 			.header("Content-Security-Policy", PUBLIC_IMAGE_CSP)

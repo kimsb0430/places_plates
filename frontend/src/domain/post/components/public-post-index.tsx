@@ -10,7 +10,7 @@ interface PublicPostIndexProps {
 export function PublicPostIndex({ posts }: PublicPostIndexProps) {
   return (
     <ol className="public-post-index" aria-label="공개 게시물 카드 목록">
-      {posts.map((post) => (
+      {posts.map((post, index) => (
         <li key={post.id}>
           <Link className="public-post-card-link" href={`/posts/${post.id}`}>
             <article className="public-post-card">
@@ -20,6 +20,7 @@ export function PublicPostIndex({ posts }: PublicPostIndexProps) {
                     src={getPublicCoverUrl(post.cover.path)}
                     alt={post.cover.altText}
                     sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
+                    preload={index === 0}
                     shieldClassName="public-post-cover-shield"
                   />
                 ) : (

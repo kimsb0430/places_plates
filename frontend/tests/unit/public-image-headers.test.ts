@@ -11,8 +11,9 @@ test('같은 출처 이미지 프록시는 외부 삽입과 프레임 표시를 
   const fetcher: typeof fetch = async (input, init) => {
     assert.equal(input, 'http://localhost:8080/api/v1/public/posts/post-id/cover');
     assert.equal(init?.headers && new Headers(init.headers).get('Accept'), 'image/*');
+    assert.equal((init as RequestInit & { next?: { revalidate?: number } })?.next?.revalidate, 3600);
     return new Response(new Uint8Array([1, 2, 3]), {
-      headers: { 'Content-Type': 'image/jpeg' },
+      headers: { 'Content-Length': '3', 'Content-Type': 'image/jpeg' },
     });
   };
   const response = await proxyPublicImage({
@@ -26,6 +27,9 @@ test('같은 출처 이미지 프록시는 외부 삽입과 프레임 표시를 
   assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
   assert.match(response.headers.get('Content-Security-Policy') ?? '', /frame-ancestors 'none'/);
   assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('Content-Length'), '3');
+  assert.match(response.headers.get('Cache-Control') ?? '', /s-maxage=3600/);
+  assert.match(response.headers.get('Cache-Control') ?? '', /stale-while-revalidate=86400/);
   assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([1, 2, 3]));
 });
 
@@ -51,4 +55,17 @@ test('보호 이미지는 Vercel 이미지 최적화 경로를 만들지 않는�
   );
 
   assert.match(componentSource, /<Image[\s\S]*?\bunoptimized\b[\s\S]*?\/>/);
+  assert.match(componentSource, /preload=\{preload\}/);
+  assert.match(componentSource, /loading=\{preload \? undefined : 'lazy'\}/);
+  assert.match(componentSource, /decoding="async"/);
+});
+
+test('공개 목록은 첫 번째 대표 사진만 미리 불러온다', () => {
+  const indexSource = readFileSync(
+    new URL('../../src/domain/post/components/public-post-index.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(indexSource, /posts\.map\(\(post, index\)/);
+  assert.match(indexSource, /preload=\{index === 0\}/);
 });
