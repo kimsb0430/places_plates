@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -122,6 +123,29 @@ class PublicPostControllerTests {
 			.andExpect(jsonPath("$.posts[0].ownerUserId").doesNotExist())
 			.andExpect(jsonPath("$.posts[0].content").doesNotExist())
 			.andExpect(jsonPath("$.posts[0].placeId").doesNotExist());
+	}
+
+	@Test
+	void publicJsonNeverExposesOwnerOrPrivateStorageCoordinates() throws Exception {
+		DraftPost post = publishedPost(PostCategory.RESTAURANT, PostVisibility.PUBLIC, "저장 경로 비공개 식당");
+		attachSafeCover(post, "저장 경로가 숨겨진 대표 사진");
+		attachSafeDetailPhoto(post, "저장 경로가 숨겨진 상세 사진", 1, false);
+
+		mockMvc.perform(get("/api/v1/public/posts"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("ownerUserId"))))
+			.andExpect(content().string(not(containsString("storageKey"))))
+			.andExpect(content().string(not(containsString("temporaryStorageKey"))))
+			.andExpect(content().string(not(containsString("variants/"))))
+			.andExpect(content().string(not(containsString("temporary/"))));
+
+		mockMvc.perform(get("/api/v1/public/posts/{postId}", post.getId()))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("ownerUserId"))))
+			.andExpect(content().string(not(containsString("storageKey"))))
+			.andExpect(content().string(not(containsString("temporaryStorageKey"))))
+			.andExpect(content().string(not(containsString("variants/"))))
+			.andExpect(content().string(not(containsString("temporary/"))));
 	}
 
 	@Test
