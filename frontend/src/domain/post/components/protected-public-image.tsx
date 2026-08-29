@@ -33,6 +33,7 @@ export function ProtectedPublicImage({
         sizes={sizes}
         priority={priority}
         draggable={false}
+        unoptimized
       />
       <span className={shieldClassName} aria-hidden="true" />
     </span>

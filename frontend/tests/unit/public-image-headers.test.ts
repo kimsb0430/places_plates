@@ -1,17 +1,54 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import nextConfig from '../../next.config';
+import { getProtectedPublicImageUrl } from '../../src/domain/post/api/public-post-api';
+import { proxyPublicImage } from '../../src/domain/post/server/public-image-proxy';
 
-test('Next 이미지 최적화 응답은 외부 브라우저 삽입과 프레임 표시를 억제한다', async () => {
-  assert.ok(nextConfig.headers);
-  const rules = await nextConfig.headers();
-  const imageRule = rules.find((rule) => rule.source === '/_next/image');
-  const headers = Object.fromEntries(
-    imageRule?.headers.map((header) => [header.key, header.value]) ?? [],
+const POST_ID = '11111111-1111-4111-8111-111111111111';
+const PHOTO_ID = '22222222-2222-4222-8222-222222222222';
+
+test('같은 출처 이미지 프록시는 외부 삽입과 프레임 표시를 억제한다', async () => {
+  const fetcher: typeof fetch = async (input, init) => {
+    assert.equal(input, 'http://localhost:8080/api/v1/public/posts/post-id/cover');
+    assert.equal(init?.headers && new Headers(init.headers).get('Accept'), 'image/*');
+    return new Response(new Uint8Array([1, 2, 3]), {
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
+  };
+  const response = await proxyPublicImage({
+    upstreamPath: '/api/v1/public/posts/post-id/cover',
+    filename: 'places-plates-cover.jpg',
+    fetcher,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cross-Origin-Resource-Policy'), 'same-origin');
+  assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
+  assert.match(response.headers.get('Content-Security-Policy') ?? '', /frame-ancestors 'none'/);
+  assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([1, 2, 3]));
+});
+
+test('백엔드 공개 사진 경로는 브라우저에 같은 출처 프록시 경로로 노출한다', () => {
+  assert.equal(
+    getProtectedPublicImageUrl(`/api/v1/public/posts/${POST_ID}/cover`),
+    `/api/public-images/posts/${POST_ID}/cover`,
+  );
+  assert.equal(
+    getProtectedPublicImageUrl(`/api/v1/public/posts/${POST_ID}/photos/${PHOTO_ID}`),
+    `/api/public-images/posts/${POST_ID}/photos/${PHOTO_ID}`,
+  );
+  assert.throws(
+    () => getProtectedPublicImageUrl('https://unexpected.example/image.jpg'),
+    /공개 사진 경로가 올바르지 않습니다/,
+  );
+});
+
+test('보호 이미지는 Vercel 이미지 최적화 경로를 만들지 않는다', () => {
+  const componentSource = readFileSync(
+    new URL('../../src/domain/post/components/protected-public-image.tsx', import.meta.url),
+    'utf8',
   );
 
-  assert.equal(headers['Cross-Origin-Resource-Policy'], 'same-origin');
-  assert.equal(headers['X-Frame-Options'], 'DENY');
-  assert.match(headers['Content-Security-Policy'] ?? '', /frame-ancestors 'none'/);
-  assert.equal(headers['X-Content-Type-Options'], 'nosniff');
+  assert.match(componentSource, /<Image[\s\S]*?\bunoptimized\b[\s\S]*?\/>/);
 });
