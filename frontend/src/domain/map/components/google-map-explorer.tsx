@@ -9,6 +9,7 @@ import {
 } from '@googlemaps/markerclusterer';
 import { useEffect, useRef, useState } from 'react';
 import type { MapPostMarker, MapViewState } from '../types';
+import { createMapClusterPresentation } from '../map-cluster-presentation';
 import {
   countPostsWithinMapBounds,
   getPostsWithinMapBounds,
@@ -395,35 +396,38 @@ function createClusterRenderer(
   markerCategories: Map<ClusterMarker, MapPostMarker['category']>,
 ): Renderer {
   return {
-    render({ count, position, markers }) {
-      const category = resolveClusterCategory(markers, markerCategories);
-      const title = `${count}개의 공개 기록. 누르면 확대됩니다.`;
+    render({ position, markers }) {
+      const presentation = createMapClusterPresentation(
+        markers
+          .map((marker) => markerCategories.get(marker))
+          .filter((category): category is MapPostMarker['category'] => Boolean(category)),
+      );
       if (markerLibrary) {
         const content = document.createElement('div');
-        content.className = `map-cluster-marker is-${category.toLowerCase()}`;
-        content.textContent = String(count);
-        content.setAttribute('aria-label', title);
+        content.className = `map-cluster-marker is-${presentation.category.toLowerCase()}`;
+        content.textContent = String(presentation.count);
+        content.setAttribute('aria-label', presentation.label);
         return new markerLibrary.AdvancedMarkerElement({
           position,
-          title,
+          title: presentation.label,
           content,
           gmpClickable: true,
-          zIndex: 1000 + count,
+          zIndex: 1000 + presentation.count,
         });
       }
       return new google.maps.Marker({
         position,
-        title,
-        zIndex: 1000 + count,
+        title: presentation.label,
+        zIndex: 1000 + presentation.count,
         label: {
-          text: String(count),
+          text: String(presentation.count),
           color: '#ffffff',
           fontSize: '12px',
           fontWeight: '900',
         },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          fillColor: clusterColor(category),
+          fillColor: presentation.color,
           fillOpacity: 1,
           strokeColor: '#ffffff',
           strokeOpacity: 1,
@@ -433,21 +437,6 @@ function createClusterRenderer(
       });
     },
   };
-}
-
-function resolveClusterCategory(
-  markers: ClusterMarker[],
-  markerCategories: Map<ClusterMarker, MapPostMarker['category']>,
-): MapPostMarker['category'] | 'MIXED' {
-  const categories = new Set(markers.map((marker) => markerCategories.get(marker)).filter(Boolean));
-  if (categories.size !== 1) return 'MIXED';
-  return categories.values().next().value ?? 'MIXED';
-}
-
-function clusterColor(category: MapPostMarker['category'] | 'MIXED'): string {
-  if (category === 'RESTAURANT') return '#c24c20';
-  if (category === 'DESTINATION') return '#477f6c';
-  return '#17342d';
 }
 
 function createInfoWindowContent(post: MapPostMarker): HTMLElement {

@@ -155,6 +155,34 @@ class PublicMapControllerTests {
 	}
 
 	@Test
+	void countsRepeatVisitsAtTheSamePlaceAsSeparateMapPosts() throws Exception {
+		Place sharedPlace = manualPlace("계절마다 다시 찾는 공원", "37.551200", "126.988200");
+		DraftPost springVisit = publishedPost(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			sharedPlace,
+			PostCoordinateVisibility.EXACT
+		);
+		DraftPost autumnVisit = publishedPost(
+			PostCategory.DESTINATION,
+			PostVisibility.PUBLIC,
+			sharedPlace,
+			PostCoordinateVisibility.EXACT
+		);
+
+		mockMvc.perform(get("/api/v1/map/posts"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.counts.all").value(2))
+			.andExpect(jsonPath("$.counts.restaurant").value(0))
+			.andExpect(jsonPath("$.counts.destination").value(2))
+			.andExpect(jsonPath("$.posts.length()").value(2))
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(springVisit.getId())).exists())
+			.andExpect(jsonPath("$.posts[?(@.id == '%s')]".formatted(autumnVisit.getId())).exists())
+			.andExpect(jsonPath("$.posts[0].latitude").value(37.551200))
+			.andExpect(jsonPath("$.posts[1].latitude").value(37.551200));
+	}
+
+	@Test
 	void excludesExpiredGoogleCoordinateSnapshots() throws Exception {
 		Place stalePlace = googlePlace("오래된 Google 장소", "35.005000", "135.764000");
 		DraftPost stalePost = publishedPost(

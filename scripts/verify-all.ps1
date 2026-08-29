@@ -14,6 +14,8 @@ Push-Location $frontendRoot
 try {
     pnpm install --frozen-lockfile
     if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
+    pnpm test
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
     pnpm lint
     if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
     pnpm typecheck
