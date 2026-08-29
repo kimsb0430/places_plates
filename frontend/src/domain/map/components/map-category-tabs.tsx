@@ -25,7 +25,7 @@ export function MapCategoryTabs({ selected, counts }: MapCategoryTabsProps) {
 
   return (
     <nav className="map-category-tabs" aria-label="지도 기록 카테고리">
-      <div role="tablist">
+      <div>
         {TABS.map((tab) => {
           const isSelected = tab.category === selected;
           const href = createCategoryHref(tab.category, searchParameters);
@@ -33,8 +33,8 @@ export function MapCategoryTabs({ selected, counts }: MapCategoryTabsProps) {
             <Link
               key={tab.category}
               href={href}
-              role="tab"
-              aria-selected={isSelected}
+              aria-current={isSelected ? 'page' : undefined}
+              aria-label={`${tab.label} 지도 기록 ${counts[tab.countKey]}개`}
               className={isSelected ? 'is-selected' : undefined}
             >
               {tab.tone && <i className={tab.tone} aria-hidden="true">●</i>}

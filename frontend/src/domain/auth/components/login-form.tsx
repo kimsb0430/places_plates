@@ -53,7 +53,7 @@ export function LoginForm() {
   }
 
   return (
-    <form className="login-fields" onSubmit={handleSubmit}>
+    <form className="login-fields" onSubmit={handleSubmit} aria-busy={isSubmitting}>
       <label htmlFor="login-email">이메일</label>
       <input
         id="login-email"
@@ -63,6 +63,8 @@ export function LoginForm() {
         autoComplete="username"
         required
         disabled={isSubmitting}
+        aria-invalid={Boolean(errorMessage)}
+        aria-describedby={errorMessage ? 'login-error' : undefined}
       />
       <label htmlFor="login-password">비밀번호</label>
       <input
@@ -73,9 +75,11 @@ export function LoginForm() {
         autoComplete="current-password"
         required
         disabled={isSubmitting}
+        aria-invalid={Boolean(errorMessage)}
+        aria-describedby={errorMessage ? 'login-error' : undefined}
       />
       {errorMessage && (
-        <p className="field-message field-message-error" role="alert">{errorMessage}</p>
+        <p id="login-error" className="field-message field-message-error" role="alert">{errorMessage}</p>
       )}
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? '확인 중…' : '로그인'}

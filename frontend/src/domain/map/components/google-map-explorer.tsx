@@ -292,9 +292,12 @@ export function GoogleMapExplorer({
         </div>
       )}
       <div
+        id="public-record-map"
         ref={mapContainerRef}
         className={shouldLoadMap ? 'google-map-canvas is-visible' : 'google-map-canvas'}
+        role="region"
         aria-label="공개 맛집과 여행지 기록 지도"
+        aria-busy={isLoading}
       />
       {isLoading && <p className="google-map-status">지도를 불러오는 중입니다…</p>}
       {shouldLoadMap && !isLoading && !errorMessage && viewportCounts && (

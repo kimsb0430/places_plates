@@ -89,11 +89,11 @@ export function MapSplitExplorer({
         onViewportPostIdsChange={setViewportPostIds}
       />
 
-      <aside className="map-compact-panel">
+      <aside className="map-compact-panel" aria-labelledby="map-post-list-heading">
         <div className="map-compact-panel-heading">
           <div>
             <p className="overline">POSTS ON MAP</p>
-            <h2>지도 기록</h2>
+            <h2 id="map-post-list-heading">지도 기록</h2>
           </div>
           <output aria-live="polite">{listedPosts.length}개</output>
         </div>
@@ -141,6 +141,8 @@ export function MapSplitExplorer({
                     type="button"
                     className="map-compact-card-select"
                     aria-pressed={isSelected}
+                    aria-controls="public-record-map"
+                    aria-label={`${categoryLabel(post)} ${post.title}, ${post.placeName}, ${formatVisitMonth(post)} 지도에서 선택`}
                     onClick={() => setRequestedSelectedPostId(post.id)}
                     onFocus={() => setHighlightedPostId(post.id)}
                     onBlur={() => setHighlightedPostId(null)}
