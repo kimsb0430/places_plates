@@ -49,7 +49,11 @@ test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다',
   const writingLink = page.getByRole('link', { name: '기록하기', exact: true });
   await expect(writingLink).toBeVisible();
   const writingLinkBox = await writingLink.boundingBox();
-  expect(writingLinkBox?.height).toBeGreaterThanOrEqual(320);
+  const writingSpaceBox = await page.locator('.hero-write-space').boundingBox();
+  expect(writingLinkBox?.width).toBeLessThanOrEqual(430);
+  expect(writingLinkBox?.height).toBeGreaterThanOrEqual(220);
+  expect(writingLinkBox?.height).toBeLessThanOrEqual(270);
+  expect(writingSpaceBox?.height).toBeGreaterThan(writingLinkBox?.height ?? 0);
   await expect(page.locator('.hero-actions')).toHaveCount(0);
   await expect(page.locator('.hero-live-photo')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);

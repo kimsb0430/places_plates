@@ -32,6 +32,9 @@ test('홈은 실제 공개 API와 기록 진입점을 사용하고 대표 게시
   assert.match(homePageSource, /getPublicPosts\(undefined, 'LATEST'\)/);
   assert.match(homePageSource, /<h1>나의 기록<\/h1>/);
   assert.match(homePageSource, /<Link className="hero-write-card" href="\/manage">기록하기<\/Link>/);
+  assert.match(homePageSource, /<div className="hero-write-space">/);
+  assert.match(globalStylesSource, /\.hero-write-space \{ min-height:472px; display:flex; align-items:flex-end; \}/);
+  assert.match(globalStylesSource, /\.hero-write-card \{ width:min\(430px,100%\); min-height:270px;/);
   assert.doesNotMatch(homePageSource, /hero-actions/);
   assert.doesNotMatch(homePageSource, /hero-primary-action/);
   assert.doesNotMatch(homePageSource, /hero-secondary-action/);
