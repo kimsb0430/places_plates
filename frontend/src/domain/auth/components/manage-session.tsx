@@ -128,8 +128,8 @@ export function ManageSession() {
           {isLoggingOut ? '로그아웃 중…' : '로그아웃'}
         </button>
       </div>
-      <DraftList />
       <PublishedPostList />
+      <DraftList />
       <PhotoUploader />
     </section>
   );

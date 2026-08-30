@@ -58,7 +58,17 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && path === '/api/v1/manage/drafts') {
-    sendJson(response, 200, state.photoReady ? [state.draft] : []);
+    sendJson(response, 200, state.photoReady && state.draft.status === 'DRAFT' ? [state.draft] : []);
+    return;
+  }
+  if (request.method === 'GET' && path === '/api/v1/manage/posts') {
+    sendJson(response, 200, state.published ? [state.draft] : []);
+    return;
+  }
+  if (request.method === 'DELETE' && path === `/api/v1/manage/posts/${draftId}`) {
+    state.published = false;
+    state.photoReady = false;
+    sendEmpty(response, 204);
     return;
   }
   if (request.method === 'POST' && path === '/api/v1/manage/photo-uploads') {
@@ -195,6 +205,10 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && path === '/api/v1/public/posts') {
     sendJson(response, 200, publicPostList(url.searchParams.get('category')));
+    return;
+  }
+  if (request.method === 'GET' && path === `/api/v1/public/posts/${draftId}` && state.published) {
+    sendJson(response, 200, publicPostDetail());
     return;
   }
   if (request.method === 'GET' && path === '/api/v1/map/posts') {
@@ -335,6 +349,30 @@ function mapPostList(category: string | null): Record<string, unknown> {
   };
 }
 
+function publicPostDetail(): Record<string, unknown> {
+  const place = state.draft.place as Record<string, unknown> | null;
+  return {
+    id: draftId,
+    category: state.category,
+    title: state.draft.title,
+    summary: state.draft.summary,
+    content: state.draft.content,
+    publicVisitYear: state.draft.publicVisitYear,
+    publicVisitMonth: state.draft.publicVisitMonth,
+    place: place ? { name: place.name, googleMapsUrl: null } : null,
+    restaurantDetails: null,
+    destinationDetails: null,
+    photos: [{
+      id: photoId,
+      path: `/api/v1/public/posts/${draftId}/photos/${photoId}`,
+      altText: 'C38 E2E 공개 사진',
+      width: 1600,
+      height: 1200,
+      cover: true,
+    }],
+  };
+}
+
 function setCorsHeaders(response: ServerResponse): void {
   response.setHeader('Access-Control-Allow-Origin', webOrigin);
   response.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -349,6 +387,11 @@ function setCorsHeaders(response: ServerResponse): void {
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
+}
+
+function sendEmpty(response: ServerResponse, status: number): void {
+  response.writeHead(status);
+  response.end();
 }
 
 function sendImage(response: ServerResponse): void {

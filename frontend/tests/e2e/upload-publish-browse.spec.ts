@@ -40,11 +40,25 @@ test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다',
   await publishButton.click();
   await expect(page.getByRole('heading', { name: '기록 게시 완료' })).toBeVisible();
 
+  await page.goto('/');
+  const primaryNavigation = page.getByRole('navigation', { name: '주요 메뉴' });
+  await expect(primaryNavigation.getByRole('link')).toHaveCount(2);
+  await expect(primaryNavigation.getByRole('link', { name: '기록' })).toBeVisible();
+  await expect(primaryNavigation.getByRole('link', { name: '지도' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /기록하기/ })).toBeVisible();
+  await expect(page.locator('.hero-live-photo')).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
   await page.goto('/posts');
   await expect(page.getByRole('heading', { name: '공개 기록' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'C38 교토 점심 기록' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '공개 기록 카테고리' })
     .getByRole('link', { name: '맛집 공개 기록 1개' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.getByRole('link', { name: 'C38 교토 점심 기록 기록 읽기' }).click();
+  await expect(page.getByRole('heading', { name: 'C38 교토 점심 기록' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '이 기록 삭제' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto('/map');
@@ -53,6 +67,12 @@ test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다',
   await expect(page.getByRole('button', { name: /C38 교토 점심 기록.*교토 테스트 식당/ })).toBeVisible();
   await expect(page.getByText('1개', { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  await page.goto(`/posts/11111111-1111-4111-8111-111111111111`);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '이 기록 삭제' }).click();
+  await expect(page).toHaveURL('/manage');
+  await expect(page.getByText('아직 게시 완료된 기록이 없습니다.')).toBeVisible();
 });
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {

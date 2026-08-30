@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 const navigationItems = [
   { href: '/posts', label: '기록', path: '/posts' },
   { href: '/map', label: '지도', path: '/map' },
-  { href: '/#journeys', label: '여행', path: null },
 ] as const;
 
 export function HeaderNavigation() {

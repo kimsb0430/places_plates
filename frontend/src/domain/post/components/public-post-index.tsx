@@ -13,7 +13,11 @@ export function PublicPostIndex({ posts }: PublicPostIndexProps) {
     <ol className="public-post-index" aria-label="공개 게시물 카드 목록">
       {posts.map((post, index) => (
         <li key={post.id}>
-          <Link className="public-post-card-link" href={`/posts/${post.id}`}>
+          <Link
+            className="public-post-card-link"
+            href={`/posts/${post.id}`}
+            aria-label={`${post.title} 기록 읽기`}
+          >
             <article className="public-post-card">
               <div className="public-post-cover">
                 {post.cover ? (
