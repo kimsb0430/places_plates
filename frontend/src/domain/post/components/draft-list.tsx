@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { DraftPostApiError, getDraftPosts } from '../api/draft-post-api';
+import { deleteDraftPost, DraftPostApiError, getDraftPosts } from '../api/draft-post-api';
 import type { DraftPost } from '../types';
 
 type DraftListState =
@@ -12,6 +12,7 @@ type DraftListState =
 
 export function DraftList() {
   const [state, setState] = useState<DraftListState>({ status: 'loading' });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -35,6 +36,23 @@ export function DraftList() {
     };
   }, []);
 
+  async function handleDelete(draft: DraftPost) {
+    if (!window.confirm(`“${draft.title}” 초안을 삭제할까요? 사진과 작성 내용도 함께 삭제되며 되돌릴 수 없습니다.`)) {
+      return;
+    }
+    setDeletingId(draft.id);
+    try {
+      await deleteDraftPost(draft.id);
+      setState((current) => current.status === 'ready'
+        ? { status: 'ready', drafts: current.drafts.filter((item) => item.id !== draft.id) }
+        : current);
+    } catch (error: unknown) {
+      window.alert(error instanceof DraftPostApiError ? error.message : '초안을 삭제하지 못했습니다.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <section className="draft-list" aria-labelledby="draft-list-title">
       <div className="draft-list-heading">
@@ -56,7 +74,7 @@ export function DraftList() {
         <ul>
           {state.drafts.map((draft) => (
             <li key={draft.id}>
-              <Link href={`/manage/drafts/${draft.id}`}>
+              <Link className="managed-record-link" href={`/manage/drafts/${draft.id}`}>
                 <span>{categoryLabel(draft.category)}</span>
                 <strong>{draft.title}</strong>
                 <small>
@@ -67,6 +85,14 @@ export function DraftList() {
                 </small>
                 <i aria-hidden="true">→</i>
               </Link>
+              <button
+                className="managed-record-delete"
+                type="button"
+                disabled={deletingId === draft.id}
+                onClick={() => void handleDelete(draft)}
+              >
+                {deletingId === draft.id ? '삭제 중…' : '초안 삭제'}
+              </button>
             </li>
           ))}
         </ul>

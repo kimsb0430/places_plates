@@ -2,6 +2,7 @@ package com.placesplates.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -483,6 +484,37 @@ class DraftPostControllerTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"title\":\"인증되지 않은 수정\"}"))
 			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void deletesOnlyOwnedDraftWithCsrfProtection() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.DESTINATION
+		));
+
+		mockMvc.perform(delete("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token()))
+			.andExpect(status().isNoContent());
+
+		assertThat(draftPostRepository.findById(draft.getId())).isEmpty();
+	}
+
+	@Test
+	void rejectsDraftDeletionWithoutCsrfToken() throws Exception {
+		AuthenticatedSession authenticated = login();
+		DraftPost draft = draftPostRepository.save(DraftPost.create(
+			administrator.getId(),
+			PostCategory.RESTAURANT
+		));
+
+		mockMvc.perform(delete("/api/v1/manage/drafts/{draftId}", draft.getId())
+				.cookie(authenticated.cookie()))
+			.andExpect(status().isForbidden());
+
+		assertThat(draftPostRepository.findById(draft.getId())).isPresent();
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import {
 } from '@/domain/auth/api/authentication-api';
 import {
   DraftPostApiError,
+  deleteDraftPost,
   getDraftPost,
   updateDraftPost,
 } from '../api/draft-post-api';
@@ -118,6 +119,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
   const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' });
   const [retryVersion, setRetryVersion] = useState(0);
   const [publicationVersion, setPublicationVersion] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
   const lastSavedSnapshot = useRef(JSON.stringify(toEditorForm(initialDraft)));
   const handleUnauthorized = useCallback(() => {
     router.replace(`/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`);
@@ -129,6 +131,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
   ].filter(Boolean).length, [form.summary, form.title, form.visitMonth]);
 
   useEffect(() => {
+    if (isDeleting) return;
     const snapshot = JSON.stringify(form);
     if (snapshot === lastSavedSnapshot.current) return;
     if (!form.title.trim()) return;
@@ -166,7 +169,22 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [form, initialDraft.category, initialDraft.id, retryVersion, router]);
+  }, [form, initialDraft.category, initialDraft.id, isDeleting, retryVersion, router]);
+
+  async function handleDelete() {
+    if (!window.confirm(`“${draft.title}” 초안을 삭제할까요? 사진과 작성 내용도 함께 삭제되며 되돌릴 수 없습니다.`)) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteDraftPost(draft.id);
+      router.replace('/manage');
+      router.refresh();
+    } catch (error: unknown) {
+      window.alert(error instanceof DraftPostApiError ? error.message : '초안을 삭제하지 못했습니다.');
+      setIsDeleting(false);
+    }
+  }
 
   const handleFieldChange = (field: keyof DraftEditorForm, value: string) => {
     if (field === 'title' && !value.trim()) {
@@ -307,6 +325,9 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
 
         <div className="draft-editor-actions">
           <Link href="/manage">관리 화면으로 돌아가기</Link>
+          <button className="draft-delete-button" type="button" disabled={isDeleting} onClick={() => void handleDelete()}>
+            {isDeleting ? '삭제 중…' : '초안 삭제'}
+          </button>
           {saveState.status === 'error' && (
             <button type="button" onClick={() => setRetryVersion((value) => value + 1)}>
               다시 저장

@@ -10,6 +10,7 @@ const mapCategorySource = readSource('src/domain/map/components/map-category-tab
 const mapExplorerSource = readSource('src/domain/map/components/google-map-explorer.tsx');
 const mapSplitSource = readSource('src/domain/map/components/map-split-explorer.tsx');
 const publicCategorySource = readSource('src/domain/post/components/public-post-tabs.tsx');
+const publicPhotoGallerySource = readSource('src/domain/post/components/public-photo-gallery.tsx');
 
 test('공개 사진 설명이 비어 있으면 기록 맥락을 담은 대체 문구를 사용한다', () => {
   assert.equal(resolvePublicPhotoAltText('  따뜻한 국물이 담긴 그릇  ', '기본 설명'), '따뜻한 국물이 담긴 그릇');
@@ -24,15 +25,18 @@ test('페이지 이동형 카테고리는 탭 위젯이 아닌 현재 페이지 
   }
 });
 
-test('홈 탭과 미리보기 대화상자는 키보드 이동 및 포커스 복귀 계약을 갖는다', () => {
-  assert.match(homePageSource, /event\.key === 'ArrowRight'/);
-  assert.match(homePageSource, /event\.key === 'ArrowLeft'/);
-  assert.match(homePageSource, /event\.key === 'Escape'/);
-  assert.match(homePageSource, /aria-modal="true"/);
-  assert.match(homePageSource, /dialogTriggerRef\.current\?\.focus\(\)/);
-  assert.match(homePageSource, /aria-haspopup="dialog"/);
-  assert.match(homePageSource, /event\.key !== 'Enter' && event\.key !== ' '/);
-  assert.match(homePageSource, /element\.inert = true/);
+test('홈은 실제 공개 API와 상단 여행 기록 링크를 사용하고 목업 문구를 노출하지 않는다', () => {
+  assert.match(homePageSource, /getPublicPosts\(undefined, 'LATEST'\)/);
+  assert.match(homePageSource, /href="\/posts\?category=DESTINATION"/);
+  assert.doesNotMatch(homePageSource, /Kyoto, Spring 2026/);
+  assert.doesNotMatch(homePageSource, /const posts:/);
+});
+
+test('공개 사진 확대 화면은 대화상자 이름과 키보드 닫기 계약을 갖는다', () => {
+  assert.match(publicPhotoGallerySource, /event\.key === 'Escape'/);
+  assert.match(publicPhotoGallerySource, /aria-modal="true"/);
+  assert.match(publicPhotoGallerySource, /aria-label="사진 크게 보기 닫기"/);
+  assert.match(publicPhotoGallerySource, /공개용 고해상도 이미지/);
 });
 
 test('폼과 지도 조작 요소는 오류·대상·포커스 상태를 이름으로 연결한다', () => {

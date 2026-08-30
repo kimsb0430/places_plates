@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import { getPublicPhotoUrl } from '../api/public-post-api';
-import { resolvePublicPhotoAltText } from '../public-photo-alt';
 import type {
   DestinationDetail,
   PublicPostDetail as PublicPostDetailData,
@@ -8,15 +6,13 @@ import type {
   RestaurantPriceRange,
   RevisitIntention,
 } from '../types';
-import { ProtectedPublicImage } from './protected-public-image';
+import { PublicPhotoGallery } from './public-photo-gallery';
 
 interface PublicPostDetailProps {
   post: PublicPostDetailData;
 }
 
 export function PublicPostDetail({ post }: PublicPostDetailProps) {
-  const primaryPhoto = post.photos.find((photo) => photo.cover) ?? post.photos[0];
-  const secondaryPhotos = post.photos.filter((photo) => photo.id !== primaryPhoto?.id);
   const visitDate = `${post.publicVisitYear}-${String(post.publicVisitMonth).padStart(2, '0')}`;
 
   return (
@@ -45,34 +41,19 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
         </dl>
       </header>
 
-      <section className="public-detail-gallery" aria-label={`${post.title} 사진`}>
-        {primaryPhoto ? (
-          <ProtectedPhoto
-            className="public-detail-primary-photo"
-            photo={primaryPhoto}
-            fallbackAlt={`${post.title} 대표 사진`}
-            sizes="(max-width: 980px) 100vw, 72vw"
-            preload
-          />
+      <aside className="public-detail-facts public-detail-category-note" aria-label="카테고리별 상세 정보">
+        {post.category === 'RESTAURANT' ? (
+          <RestaurantFacts details={post.restaurantDetails} />
         ) : (
-          <div className="public-detail-photo-placeholder" aria-label="표시할 공개 사진이 없습니다.">
-            <span>{post.category === 'RESTAURANT' ? 'PLATE' : 'PLACE'}</span>
-          </div>
+          <DestinationFacts details={post.destinationDetails} />
         )}
-        {secondaryPhotos.length > 0 && (
-          <div className="public-detail-secondary-photos">
-            {secondaryPhotos.map((photo, index) => (
-              <ProtectedPhoto
-                key={photo.id}
-                className="public-detail-secondary-photo"
-                photo={photo}
-                fallbackAlt={`${post.title} 사진 ${index + 2}`}
-                sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
-              />
-            ))}
-          </div>
-        )}
-      </section>
+        <div className="public-detail-place-links">
+          {post.place && <Link href={`/posts/${post.id}/place`}>이 장소의 방문 기록 보기 <span aria-hidden="true">→</span></Link>}
+          {post.place?.googleMapsUrl && <a href={post.place.googleMapsUrl} target="_blank" rel="noreferrer">Google 지도에서 장소 보기 <span aria-hidden="true">↗</span></a>}
+        </div>
+      </aside>
+
+      <PublicPhotoGallery title={post.title} category={post.category} photos={post.photos} />
 
       <div className="public-detail-reading-grid">
         <section className="public-detail-story" aria-labelledby="public-detail-story-heading">
@@ -81,51 +62,12 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
           <p>{post.content ?? '아직 긴 기록은 작성되지 않았습니다.'}</p>
         </section>
 
-        <aside className="public-detail-facts" aria-label="카테고리별 상세 정보">
-          {post.category === 'RESTAURANT' ? (
-            <RestaurantFacts details={post.restaurantDetails} />
-          ) : (
-            <DestinationFacts details={post.destinationDetails} />
-          )}
-          {post.place && (
-            <Link href={`/posts/${post.id}/place`}>
-              이 장소의 방문 기록 보기 <span aria-hidden="true">→</span>
-            </Link>
-          )}
-          {post.place?.googleMapsUrl && (
-            <a href={post.place.googleMapsUrl} target="_blank" rel="noreferrer">
-              Google 지도에서 장소 보기 <span aria-hidden="true">↗</span>
-            </a>
-          )}
-        </aside>
       </div>
 
       <p className="public-detail-protection-note">
         공개 사진은 촬영 메타데이터를 제거하고 Places &amp; Plates 워터마크를 적용한 파생본입니다.
       </p>
     </article>
-  );
-}
-
-interface ProtectedPhotoProps {
-  className: string;
-  photo: PublicPostDetailData['photos'][number];
-  fallbackAlt: string;
-  sizes: string;
-  preload?: boolean;
-}
-
-function ProtectedPhoto({ className, photo, fallbackAlt, sizes, preload = false }: ProtectedPhotoProps) {
-  return (
-    <figure className={className}>
-      <ProtectedPublicImage
-        src={getPublicPhotoUrl(photo.path)}
-        alt={resolvePublicPhotoAltText(photo.altText, fallbackAlt)}
-        sizes={sizes}
-        preload={preload}
-        shieldClassName="public-detail-photo-shield"
-      />
-    </figure>
   );
 }
 

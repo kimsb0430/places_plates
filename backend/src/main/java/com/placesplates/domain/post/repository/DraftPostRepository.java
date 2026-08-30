@@ -18,6 +18,8 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, UUID> {
 
 	List<DraftPost> findAllByOwnerUserIdAndStatusOrderByUpdatedAtDesc(UUID ownerUserId, PostStatus status);
 
+	List<DraftPost> findAllByOwnerUserIdAndStatusOrderByPublishedAtDesc(UUID ownerUserId, PostStatus status);
+
 	Optional<DraftPost> findByIdAndOwnerUserIdAndStatus(UUID id, UUID ownerUserId, PostStatus status);
 
 	List<DraftPost> findAllByVisibilityAndStatus(

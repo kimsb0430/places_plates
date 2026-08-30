@@ -60,6 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -69,6 +70,26 @@ export function getDraftPosts(): Promise<DraftPost[]> {
 
 export function getDraftPost(draftPostId: string): Promise<DraftPost> {
   return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}`);
+}
+
+export async function deleteDraftPost(draftPostId: string): Promise<void> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<void>(`/api/v1/manage/drafts/${draftPostId}`, {
+    method: 'DELETE',
+    headers: { [csrfToken.headerName]: csrfToken.token },
+  });
+}
+
+export function getManagedPublishedPosts(): Promise<DraftPost[]> {
+  return request<DraftPost[]>('/api/v1/manage/posts');
+}
+
+export async function deleteManagedPublishedPost(postId: string): Promise<void> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<void>(`/api/v1/manage/posts/${postId}`, {
+    method: 'DELETE',
+    headers: { [csrfToken.headerName]: csrfToken.token },
+  });
 }
 
 export async function updateDraftPost(
