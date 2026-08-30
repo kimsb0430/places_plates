@@ -1,6 +1,7 @@
 package com.placesplates.domain.photo.repository;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -17,6 +18,9 @@ public interface UploadBatchRepository extends JpaRepository<UploadBatch, UUID> 
 
 	@EntityGraph(attributePaths = "items")
 	Optional<UploadBatch> findWithItemsByIdAndOwnerUserId(UUID id, UUID ownerUserId);
+
+	@EntityGraph(attributePaths = "items")
+	List<UploadBatch> findAllByPostIdAndOwnerUserId(UUID postId, UUID ownerUserId);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("""

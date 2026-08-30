@@ -13,4 +13,6 @@ public interface PrivatePhotoStorage {
 	void storeResponsiveVariant(String objectKey, byte[] bytes, String mimeType);
 
 	void deleteTemporary(String objectKey);
+
+	void deleteSanitizedAsset(String objectKey);
 }

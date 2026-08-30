@@ -66,18 +66,32 @@ public class SupabasePrivatePhotoStorage implements PrivatePhotoStorage {
 		if (objectKey == null || !objectKey.startsWith("temporary/") || objectKey.contains("..")) {
 			throw new StorageAccessException("Temporary storage key is invalid");
 		}
+		delete(temporaryBucket, objectKey, "Temporary storage object");
+	}
+
+	@Override
+	public void deleteSanitizedAsset(String objectKey) {
+		if (objectKey == null
+			|| (!objectKey.startsWith("sanitized/") && !objectKey.startsWith("variants/"))
+			|| objectKey.contains("..")) {
+			throw new StorageAccessException("Sanitized storage key is invalid");
+		}
+		delete(sanitizedBucket, objectKey, "Sanitized storage object");
+	}
+
+	private void delete(String bucket, String objectKey, String assetName) {
 		assertConfigured();
-		HttpRequest request = authorizedRequest(objectUri(temporaryBucket, objectKey)).DELETE().build();
+		HttpRequest request = authorizedRequest(objectUri(bucket, objectKey)).DELETE().build();
 		try {
 			HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
 			if ((response.statusCode() < 200 || response.statusCode() >= 300) && response.statusCode() != 404) {
-				throw new StorageAccessException("Temporary storage object deletion failed");
+				throw new StorageAccessException(assetName + " deletion failed");
 			}
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
-			throw new StorageAccessException("Temporary storage object deletion was interrupted", exception);
+			throw new StorageAccessException(assetName + " deletion was interrupted", exception);
 		} catch (IOException exception) {
-			throw new StorageAccessException("Temporary storage object deletion failed", exception);
+			throw new StorageAccessException(assetName + " deletion failed", exception);
 		}
 	}
 

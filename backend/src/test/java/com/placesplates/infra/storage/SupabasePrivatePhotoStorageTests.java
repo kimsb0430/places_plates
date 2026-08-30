@@ -24,6 +24,7 @@ class SupabasePrivatePhotoStorageTests {
 	private final AtomicReference<String> upsertHeader = new AtomicReference<>();
 	private final AtomicReference<byte[]> uploadedBody = new AtomicReference<>();
 	private final AtomicReference<String> temporaryMethod = new AtomicReference<>();
+	private final AtomicReference<String> sanitizedMethod = new AtomicReference<>();
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -41,6 +42,7 @@ class SupabasePrivatePhotoStorageTests {
 			exchange.close();
 		});
 		server.createContext("/storage/v1/object/private-assets/sanitized/", exchange -> {
+			sanitizedMethod.set(exchange.getRequestMethod());
 			uploadedPath.set(exchange.getRequestURI().getRawPath());
 			uploadedContentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
 			upsertHeader.set(exchange.getRequestHeaders().getFirst("x-upsert"));
@@ -128,5 +130,22 @@ class SupabasePrivatePhotoStorageTests {
 		storage.deleteTemporary("temporary/owner/photo.jpg");
 
 		assertThat(temporaryMethod.get()).isEqualTo("DELETE");
+	}
+
+	@Test
+	void deletesSanitizedAssetsFromPrivateBucket() {
+		SupabasePrivatePhotoStorage storage = new SupabasePrivatePhotoStorage(
+			storageApiUrl,
+			SERVICE_ROLE_KEY,
+			"temporary-uploads",
+			"private-assets"
+		);
+
+		storage.deleteSanitizedAsset("sanitized/owner/job.jpg");
+
+		assertThat(sanitizedMethod.get()).isEqualTo("DELETE");
+		assertThat(uploadedPath.get()).isEqualTo(
+			"/storage/v1/object/private-assets/sanitized/owner/job.jpg"
+		);
 	}
 }

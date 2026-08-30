@@ -10,6 +10,7 @@ import {
 import type { AdministratorSession } from '../types';
 import { PhotoUploader } from '@/domain/photo/components/photo-uploader';
 import { DraftList } from '@/domain/post/components/draft-list';
+import { PublishedPostList } from '@/domain/post/components/published-post-list';
 
 type SessionState =
   | { status: 'loading' }
@@ -128,6 +129,7 @@ export function ManageSession() {
         </button>
       </div>
       <DraftList />
+      <PublishedPostList />
       <PhotoUploader />
     </section>
   );

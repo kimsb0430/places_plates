@@ -3,6 +3,7 @@ package com.placesplates.domain.post.controller;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.placesplates.domain.auth.service.AdministratorPrincipal;
@@ -22,6 +24,7 @@ import com.placesplates.domain.post.dto.PostPublicationRequest;
 import com.placesplates.domain.post.dto.PostPublicationResponse;
 import com.placesplates.domain.post.service.DraftPublicationService;
 import com.placesplates.domain.post.service.DraftPostService;
+import com.placesplates.domain.post.service.PostManagementService;
 import com.placesplates.domain.place.dto.PlaceConnectionRequest;
 
 import jakarta.validation.Valid;
@@ -32,13 +35,25 @@ public class DraftPostController {
 
 	private final DraftPostService draftPostService;
 	private final DraftPublicationService draftPublicationService;
+	private final PostManagementService postManagementService;
 
 	public DraftPostController(
 		DraftPostService draftPostService,
-		DraftPublicationService draftPublicationService
+		DraftPublicationService draftPublicationService,
+		PostManagementService postManagementService
 	) {
 		this.draftPostService = draftPostService;
 		this.draftPublicationService = draftPublicationService;
+		this.postManagementService = postManagementService;
+	}
+
+	@DeleteMapping("/{draftId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void deleteDraft(
+		@AuthenticationPrincipal AdministratorPrincipal principal,
+		@PathVariable UUID draftId
+	) {
+		postManagementService.deleteDraft(principal.userId(), draftId);
 	}
 
 	@GetMapping
