@@ -59,6 +59,7 @@ $requiredCloudBuildPatterns = @(
     '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}',
     'name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim',
     '--image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}',
+    '--update-env-vars=APP_COMMIT_SHA=${COMMIT_SHA}',
     '--region=${_DEPLOY_REGION}'
 )
 

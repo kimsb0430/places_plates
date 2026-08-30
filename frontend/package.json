@@ -10,7 +10,7 @@
     "build": "vinext build",
     "build:vercel": "next build",
     "start": "vinext start",
-    "test": "tsx --test tests/unit/accessibility-contracts.test.ts tests/unit/map-counts.test.ts tests/unit/map-lazy-loading.test.ts tests/unit/public-image-protection.test.ts tests/unit/public-image-headers.test.ts tests/unit/security-headers.test.ts",
+    "test": "tsx --test tests/unit/accessibility-contracts.test.ts tests/unit/deployment-status.test.ts tests/unit/map-counts.test.ts tests/unit/map-lazy-loading.test.ts tests/unit/public-image-protection.test.ts tests/unit/public-image-headers.test.ts tests/unit/security-headers.test.ts",
     "test:e2e": "playwright test",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "next typegen && tsc --noEmit"

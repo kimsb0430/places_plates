@@ -10,6 +10,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Secret scan failed.' }
 & (Join-Path $PSScriptRoot 'verify-cloud-run-container.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Cloud Run container contract verification failed.' }
 
+& (Join-Path $PSScriptRoot 'verify-production-deployment.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Production deployment contract verification failed.' }
+
 Push-Location $frontendRoot
 try {
     pnpm install --frozen-lockfile

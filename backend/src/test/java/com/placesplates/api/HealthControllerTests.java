@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "places-plates.deployment.commit-sha=0123456789abcdef0123456789abcdef01234567")
 @AutoConfigureMockMvc
 class HealthControllerTests {
 
@@ -23,6 +23,11 @@ class HealthControllerTests {
 		mockMvc.perform(get("/api/v1/health"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value("UP"))
+			.andExpect(header().string(
+				"X-Places-Plates-Commit",
+				"0123456789abcdef0123456789abcdef01234567"
+			))
+			.andExpect(header().string("Cache-Control", "no-store"))
 			.andExpect(header().string(
 				"Content-Security-Policy",
 				"default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"

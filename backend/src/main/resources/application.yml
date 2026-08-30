@@ -38,6 +38,8 @@ server:
         same-site: ${SESSION_COOKIE_SAME_SITE:lax}
 
 places-plates:
+  deployment:
+    commit-sha: ${APP_COMMIT_SHA:local}
   security:
     allowed-origins: ${FRONTEND_ORIGINS:http://localhost:3000,http://localhost:3100}
     database-row-security-enabled: true
