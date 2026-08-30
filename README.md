@@ -62,6 +62,12 @@ $env:SPRING_PROFILES_ACTIVE = 'local'
 
 E2E는 실제 운영 계정·Supabase·Google Maps 호출 없이 로컬 가짜 API와 TUS 서버를 사용한다. `frontend`에서 `pnpm test:e2e`를 실행하면 1440px 데스크톱과 Pixel 7 모바일 화면으로 업로드→초안 편집→전체 공개 게시→목록→지도 축소 목록을 순서대로 검증한다.
 
+운영 배포 후 읽기 전용 스모크는 아래 명령으로 수동 재실행할 수 있다. `ExpectedCommitSha`를 생략하면 현재 운영 상태와 보안 정책만 확인하고, 40자리 병합 커밋을 전달하면 Vercel과 Cloud Run이 모두 그 버전인지 추가로 확인한다.
+
+```powershell
+.\scripts\test-production-smoke.ps1 -RetryCount 1 -RetryDelaySeconds 0
+```
+
 프론트엔드 배포 빌드는 대상에 따라 분리한다.
 
 ```powershell

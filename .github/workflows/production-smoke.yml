@@ -1,0 +1,47 @@
+name: Production smoke
+
+on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      expected_commit_sha:
+        description: Full 40-character commit SHA expected in production
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke-main
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Production smoke
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FRONTEND_BASE_URL: ${{ vars.PRODUCTION_FRONTEND_URL || 'https://placesplates.vercel.app' }}
+      API_BASE_URL: ${{ vars.PRODUCTION_API_URL || 'https://places-plates-api-481849639838.asia-northeast3.run.app' }}
+      EXPECTED_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || inputs.expected_commit_sha || github.sha }}
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.EXPECTED_COMMIT_SHA }}
+      - name: Wait for atomic deployments and run smoke checks
+        shell: pwsh
+        run: >-
+          ./scripts/test-production-smoke.ps1
+          -FrontendBaseUrl $env:FRONTEND_BASE_URL
+          -ApiBaseUrl $env:API_BASE_URL
+          -ExpectedCommitSha $env:EXPECTED_COMMIT_SHA
+          -RetryCount 30
+          -RetryDelaySeconds 20

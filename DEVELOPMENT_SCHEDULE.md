@@ -245,7 +245,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-30 ~ 2026-10-06
 
-진행 상태: C34는 공개 사진 보조 억제와 같은 출처 중계를 완료했고 C35는 프런트·API 보안 헤더와 공개 응답·로그 비식별화를 고정했다. C36은 Google Maps 로더·클러스터러 모듈을 명시적 지도 요청 뒤로 분리하고 공개 사진 로딩·캐시를 최적화했다. C37은 전역 포커스 표시, 홈 탭 키보드 이동, 미리보기 대화상자 포커스 관리, 페이지 이동 링크 의미, 공개 사진 대체 문구와 지도 카드 레이블을 개선했다. C38은 격리형 API·TUS fixture와 Playwright로 업로드→게시→목록→지도 흐름을 데스크톱·모바일에서 자동 검증한다. 다음은 C39 운영 배포·스모크 자동화이다.
+진행 상태: C34는 공개 사진 보조 억제와 같은 출처 중계를 완료했고 C35는 프런트·API 보안 헤더와 공개 응답·로그 비식별화를 고정했다. C36은 Google Maps 로더·클러스터러 모듈을 명시적 지도 요청 뒤로 분리하고 공개 사진 로딩·캐시를 최적화했다. C37은 전역 포커스 표시, 홈 탭 키보드 이동, 미리보기 대화상자 포커스 관리, 페이지 이동 링크 의미, 공개 사진 대체 문구와 지도 카드 레이블을 개선했다. C38은 격리형 API·TUS fixture와 Playwright로 업로드→게시→목록→지도 흐름을 데스크톱·모바일에서 자동 검증한다. C39는 성공한 `main` 검증 뒤 Vercel·Cloud Run의 동일 커밋 배포, 핵심 페이지·공개 API·보안 헤더·비공개 경로 부재를 재시도형 운영 스모크로 확인한다. Sprint 6 구현을 완료했으며 다음은 C40 릴리스 후보 회귀 점검과 발견 결함 수정이다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -254,7 +254,7 @@ Sprint 종료 게이트:
 | C36 | `perf: lazy load maps and optimize public images` | 지도 지연 로딩·이미지 최적화 | 목록 진입만으로 지도 과금 호출이 발생하지 않음 |
 | C37 | `fix: improve keyboard navigation and accessible labels` | 3px 포커스, 탭 화살표 이동, 모달 포커스 고정·복귀, 링크 의미·사진 fallback·지도 레이블 | 홈 카테고리·미리보기와 공개 목록·지도 진입을 키보드로 완료 가능 |
 | C38 | `test: add end to end upload publish and browse flows` | 업로드→게시→목록→지도 E2E | 데스크톱·모바일 핵심 시나리오 통과 |
-| C39 | `ci: add production deployment and smoke tests` | Vercel 운영 배포와 배포 후 검사 | 배포 실패 시 운영 버전 유지, 성공 후 smoke test 통과 |
+| C39 | `ci: add production deployment and smoke tests` | Vercel·Cloud Run 원자적 운영 배포, 커밋 식별 헤더, `Verify` 성공 후 재시도형 읽기 전용 스모크 | 배포 실패 시 운영 버전 유지, 양쪽 커밋 일치와 핵심 페이지·공개 API·보안 정책 검사 통과 |
 
 Sprint 종료 게이트:
 

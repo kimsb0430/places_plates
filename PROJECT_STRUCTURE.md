@@ -37,7 +37,7 @@ places-plates/
 ├── docs/                        # 제품·API·운영 문서
 ├── infra/                       # 로컬 DB·배포 설정
 ├── scripts/                     # 전체 검증·개발 실행 스크립트
-├── .github/workflows/           # 프론트·백엔드 CI
+├── .github/workflows/           # 프론트·백엔드 CI와 운영 스모크
 ├── .gitignore
 └── README.md
 ```
@@ -47,6 +47,8 @@ places-plates/
 프론트엔드는 동일한 App Router 소스에서 두 배포 산출물을 만든다. Vercel은 `pnpm build:vercel`로 표준 `.next` 산출물을 만들고, 기존 OpenAI Sites 미리보기는 `pnpm build`로 Vinext `dist` 산출물을 만든다. 두 산출물은 CI에서 각각 빌드하고 비밀정보를 검사한다.
 
 Cloud Run 배포는 저장소의 `backend/cloudbuild.yaml`을 Cloud Build 트리거 구성 파일로 사용한다. 이 구성은 `backend/`를 Docker 빌드 컨텍스트로 지정하고 `backend/Dockerfile`로 이미지를 빌드·푸시한 뒤 기존 Cloud Run 서비스 이미지만 갱신한다. 빌드 단계와 실행 단계 모두 Java 21을 사용하며, 실행 이미지에는 Java ImageIO의 ICC 색상 프로필 처리에 필요한 `liblcms2.so.2`를 제공하는 `liblcms2-2` 패키지를 명시적으로 설치한다. 애플리케이션은 UID 10001 비루트 사용자로 실행하고 CI에서 실제 이미지를 빌드해 라이브러리와 실행 사용자를 확인한다. Cloud Build 트리거가 인라인 Buildpacks 구성을 사용하면 Dockerfile을 무시하므로 금지한다.
+
+C39의 `.github/workflows/production-smoke.yml`은 `main`의 `Verify` 성공 이벤트 뒤에만 실행한다. Vercel의 `VERCEL_GIT_COMMIT_SHA`와 Cloud Build가 `APP_COMMIT_SHA`로 Cloud Run에 주입한 동일 커밋을 각 상태 응답의 `X-Places-Plates-Commit` 헤더로 비교한다. 배포가 아직 진행 중이면 최대 30회 재시도하고, 더 최신 커밋이 병합되면 이전 스모크를 취소해 이미 대체된 커밋 때문에 거짓 실패가 발생하지 않게 한다. 기본 운영 URL은 공개 값으로 저장소에 두되 다른 환경은 GitHub Repository Variables `PRODUCTION_FRONTEND_URL`, `PRODUCTION_API_URL`로 교체한다. 스모크는 읽기 전용 페이지·공개 API만 호출하고 Google Maps SDK 로드, 로그인, 업로드, 게시 같은 과금·상태 변경 동작은 수행하지 않는다.
 
 ## 3. 프론트엔드 구조
 
@@ -204,6 +206,7 @@ backend/src/test/java/com/placesplates/
 
 - 프론트엔드는 공개 카테고리·정렬 쿼리 유지, 합계·대표 사진 카드·빈 목록·API 장애, 목록·지도 전환, 업로드 입력과 초안 공통·카테고리·사진 구성 자동 저장 상태를 중심으로 테스트한다. C33 단위 테스트는 일반 경계·날짜 변경선 영역의 전체·카테고리 게시물 수와 단일·혼합 카테고리 클러스터의 실제 포함 게시물 수·색상·문구를 검증한다.
 - C38 Playwright E2E는 별도 로컬 API·TUS fixture를 기동해 실제 운영 계정·Supabase Storage·Google Maps 과금 호출 없이 사진 업로드, 정제 완료, 초안 공통 필드와 직접 좌표 장소 저장, 전체 공개 게시, 공개 목록과 지도 축소 목록 노출을 하나의 흐름으로 검증한다. 같은 시나리오를 1440px 데스크톱 Chromium과 Pixel 7 모바일 Chromium에서 실행하고 두 공개 화면의 가로 넘침도 확인한다. 로컬은 필요하면 `PLAYWRIGHT_BROWSER_CHANNEL=chrome|msedge`로 설치된 브라우저를 사용하며 CI는 Playwright Chromium을 설치한다.
+- C39 배포 계약 검사는 Vercel 상태 route, Cloud Run health 헤더, Cloud Build 커밋 주입, `Verify` 성공 후 운영 스모크 연결이 함께 유지되는지 정적으로 확인한다. 실제 운영 스모크는 홈·목록·지도와 공개 API 상태·보안 헤더·비공개 경로 부재·병합 커밋 일치를 확인한다.
 - 백엔드는 소유자 권한, 초안 공통 필드와 카테고리 전용 필드 검증, 사진 전체 집합·대표 한 장 제약, 비공개 썸네일, 원본 자동 삭제, 메타데이터 제거를 중심으로 테스트한다. C28 공개 범위 회귀 묶음은 전체·카테고리 목록의 합계와 항목, 상세·대표 사진·상세 사진·장소 이력의 직접 URL을 함께 호출해 `PRIVATE`, `UNLISTED`, `DRAFT`가 모두 닫히는지 확인한다. C33 API 테스트는 같은 좌표·장소의 재방문도 각각 하나의 지도 게시물로 세고, 장소 이력은 같은 소유자의 `PUBLIC + PUBLISHED` 방문만 월순으로 집계하는지 확인한다. 실제 PostgreSQL 통합 테스트는 `PUBLIC + PUBLISHED`만 게시물·카테고리 상세·연결 장소·`READY` 사진·안전한 공개 자산에서 보이고 나머지 공개 범위·상태 조합은 RLS에서 제외되는지 검증한다.
 - 루트 검증 스크립트가 프론트엔드 빌드와 백엔드 테스트를 한 번에 실행한다.
 
