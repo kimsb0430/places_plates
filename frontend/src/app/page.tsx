@@ -28,7 +28,9 @@ export default async function Home() {
             <span><b>{archive.counts.destination}</b>places</span>
           </div>
         </div>
-        <Link className="hero-write-card" href="/manage">기록하기</Link>
+        <div className="hero-write-space">
+          <Link className="hero-write-card" href="/manage">기록하기</Link>
+        </div>
       </section>
 
       <section className="archive home-public-archive" id="archive">
