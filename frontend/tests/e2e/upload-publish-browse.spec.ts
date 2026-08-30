@@ -45,7 +45,12 @@ test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다',
   await expect(primaryNavigation.getByRole('link')).toHaveCount(2);
   await expect(primaryNavigation.getByRole('link', { name: '기록' })).toBeVisible();
   await expect(primaryNavigation.getByRole('link', { name: '지도' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /기록하기/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '나의 기록' })).toBeVisible();
+  const writingLink = page.getByRole('link', { name: '기록하기', exact: true });
+  await expect(writingLink).toBeVisible();
+  const writingLinkBox = await writingLink.boundingBox();
+  expect(writingLinkBox?.height).toBeGreaterThanOrEqual(320);
+  await expect(page.locator('.hero-actions')).toHaveCount(0);
   await expect(page.locator('.hero-live-photo')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 

@@ -20,28 +20,15 @@ export default async function Home() {
       <section className="hero" id="top">
         <div className="hero-copy">
           <p className="overline">MY TRAVEL &amp; DINING ARCHIVE</p>
-          <h1>먹고, 걷고,<br />오래 기억하는 곳들.</h1>
+          <h1>나의 기록</h1>
           <p className="hero-description">여행에서 만난 풍경과 한 끼를 사진, 지도 그리고 그날의 문장으로 남깁니다.</p>
-          <div className="hero-actions">
-            <Link className="hero-primary-action" href="/posts">
-              전체 기록 보기 <span aria-hidden="true">→</span>
-            </Link>
-            <Link className="hero-secondary-action" href="/map">지도에서 보기</Link>
-          </div>
           <div className="hero-stats" aria-label="공개 기록 통계">
             <span><b>{archive.counts.all}</b>records</span>
             <span><b>{archive.counts.restaurant}</b>plates</span>
             <span><b>{archive.counts.destination}</b>places</span>
           </div>
         </div>
-        <aside className="hero-write-card" aria-labelledby="hero-write-title">
-          <p className="overline">ADD A NEW MEMORY</p>
-          <h2 id="hero-write-title">새로운 장소와<br />한 끼를 남겨보세요.</h2>
-          <p>사진을 올리면 안전한 이미지 처리부터 장소와 이야기 작성까지 한곳에서 이어집니다.</p>
-          <Link href="/manage">
-            기록하기 <span aria-hidden="true">→</span>
-          </Link>
-        </aside>
+        <Link className="hero-write-card" href="/manage">기록하기</Link>
       </section>
 
       <section className="archive home-public-archive" id="archive">
