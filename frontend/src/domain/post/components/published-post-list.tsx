@@ -61,6 +61,7 @@ export function PublishedPostList() {
         <div>
           <p className="login-status">PUBLISHED RECORDS</p>
           <h2 id="published-post-list-title">게시 완료 기록</h2>
+          <p>공개 중인 기록을 열어보거나 사진을 포함해 영구 삭제할 수 있습니다.</p>
         </div>
         {state.status === 'ready' && <strong>{state.posts.length}</strong>}
       </div>
@@ -86,7 +87,7 @@ export function PublishedPostList() {
                 disabled={deletingId === post.id}
                 onClick={() => void handleDelete(post)}
               >
-                {deletingId === post.id ? '삭제 중…' : '기록 삭제'}
+                {deletingId === post.id ? '삭제 중…' : '공개 기록 삭제'}
               </button>
             </li>
           ))}

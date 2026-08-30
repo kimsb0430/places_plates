@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import { getPublicCoverUrl, getPublicPosts, PublicPostApiError } from '@/domain/post/api/public-post-api';
-import { ProtectedPublicImage } from '@/domain/post/components/protected-public-image';
+import { getPublicPosts, PublicPostApiError } from '@/domain/post/api/public-post-api';
 import { PublicPostIndex } from '@/domain/post/components/public-post-index';
-import { resolvePublicPhotoAltText } from '@/domain/post/public-photo-alt';
 import type { PublicPostList } from '@/domain/post/types';
 import { EmptyState } from '@/shared/ui/empty-state';
 
@@ -17,8 +15,6 @@ export default async function Home() {
     return <UnavailableHome message={error instanceof PublicPostApiError ? error.message : undefined} />;
   }
 
-  const featured = archive.posts.find((post) => post.cover) ?? archive.posts[0];
-
   return (
     <>
       <section className="hero" id="top">
@@ -27,8 +23,8 @@ export default async function Home() {
           <h1>먹고, 걷고,<br />오래 기억하는 곳들.</h1>
           <p className="hero-description">여행에서 만난 풍경과 한 끼를 사진, 지도 그리고 그날의 문장으로 남깁니다.</p>
           <div className="hero-actions">
-            <Link className="hero-primary-action" href="/posts?category=DESTINATION">
-              여행 기록 보기 <span aria-hidden="true">→</span>
+            <Link className="hero-primary-action" href="/posts">
+              전체 기록 보기 <span aria-hidden="true">→</span>
             </Link>
             <Link className="hero-secondary-action" href="/map">지도에서 보기</Link>
           </div>
@@ -38,28 +34,14 @@ export default async function Home() {
             <span><b>{archive.counts.destination}</b>places</span>
           </div>
         </div>
-        <div className="hero-live-photo">
-          {featured?.cover ? (
-            <Link href={`/posts/${featured.id}`} aria-label={`${featured.title} 기록 읽기`}>
-              <ProtectedPublicImage
-                src={getPublicCoverUrl(featured.cover.path)}
-                alt={resolvePublicPhotoAltText(featured.cover.altText, `${featured.title} 대표 사진`)}
-                sizes="(max-width: 980px) 100vw, 52vw"
-                preload
-                shieldClassName="hero-live-photo-shield"
-              />
-              <span className="hero-live-caption">
-                <b>{featured.title}</b>
-                <small>{featured.publicVisitYear}년 {featured.publicVisitMonth}월 · 최근 공개 기록</small>
-              </span>
-            </Link>
-          ) : (
-            <div className="hero-live-empty">
-              <span>PLACES &amp; PLATES</span>
-              <p>첫 공개 기록의 사진이 이곳에 표시됩니다.</p>
-            </div>
-          )}
-        </div>
+        <aside className="hero-write-card" aria-labelledby="hero-write-title">
+          <p className="overline">ADD A NEW MEMORY</p>
+          <h2 id="hero-write-title">새로운 장소와<br />한 끼를 남겨보세요.</h2>
+          <p>사진을 올리면 안전한 이미지 처리부터 장소와 이야기 작성까지 한곳에서 이어집니다.</p>
+          <Link href="/manage">
+            기록하기 <span aria-hidden="true">→</span>
+          </Link>
+        </aside>
       </section>
 
       <section className="archive home-public-archive" id="archive">

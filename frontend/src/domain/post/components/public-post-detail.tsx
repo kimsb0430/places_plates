@@ -7,6 +7,7 @@ import type {
   RevisitIntention,
 } from '../types';
 import { PublicPhotoGallery } from './public-photo-gallery';
+import { ManagedPublicPostActions } from './managed-public-post-actions';
 
 interface PublicPostDetailProps {
   post: PublicPostDetailData;
@@ -18,6 +19,8 @@ export function PublicPostDetail({ post }: PublicPostDetailProps) {
   return (
     <article className={`public-detail is-${post.category.toLowerCase()}`}>
       <Link className="public-detail-back" href="/posts">← 공개 기록으로 돌아가기</Link>
+
+      <ManagedPublicPostActions postId={post.id} title={post.title} />
 
       <header className="public-detail-header">
         <div>
