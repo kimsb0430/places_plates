@@ -52,13 +52,15 @@ $env:SPRING_PROFILES_ACTIVE = 'local'
 
 ## Verification
 
-저장소 루트에서 다음 명령으로 프론트엔드 lint·타입 검사·빌드와 백엔드 테스트·실행 JAR 빌드를 한 번에 수행한다.
+저장소 루트에서 다음 명령으로 프론트엔드 단위·E2E 테스트, lint·타입 검사·빌드와 백엔드 테스트·실행 JAR 빌드를 한 번에 수행한다. 최초 한 번 `cd frontend; pnpm exec playwright install chromium`으로 E2E용 Chromium을 준비한다. 디스크 제약 때문에 이미 설치된 브라우저를 사용해야 하는 Windows PowerShell 환경은 `$env:PLAYWRIGHT_BROWSER_CHANNEL = 'chrome'` 또는 `'msedge'`를 설정할 수 있다.
 
 ```powershell
 .\scripts\verify-all.ps1
 ```
 
 같은 검증은 pull request와 `main` push에서 GitHub Actions로 자동 실행된다.
+
+E2E는 실제 운영 계정·Supabase·Google Maps 호출 없이 로컬 가짜 API와 TUS 서버를 사용한다. `frontend`에서 `pnpm test:e2e`를 실행하면 1440px 데스크톱과 Pixel 7 모바일 화면으로 업로드→초안 편집→전체 공개 게시→목록→지도 축소 목록을 순서대로 검증한다.
 
 프론트엔드 배포 빌드는 대상에 따라 분리한다.
 
