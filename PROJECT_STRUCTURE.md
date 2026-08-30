@@ -1,7 +1,7 @@
 # Places & Plates 프로젝트 폴더 구조
 
-문서 버전: v2.6
-작성일: 2026-08-27
+문서 버전: v2.7
+작성일: 2026-08-30
 
 ## 1. 구조 결정
 
@@ -194,7 +194,7 @@ backend/src/main/resources/
 frontend/tests/
 ├── unit/
 ├── component/
-└── e2e/
+└── e2e/                        # Playwright 사용자 흐름과 격리형 API·TUS fixture
 
 backend/src/test/java/com/placesplates/
 ├── domain/                      # 서비스·Repository 테스트
@@ -203,6 +203,7 @@ backend/src/test/java/com/placesplates/
 ```
 
 - 프론트엔드는 공개 카테고리·정렬 쿼리 유지, 합계·대표 사진 카드·빈 목록·API 장애, 목록·지도 전환, 업로드 입력과 초안 공통·카테고리·사진 구성 자동 저장 상태를 중심으로 테스트한다. C33 단위 테스트는 일반 경계·날짜 변경선 영역의 전체·카테고리 게시물 수와 단일·혼합 카테고리 클러스터의 실제 포함 게시물 수·색상·문구를 검증한다.
+- C38 Playwright E2E는 별도 로컬 API·TUS fixture를 기동해 실제 운영 계정·Supabase Storage·Google Maps 과금 호출 없이 사진 업로드, 정제 완료, 초안 공통 필드와 직접 좌표 장소 저장, 전체 공개 게시, 공개 목록과 지도 축소 목록 노출을 하나의 흐름으로 검증한다. 같은 시나리오를 1440px 데스크톱 Chromium과 Pixel 7 모바일 Chromium에서 실행하고 두 공개 화면의 가로 넘침도 확인한다. 로컬은 필요하면 `PLAYWRIGHT_BROWSER_CHANNEL=chrome|msedge`로 설치된 브라우저를 사용하며 CI는 Playwright Chromium을 설치한다.
 - 백엔드는 소유자 권한, 초안 공통 필드와 카테고리 전용 필드 검증, 사진 전체 집합·대표 한 장 제약, 비공개 썸네일, 원본 자동 삭제, 메타데이터 제거를 중심으로 테스트한다. C28 공개 범위 회귀 묶음은 전체·카테고리 목록의 합계와 항목, 상세·대표 사진·상세 사진·장소 이력의 직접 URL을 함께 호출해 `PRIVATE`, `UNLISTED`, `DRAFT`가 모두 닫히는지 확인한다. C33 API 테스트는 같은 좌표·장소의 재방문도 각각 하나의 지도 게시물로 세고, 장소 이력은 같은 소유자의 `PUBLIC + PUBLISHED` 방문만 월순으로 집계하는지 확인한다. 실제 PostgreSQL 통합 테스트는 `PUBLIC + PUBLISHED`만 게시물·카테고리 상세·연결 장소·`READY` 사진·안전한 공개 자산에서 보이고 나머지 공개 범위·상태 조합은 RLS에서 제외되는지 검증한다.
 - 루트 검증 스크립트가 프론트엔드 빌드와 백엔드 테스트를 한 번에 실행한다.
 

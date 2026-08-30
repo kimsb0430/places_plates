@@ -16,6 +16,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
     pnpm test
     if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
+    pnpm test:e2e
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend end-to-end tests failed.' }
     pnpm lint
     if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
     pnpm typecheck

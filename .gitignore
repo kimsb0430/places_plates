@@ -21,6 +21,9 @@ node_modules/
 .vinext/
 dist/
 coverage/
+playwright-report/
+test-results/
+blob-report/
 *.tsbuildinfo
 
 # Java / Spring Boot output
