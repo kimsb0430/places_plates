@@ -30,8 +30,13 @@ test('페이지 이동형 카테고리는 탭 위젯이 아닌 현재 페이지 
 
 test('홈은 실제 공개 API와 기록 진입점을 사용하고 대표 게시물 영웅 카드를 노출하지 않는다', () => {
   assert.match(homePageSource, /getPublicPosts\(undefined, 'LATEST'\)/);
-  assert.match(homePageSource, /href="\/manage"/);
-  assert.match(homePageSource, />\s*기록하기/);
+  assert.match(homePageSource, /<h1>나의 기록<\/h1>/);
+  assert.match(homePageSource, /<Link className="hero-write-card" href="\/manage">기록하기<\/Link>/);
+  assert.doesNotMatch(homePageSource, /hero-actions/);
+  assert.doesNotMatch(homePageSource, /hero-primary-action/);
+  assert.doesNotMatch(homePageSource, /hero-secondary-action/);
+  assert.doesNotMatch(homePageSource, /ADD A NEW MEMORY/);
+  assert.doesNotMatch(homePageSource, /새로운 장소와/);
   assert.doesNotMatch(homePageSource, /featured/);
   assert.doesNotMatch(homePageSource, /hero-live-photo/);
   assert.doesNotMatch(homePageSource, /Kyoto, Spring 2026/);
