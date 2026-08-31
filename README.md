@@ -1,5 +1,7 @@
 # Places & Plates
 
+Release version: `v1.0.0`
+
 여행지와 맛집 사진을 지도와 이야기로 남기는 개인 아카이브입니다. 첫 버전은 개인 페이지로 시작하고, 이후 회원마다 독립된 기록 페이지를 가질 수 있는 커뮤니티로 확장합니다.
 
 ## Current deliverables
@@ -29,6 +31,8 @@
 - [Contribution workflow](./CONTRIBUTING.md)
 - [Commit and deployment checklist](./docs/DEPLOYMENT_CHECKLIST.md)
 - [Production domains and cost guardrails](./docs/PRODUCTION_GUARDRAILS.md)
+- [v1 release gate and tagging](./docs/RELEASE_V1.md)
+- [v1.0.0 release notes](./docs/releases/v1.0.0.md)
 
 ## Local development
 

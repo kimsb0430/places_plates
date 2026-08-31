@@ -16,6 +16,12 @@
 - 필수 CI와 리뷰 결과를 확인하고 Rebase and merge만 사용한다.
 - 병합 후 로컬 `main`을 동기화하고 전체 검증을 다시 실행한다.
 
+### v1 출시 태그
+
+- `config/release.json`, `frontend/package.json`, `backend/build.gradle.kts`의 버전이 `1.0.0`, 태그가 `v1.0.0`으로 일치하는지 `scripts/check-release-readiness.ps1`로 확인한다.
+- 같은 `main` 커밋의 Secret protection·Verify·Production smoke 성공과 `docs/RELEASE_V1.md`의 수동 운영 점검을 확인한 뒤 annotated tag를 만든다.
+- 태그 워크플로가 실제 운영 커밋 일치와 GitHub Release 생성을 완료하기 전에는 출시 완료로 표시하지 않는다. 실패한 태그를 덮어쓰거나 Release를 수동으로 우회 생성하지 않는다.
+
 ### 배포 전후
 
 - 운영 키는 GitHub Environment 또는 호스팅사의 비밀 저장소에서만 주입한다.
@@ -71,6 +77,12 @@
 - 検証完了前はDraft PRとし、完了後にReadyへ変更する。
 - 必須CIとレビューを確認し、Rebase and mergeだけを使用する。
 - マージ後にローカル`main`を同期し、全検証を再実行する。
+
+### v1 release tag
+
+- `config/release.json`、`frontend/package.json`、`backend/build.gradle.kts`がversion `1.0.0`、tag `v1.0.0`で一致することを`scripts/check-release-readiness.ps1`で確認する。
+- 同一`main` commitのSecret protection・Verify・Production smoke成功と`docs/RELEASE_V1.md`のmanual production check後にannotated tagを作成する。
+- Tag workflowが実production commit一致とGitHub Release作成を完了するまでrelease完了としない。失敗したtagの上書きや手動Release作成で検査を回避しない。
 
 ### デプロイ前後
 

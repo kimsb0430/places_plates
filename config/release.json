@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "productName": "Places & Plates",
+  "version": "1.0.0",
+  "tag": "v1.0.0",
+  "releaseName": "Places & Plates v1.0.0",
+  "releaseChannel": "STABLE",
+  "canonicalFrontendUrl": "https://placesplates.vercel.app",
+  "canonicalApiUrl": "https://places-plates-api-481849639838.asia-northeast3.run.app",
+  "minimumDatabaseMigration": 16,
+  "watermarkPolicyVersion": "places-plates-corner-v1",
+  "requiredMainChecks": [
+    "Secret protection",
+    "Verify",
+    "Production smoke"
+  ],
+  "tagPolicy": "ANNOTATED_TAG_ON_VERIFIED_MAIN_COMMIT",
+  "rollbackPolicy": "PROVIDER_PREVIOUS_DEPLOYMENT_AND_DATABASE_FORWARD_FIX"
+}

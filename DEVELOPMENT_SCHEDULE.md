@@ -245,7 +245,7 @@ Sprint 종료 게이트:
 
 기간: 2026-09-30 ~ 2026-10-06
 
-진행 상태: C34는 공개 사진 보조 억제와 같은 출처 중계를 완료했고 C35는 프런트·API 보안 헤더와 공개 응답·로그 비식별화를 고정했다. C36은 Google Maps 로더·클러스터러 모듈을 명시적 지도 요청 뒤로 분리하고 공개 사진 로딩·캐시를 최적화했다. C37은 전역 포커스 표시와 페이지 이동 링크 의미, 공개 사진 대체 문구와 지도 카드 레이블을 개선했다. C38은 격리형 API·TUS fixture와 Playwright로 업로드→게시→목록→지도 흐름을 데스크톱·모바일에서 자동 검증한다. C39는 성공한 `main` 검증 뒤 Vercel·Cloud Run의 동일 커밋 배포, 핵심 페이지·공개 API·보안 헤더·비공개 Storage 경로 부재를 재시도형 운영 스모크로 확인한다. C40~C40C는 실제 공개 데이터 홈과 삭제·사진 확대·홈 회귀를 수정했다. C41은 DB·Storage 분리 백업, 새 Supabase 프로젝트 복원, Vercel·Cloud Run 롤백, 장애 등급과 비용 대응 런북을 완료했다. C42는 공급자 관리 운영 도메인, 월 JPY 500 Google Cloud 예산 경고, Cloud Run 0~1 인스턴스, Maps·Places 월 목표와 공급자 할당량 제약, Supabase Free·Vercel Hobby 사용량 기준을 계약으로 고정했다. 다음은 공급자 Console 적용 확인 후 C43 v1 출시다.
+진행 상태: C34는 공개 사진 보조 억제와 같은 출처 중계를 완료했고 C35는 프런트·API 보안 헤더와 공개 응답·로그 비식별화를 고정했다. C36은 Google Maps 로더·클러스터러 모듈을 명시적 지도 요청 뒤로 분리하고 공개 사진 로딩·캐시를 최적화했다. C37은 전역 포커스 표시와 페이지 이동 링크 의미, 공개 사진 대체 문구와 지도 카드 레이블을 개선했다. C38은 격리형 API·TUS fixture와 Playwright로 업로드→게시→목록→지도 흐름을 데스크톱·모바일에서 자동 검증한다. C39는 성공한 `main` 검증 뒤 Vercel·Cloud Run의 동일 커밋 배포, 핵심 페이지·공개 API·보안 헤더·비공개 Storage 경로 부재를 재시도형 운영 스모크로 확인한다. C40~C40C는 실제 공개 데이터 홈과 삭제·사진 확대·홈 회귀를 수정했다. C41은 DB·Storage 분리 백업, 새 Supabase 프로젝트 복원, Vercel·Cloud Run 롤백, 장애 등급과 비용 대응 런북을 완료했다. C42는 공급자 관리 운영 도메인, 월 JPY 500 Google Cloud 예산 경고, Cloud Run 0~1 인스턴스, Maps·Places 월 목표와 공급자 할당량 제약, Supabase Free·Vercel Hobby 사용량 기준을 계약으로 고정했다. C43은 프런트·백엔드 `1.0.0`, annotated `v1.0.0` 태그, 같은 `main` 커밋의 필수 검사와 운영 스모크, GitHub Release notes를 출시 계약으로 고정한다. PR 병합·사후 스모크 성공 뒤 태그를 생성하면 v1 출시가 완료된다.
 
 | ID | 예상 커밋 | 작업 내용 | 완료 조건 |
 |---|---|---|---|
@@ -275,7 +275,7 @@ Sprint 종료 게이트:
 | C40C | `fix: resize home writing button` | 기록하기 버튼을 첨부 수정안의 작은 상자 크기로 축소하고 우측 나머지 영역을 공백 처리 | 데스크톱에서 약 430×270px, 모바일에서 화면 폭에 맞는 기록하기 버튼만 우측 하단에 표시 |
 | C41 | `docs: add operations backup and incident runbook` | 운영·백업·비용·장애 대응 문서 | 다른 환경에서도 복구 절차 수행 가능 |
 | C42 | `chore: configure production domain budgets and alerts` | 공급자 관리 운영 도메인, 월 JPY 500 Google Cloud 50%·80%·100% 경고, Cloud Run 0~1 인스턴스, Maps·Places 월 목표와 공급자 할당량 제약, Supabase Free·Vercel Hobby 사용량 검토 | 저장소 계약 검증 후 Google Cloud·Maps·Supabase·Vercel Console 적용 증거와 Production smoke 확인 |
-| C43 | `chore: release places and plates v1` | 운영 배포와 버전 태그 | 공개 URL에서 출시 점검표 통과 |
+| C43 | `chore: release places and plates v1` | 프런트·백엔드 1.0.0, 출시 점검표, 검증된 `main`의 annotated `v1.0.0` 태그와 GitHub Release 자동 생성 | 공개 URL 출시 점검과 같은 커밋의 Secret protection·Verify·Production smoke가 성공한 뒤에만 Release 생성 |
 
 출시를 미뤄야 하는 조건:
 
