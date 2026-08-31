@@ -51,6 +51,7 @@
 - 비로그인 공개 요청, 소유자 A, 소유자 B로 초안·정제 마스터·임시 업로드 격리 스모크 테스트를 수행한다.
 - 로그인 상태에서 새 Cloud Run 리비전으로 트래픽을 전환한 뒤에도 세션이 복구되는지 확인하고, 로그아웃 후 같은 쿠키의 보호 API 접근이 401인지 확인한다.
 - 결과와 URL, 검증 내용, 위험 및 롤백 지점을 당일 보고서에 남긴다.
+- 운영 배포 전후와 대량 데이터 변경 전에는 `docs/OPERATIONS_RUNBOOK.md`에 따라 DB와 `sanitized/`·`variants/` Storage를 같은 시각에 백업한다. `temporary/` 원본과 세션은 백업하지 않으며, 월 1회 새 Supabase 프로젝트 복원 훈련에서 RLS·관리자 로그인·공개 사진·운영 스모크를 확인한다.
 
 프론트엔드 Vercel 프로젝트의 Root Directory는 `frontend`, Framework Preset은 `Next.js`, Output Directory는 기본값으로 유지한다. `frontend/vercel.json`은 `pnpm build:vercel`을 실행해 `.next/routes-manifest.json`을 생성한다. Spring Boot API 운영 호스팅은 확정 시 공개 URL 스모크 테스트와 함께 이 체크리스트에 연결한다.
 
@@ -104,5 +105,6 @@
 - 未ログイン公開リクエスト、所有者A、所有者Bで下書き・サニタイズ済みマスター・一時アップロードの分離smoke testを実施する。
 - Login状態で新しいCloud Run revisionへtrafficを切り替えた後もsessionを復元でき、logout後に同じCookieで保護APIへアクセスすると401になることを確認する。
 - 結果、URL、検証内容、リスク、ロールバック地点を当日レポートへ記録する。
+- Production deployment前後と大量data変更前は`docs/OPERATIONS_RUNBOOK.md`に従い、DBと`sanitized/`・`variants/` Storageを同時刻にbackupする。`temporary/`原本とsessionはbackupせず、月1回の新Supabase project restore drillでRLS・管理者login・public photo・production smokeを確認する。
 
 フロントエンドVercelプロジェクトのRoot Directoryは`frontend`、Framework Presetは`Next.js`、Output Directoryは既定値を維持する。`frontend/vercel.json`は`pnpm build:vercel`を実行して`.next/routes-manifest.json`を生成する。Spring Boot APIの本番ホスティング確定時に公開URL smoke testを本チェックリストへ接続する。
