@@ -16,6 +16,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Production deployment contract verification fa
 & (Join-Path $PSScriptRoot 'check-operations-runbook.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Operations runbook contract verification failed.' }
 
+& (Join-Path $PSScriptRoot 'check-production-guardrails.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Production guardrails contract verification failed.' }
+
 Push-Location $frontendRoot
 try {
     pnpm install --frozen-lockfile

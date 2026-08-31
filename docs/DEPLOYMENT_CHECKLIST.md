@@ -19,6 +19,7 @@
 ### 배포 전후
 
 - 운영 키는 GitHub Environment 또는 호스팅사의 비밀 저장소에서만 주입한다.
+- `config/production-guardrails.json`과 `docs/PRODUCTION_GUARDRAILS.md`를 기준으로 운영 도메인, GitHub URL 변수, 월 JPY 500 Google Cloud 예산의 실제 50%·80%·100%와 예측 100% 경고, Cloud Run 최소 0·최대 1 인스턴스, Maps·Places 키·할당량, Supabase Free·Vercel Hobby 사용량 알림을 대조한다. 예산 알림에 결제 자동 해제를 연결하지 않는다.
 - 배포 대상 브랜치·프로젝트·환경·도메인과 롤백 커밋을 확인한다.
 - 실제 배포 산출물에 `scripts/check-public-artifact.ps1`을 실행한다.
 - 배포 후 HTTPS, 주요 페이지, `/api/v1/health`, 지도 로딩, 이미지 워터마크를 확인한다.
@@ -74,6 +75,7 @@
 ### デプロイ前後
 
 - 本番キーはGitHub Environmentまたはホスティング事業者のシークレットストアだけで注入する。
+- `config/production-guardrails.json`と`docs/PRODUCTION_GUARDRAILS.md`を基準にproduction domain、GitHub URL Variables、月JPY 500 Google Cloud budgetの実績50%・80%・100%と予測100% alert、Cloud Run min 0・max 1 instance、Maps・Places key・quota、Supabase Free・Vercel Hobby usage通知を照合する。Budget alertへbilling自動解除を接続しない。
 - 対象ブランチ、プロジェクト、環境、ドメイン、ロールバックコミットを確認する。
 - 実際のデプロイ成果物に`scripts/check-public-artifact.ps1`を実行する。
 - デプロイ後にHTTPS、主要ページ、`/api/v1/health`、地図読込、画像透かしを確認する。
