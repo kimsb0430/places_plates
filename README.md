@@ -28,6 +28,7 @@
 - [Supabase database operations](./docs/SUPABASE_DATABASE.md)
 - [Contribution workflow](./CONTRIBUTING.md)
 - [Commit and deployment checklist](./docs/DEPLOYMENT_CHECKLIST.md)
+- [Production domains and cost guardrails](./docs/PRODUCTION_GUARDRAILS.md)
 
 ## Local development
 

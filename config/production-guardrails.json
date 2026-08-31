@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "domains": {
+    "frontend": "https://placesplates.vercel.app",
+    "api": "https://places-plates-api-481849639838.asia-northeast3.run.app",
+    "httpsOnly": true,
+    "customDomainStatus": "DEFERRED_UNTIL_PURCHASED",
+    "allowedFrontendOrigins": [
+      "https://placesplates.vercel.app"
+    ],
+    "googleMapsHttpReferrers": [
+      "https://placesplates.vercel.app/*"
+    ]
+  },
+  "googleCloud": {
+    "projectId": "placesplates",
+    "region": "asia-northeast3",
+    "monthlyBudget": {
+      "amount": 500,
+      "currency": "JPY",
+      "actualSpendThresholds": [
+        0.5,
+        0.8,
+        1.0
+      ],
+      "forecastSpendThreshold": 1.0,
+      "automaticBillingDisable": false
+    },
+    "cloudRun": {
+      "service": "places-plates-api",
+      "minInstances": 0,
+      "maxInstances": 1
+    },
+    "googleMaps": {
+      "monthlyDynamicMapLoadTarget": 9000,
+      "monthlyPlacesTextSearchTarget": 1000,
+      "dynamicMapLoadsPerMinuteProviderLimit": 30000,
+      "dynamicMapLoadsPerMinuteAdjustable": false,
+      "placesTextSearchRequestsPerDayProviderLimit": 75000,
+      "placesTextSearchRequestsPerMinuteProviderLimit": 600,
+      "placesQuotaChangeStatus": "BLOCKED_BY_FREE_TRIAL",
+      "browserKeyAllowedApi": "Maps JavaScript API",
+      "serverKeyAllowedApi": "Places API (New)"
+    }
+  },
+  "supabase": {
+    "plan": "FREE",
+    "paidOverage": false,
+    "spendCap": "NOT_APPLICABLE_ON_FREE",
+    "reviewCadence": "WEEKLY",
+    "reviewThresholds": [
+      0.5,
+      0.8,
+      1.0
+    ],
+    "usageMetrics": [
+      "Database Size",
+      "Storage Size",
+      "Egress",
+      "Monthly Active Users"
+    ]
+  },
+  "vercel": {
+    "plan": "HOBBY",
+    "paidOverage": false,
+    "reviewCadence": "WEEKLY",
+    "reviewThresholds": [
+      0.5,
+      0.8,
+      1.0
+    ],
+    "notificationChannels": [
+      "WEB",
+      "EMAIL"
+    ],
+    "automaticProjectPauseAtIncludedLimit": true
+  }
+}
