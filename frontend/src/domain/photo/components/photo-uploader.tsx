@@ -7,6 +7,7 @@ import { Upload } from 'tus-js-client';
 import {
   completeUpload,
   createUploadBatch,
+  getUploadBatch,
   PhotoUploadApiError,
   recordUploadProgress,
   reportUploadFailure,
@@ -14,10 +15,12 @@ import {
   sanitizeUpload,
 } from '../api/photo-upload-api';
 import type { PostCategory, UploadItem, UploadTicket } from '../types';
+import { runUploadPipeline } from '../upload-concurrency';
 
 const MAX_FILE_COUNT = 100;
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const CHUNK_SIZE = 6 * 1024 * 1024;
+const PROGRESS_REPORT_STEP = 25;
 const ACCEPTED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -38,9 +41,17 @@ interface ClientUpload {
   ticket?: UploadTicket;
 }
 
-export function PhotoUploader() {
+interface PhotoUploaderProps {
+  targetPost?: {
+    id: string;
+    category: PostCategory;
+  };
+  onCompleted?: () => void;
+}
+
+export function PhotoUploader({ targetPost, onCompleted }: PhotoUploaderProps = {}) {
   const router = useRouter();
-  const [category, setCategory] = useState<PostCategory>();
+  const [category, setCategory] = useState<PostCategory | undefined>(targetPost?.category);
   const [batchId, setBatchId] = useState<string>();
   const [draftPostId, setDraftPostId] = useState<string>();
   const [expiresAt, setExpiresAt] = useState<string>();
@@ -48,6 +59,7 @@ export function PhotoUploader() {
   const [isPreparing, setIsPreparing] = useState(false);
   const [message, setMessage] = useState<string>();
   const uploadInstances = useRef(new Map<string, Upload>());
+  const uploadsRef = useRef<ClientUpload[]>([]);
 
   async function handleFiles(files: File[]) {
     setMessage(undefined);
@@ -63,11 +75,15 @@ export function PhotoUploader() {
 
     setIsPreparing(true);
     try {
-      const batch = await createUploadBatch(category, files.map((file) => ({
-        clientFileName: file.name,
-        mimeType: file.type || inferMimeType(file.name),
-        byteSize: file.size,
-      })));
+      const batch = await createUploadBatch(
+        category,
+        files.map((file) => ({
+          clientFileName: file.name,
+          mimeType: file.type || inferMimeType(file.name),
+          byteSize: file.size,
+        })),
+        targetPost?.id,
+      );
       setBatchId(batch.id);
       setDraftPostId(batch.draftPostId);
       setExpiresAt(batch.expiresAt);
@@ -79,18 +95,14 @@ export function PhotoUploader() {
         attemptCount: item.attemptCount,
         ticket: item.uploadTicket ?? undefined,
       }));
-      setUploads(nextUploads);
-      const results = await runWithConcurrency(
+      replaceUploads(nextUploads);
+      const pipeline = await runUploadPipeline(
         nextUploads,
-        3,
         (upload) => startUpload(batch.id, upload),
+        (upload) => processUpload(batch.id, upload.id),
       );
-      if (results.every(Boolean) && batch.draftPostId) {
-        setMessage('업로드와 사진 정제가 완료되었습니다. 비공개 초안을 여는 중입니다.');
-        router.push(`/manage/drafts/${batch.draftPostId}`);
-        router.refresh();
-      } else if (results.every(Boolean)) {
-        setMessage('업로드는 완료됐지만 초안 서버 배포가 아직 반영되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      if (pipeline.allSucceeded) {
+        finishCompletedBatch(batch.draftPostId);
       }
     } catch (error) {
       setMessage(apiMessage(error));
@@ -110,6 +122,7 @@ export function PhotoUploader() {
     }
 
     let lastReportedPercent = 0;
+    let progressReports: Promise<void> = Promise.resolve();
     return new Promise<boolean>((resolve) => {
       const upload = new Upload(clientUpload.file, {
         endpoint: ticket.endpoint,
@@ -129,40 +142,45 @@ export function PhotoUploader() {
         onProgress(bytesUploaded, bytesTotal) {
           const progress = bytesTotal === 0 ? 0 : Math.round((bytesUploaded / bytesTotal) * 100);
           updateUpload(clientUpload.id, { progress, status: 'UPLOADING' });
-          if (progress >= lastReportedPercent + 10 || bytesUploaded === bytesTotal) {
+          if (progress >= lastReportedPercent + PROGRESS_REPORT_STEP && bytesUploaded !== bytesTotal) {
             lastReportedPercent = progress;
-            void recordUploadProgress(activeBatchId, clientUpload.id, bytesUploaded).catch(() => undefined);
+            progressReports = progressReports
+              .catch(() => undefined)
+              .then(() => recordUploadProgress(activeBatchId, clientUpload.id, bytesUploaded))
+              .then(() => undefined);
           }
         },
         onError(error) {
-          updateUpload(clientUpload.id, {
-            status: 'FAILED',
-            errorMessage: error.message || '네트워크 연결을 확인해주세요.',
-          });
-          void reportUploadFailure(activeBatchId, clientUpload.id, 'NETWORK_ERROR')
-            .catch(() => undefined);
-          resolve(false);
+          uploadInstances.current.delete(clientUpload.id);
+          void progressReports
+            .catch(() => undefined)
+            .then(() => reportUploadFailure(activeBatchId, clientUpload.id, 'NETWORK_ERROR'))
+            .catch(() => undefined)
+            .finally(() => {
+              updateUpload(clientUpload.id, {
+                status: 'FAILED',
+                errorMessage: error.message || '네트워크 연결을 확인해주세요.',
+              });
+              resolve(false);
+            });
         },
         onSuccess() {
-          void completeUpload(activeBatchId, clientUpload.id)
-            .then(() => sanitizeUpload(activeBatchId, clientUpload.id))
-            .then((result) => {
-              if (result.status === 'FAILED') {
-                updateUpload(clientUpload.id, {
-                  progress: 100,
-                  status: 'PROCESSING_FAILED',
-                  ticket: undefined,
-                  errorMessage: result.message,
-                });
-                resolve(false);
-                return;
-              }
+          uploadInstances.current.delete(clientUpload.id);
+          void progressReports
+            .catch(() => undefined)
+            .then(() => recordUploadProgress(
+              activeBatchId,
+              clientUpload.id,
+              clientUpload.file.size,
+            ))
+            .catch(() => undefined)
+            .then(() => completeUpload(activeBatchId, clientUpload.id))
+            .then(() => {
               updateUpload(clientUpload.id, {
                 progress: 100,
-                status: 'SANITIZED',
+                status: 'PROCESSING',
                 ticket: undefined,
                 errorMessage: undefined,
-                variantCount: result.variants.length,
               });
               resolve(true);
             })
@@ -183,6 +201,36 @@ export function PhotoUploader() {
         upload.start();
       }).catch(() => upload.start());
     });
+  }
+
+  async function processUpload(activeBatchId: string, uploadId: string): Promise<boolean> {
+    updateUpload(uploadId, { status: 'PROCESSING', errorMessage: undefined });
+    try {
+      const result = await sanitizeUpload(activeBatchId, uploadId);
+      if (result.status === 'FAILED') {
+        updateUpload(uploadId, {
+          progress: 100,
+          status: 'PROCESSING_FAILED',
+          ticket: undefined,
+          errorMessage: result.message,
+        });
+        return false;
+      }
+      updateUpload(uploadId, {
+        progress: 100,
+        status: 'SANITIZED',
+        ticket: undefined,
+        errorMessage: undefined,
+        variantCount: result.variants.length,
+      });
+      return true;
+    } catch (error: unknown) {
+      updateUpload(uploadId, {
+        status: 'PROCESSING_FAILED',
+        errorMessage: apiMessage(error),
+      });
+      return false;
+    }
   }
 
   async function handlePause(uploadId: string) {
@@ -218,18 +266,33 @@ export function PhotoUploader() {
         errorMessage: undefined,
       } satisfies ClientUpload;
       updateUpload(clientUpload.id, nextUpload);
-      const completed = await startUpload(batchId, nextUpload);
-      const otherUploadsComplete = uploads.every((upload) => (
+      const transferred = await startUpload(batchId, nextUpload);
+      const completed = transferred && await processUpload(batchId, clientUpload.id);
+      const otherUploadsComplete = uploadsRef.current.every((upload) => (
         upload.id === clientUpload.id
-        || upload.status === 'PROCESSING'
-        || upload.status === 'COMPLETED'
+        || isCompleted(upload.status)
       ));
-      if (completed && otherUploadsComplete && draftPostId) {
-        setMessage('업로드와 사진 정제가 완료되었습니다. 비공개 초안을 여는 중입니다.');
-        router.push(`/manage/drafts/${draftPostId}`);
-        router.refresh();
+      if (completed && otherUploadsComplete) {
+        finishCompletedBatch(draftPostId);
       }
     } catch (error) {
+      if (error instanceof PhotoUploadApiError && error.code === 'PHOTO_UPLOAD_NOT_RETRYABLE') {
+        try {
+          const batch = await getUploadBatch(batchId);
+          const serverItem = batch.items.find((item) => item.id === clientUpload.id);
+          if (serverItem?.status === 'PROCESSING' || serverItem?.status === 'COMPLETED') {
+            updateUpload(clientUpload.id, { status: 'PROCESSING', errorMessage: undefined });
+            const completed = await processUpload(batchId, clientUpload.id);
+            const otherUploadsComplete = uploadsRef.current.every((upload) => (
+              upload.id === clientUpload.id || isCompleted(upload.status)
+            ));
+            if (completed && otherUploadsComplete) finishCompletedBatch(draftPostId);
+            return;
+          }
+        } catch {
+          // Server状態の復旧失敗は、元のretry errorとして下で表示する。
+        }
+      }
       updateUpload(clientUpload.id, { errorMessage: apiMessage(error) });
     }
   }
@@ -238,45 +301,42 @@ export function PhotoUploader() {
     if (!batchId) {
       return;
     }
-    updateUpload(clientUpload.id, { status: 'PROCESSING', errorMessage: undefined });
-    try {
-      const result = await sanitizeUpload(batchId, clientUpload.id);
-      if (result.status === 'FAILED') {
-        updateUpload(clientUpload.id, {
-          status: 'PROCESSING_FAILED',
-          errorMessage: result.message,
-        });
-        return;
-      }
-      updateUpload(clientUpload.id, {
-        status: 'SANITIZED',
-        errorMessage: undefined,
-        variantCount: result.variants.length,
-      });
-      const otherUploadsComplete = uploads.every((upload) => (
-        upload.id === clientUpload.id || upload.status === 'SANITIZED'
-      ));
-      if (otherUploadsComplete && draftPostId) {
-        router.push(`/manage/drafts/${draftPostId}`);
-        router.refresh();
-      }
-    } catch (error) {
-      updateUpload(clientUpload.id, {
-        status: 'PROCESSING_FAILED',
-        errorMessage: apiMessage(error),
-      });
+    const completed = await processUpload(batchId, clientUpload.id);
+    const otherUploadsComplete = uploadsRef.current.every((upload) => (
+      upload.id === clientUpload.id || isCompleted(upload.status)
+    ));
+    if (completed && otherUploadsComplete) {
+      finishCompletedBatch(draftPostId);
     }
   }
 
   function updateUpload(uploadId: string, patch: Partial<ClientUpload>) {
-    setUploads((current) => current.map((upload) => (
+    replaceUploads(uploadsRef.current.map((upload) => (
       upload.id === uploadId ? { ...upload, ...patch } : upload
     )));
   }
 
-  const completedCount = uploads.filter((upload) => (
-    upload.status === 'SANITIZED' || upload.status === 'COMPLETED'
-  )).length;
+  function replaceUploads(nextUploads: ClientUpload[]) {
+    uploadsRef.current = nextUploads;
+    setUploads(nextUploads);
+  }
+
+  function finishCompletedBatch(activePostId?: string) {
+    if (targetPost) {
+      setMessage('추가한 사진의 업로드와 개인정보 메타데이터 제거가 완료되었습니다.');
+      onCompleted?.();
+      return;
+    }
+    if (activePostId) {
+      setMessage('업로드와 사진 정제가 완료되었습니다. 비공개 초안을 여는 중입니다.');
+      router.push(`/manage/drafts/${activePostId}`);
+      router.refresh();
+      return;
+    }
+    setMessage('업로드는 완료됐지만 초안 서버 배포가 아직 반영되지 않았습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  const completedCount = uploads.filter((upload) => isCompleted(upload.status)).length;
   const allUploadsComplete = uploads.length > 0 && completedCount === uploads.length;
   const categoryLocked = isPreparing || uploads.length > 0;
 
@@ -285,13 +345,15 @@ export function PhotoUploader() {
       <div className="photo-upload-heading">
         <div>
           <p className="login-status">PRIVATE UPLOAD</p>
-          <h2 id="photo-upload-title">사진으로 새 기록 시작하기</h2>
-          <p>JPG·PNG 사진을 최대 100장까지 선택할 수 있습니다. HEIC은 JPEG 변환 후 업로드를 권장합니다.</p>
+          <h2 id="photo-upload-title">
+            {targetPost ? '공개 기록에 사진 추가하기' : '사진으로 새 기록 시작하기'}
+          </h2>
+          <p>JPG·PNG 사진을 최대 100장까지 선택할 수 있습니다. 전송 후 사진은 한 장씩 안전하게 정제됩니다.</p>
         </div>
         {uploads.length > 0 && <strong>{completedCount} / {uploads.length}</strong>}
       </div>
 
-      <fieldset className="photo-category-fieldset">
+      {!targetPost && <fieldset className="photo-category-fieldset">
         <legend>어떤 기록인가요?</legend>
         <div className="photo-category-options">
           <button
@@ -313,7 +375,7 @@ export function PhotoUploader() {
             <span>장소와 여행 기록</span>
           </button>
         </div>
-      </fieldset>
+      </fieldset>}
 
       <label className="photo-drop-zone">
         <input
@@ -327,7 +389,7 @@ export function PhotoUploader() {
             void handleFiles(files);
           }}
         />
-        <span>{isPreparing ? '업로드 준비 중…' : category ? '사진 선택하기' : '기록 종류를 먼저 선택해주세요'}</span>
+        <span>{isPreparing ? '업로드 및 정제 중…' : category ? '사진 선택하기' : '기록 종류를 먼저 선택해주세요'}</span>
         <small>사진당 최대 30MB · 임시 원본은 24시간 후 만료</small>
       </label>
 
@@ -341,10 +403,12 @@ export function PhotoUploader() {
         </p>
       )}
 
-      {allUploadsComplete && draftPostId && (
+      {allUploadsComplete && (draftPostId || targetPost) && (
         <div className="photo-upload-complete" role="status">
           <p>모든 사진의 업로드와 개인정보 메타데이터 제거가 완료됐습니다.</p>
-          <Link href={`/manage/drafts/${draftPostId}`}>초안 열기 <span>→</span></Link>
+          {!targetPost && draftPostId && (
+            <Link href={`/manage/drafts/${draftPostId}`}>초안 열기 <span>→</span></Link>
+          )}
         </div>
       )}
 
@@ -448,21 +512,6 @@ function apiMessage(error: unknown): string {
   return '사진 업로드 중 문제가 발생했습니다.';
 }
 
-async function runWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  let nextIndex = 0;
-  const results = new Array<R>(items.length);
-  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      const item = items[index];
-      nextIndex += 1;
-      results[index] = await worker(item);
-    }
-  });
-  await Promise.all(runners);
-  return results;
+function isCompleted(status: ClientUploadStatus): boolean {
+  return status === 'SANITIZED' || status === 'COMPLETED';
 }

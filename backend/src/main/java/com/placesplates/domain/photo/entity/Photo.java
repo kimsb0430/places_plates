@@ -46,12 +46,12 @@ public class Photo {
 	protected Photo() {
 	}
 
-	private Photo(UUID ownerUserId, UUID postId) {
+	private Photo(UUID ownerUserId, UUID postId, int displayOrder) {
 		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 		this.id = UUID.randomUUID();
 		this.ownerUserId = ownerUserId;
 		this.postId = postId;
-		this.displayOrder = 0;
+		this.displayOrder = displayOrder;
 		this.cover = false;
 		this.processingStatus = PhotoProcessingStatus.PROCESSING;
 		this.createdAt = now;
@@ -59,7 +59,11 @@ public class Photo {
 	}
 
 	public static Photo processing(UUID ownerUserId, UUID postId) {
-		return new Photo(ownerUserId, postId);
+		return new Photo(ownerUserId, postId, 0);
+	}
+
+	public static Photo processing(UUID ownerUserId, UUID postId, int displayOrder) {
+		return new Photo(ownerUserId, postId, displayOrder);
 	}
 
 	public void markReady() {

@@ -14,6 +14,13 @@ import com.placesplates.domain.photo.entity.PhotoProcessingStatus;
 
 public interface PhotoRepository extends JpaRepository<Photo, UUID> {
 
+	long countByPostIdAndOwnerUserId(UUID postId, UUID ownerUserId);
+
+	Optional<Photo> findTopByPostIdAndOwnerUserIdOrderByDisplayOrderDescCreatedAtDesc(
+		UUID postId,
+		UUID ownerUserId
+	);
+
 	List<Photo> findAllByPostIdAndOwnerUserIdOrderByDisplayOrderAscCreatedAtAsc(
 		UUID postId,
 		UUID ownerUserId

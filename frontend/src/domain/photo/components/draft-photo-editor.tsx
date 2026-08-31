@@ -5,13 +5,17 @@ import Image from 'next/image';
 import {
   DraftPhotoApiError,
   getDraftPhotos,
+  getManagedPublishedPhotos,
   getDraftPhotoThumbnail,
   updateDraftPhotos,
+  updateManagedPublishedPhotos,
 } from '../api/draft-photo-api';
 import type { DraftPhoto, DraftPhotoEditItem } from '../types';
 
 interface DraftPhotoEditorProps {
-  draftPostId: string;
+  postId: string;
+  scope?: 'draft' | 'published';
+  reloadVersion?: number;
   onUnauthorized: () => void;
   onSaved?: () => void;
 }
@@ -21,7 +25,13 @@ type SaveState = 'saved' | 'saving' | 'error';
 
 const AUTOSAVE_DELAY_MS = 600;
 
-export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: DraftPhotoEditorProps) {
+export function DraftPhotoEditor({
+  postId,
+  scope = 'draft',
+  reloadVersion = 0,
+  onUnauthorized,
+  onSaved,
+}: DraftPhotoEditorProps) {
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -31,7 +41,8 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: Draft
 
   useEffect(() => {
     let active = true;
-    getDraftPhotos(draftPostId)
+    const loadPhotos = scope === 'published' ? getManagedPublishedPhotos : getDraftPhotos;
+    loadPhotos(postId)
       .then((loadedPhotos) => {
         if (!active) return;
         lastSavedSnapshot.current = snapshot(loadedPhotos);
@@ -52,7 +63,7 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: Draft
     return () => {
       active = false;
     };
-  }, [draftPostId, onUnauthorized]);
+  }, [onUnauthorized, postId, reloadVersion, scope]);
 
   useEffect(() => {
     if (loadState !== 'ready') return;
@@ -63,7 +74,10 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: Draft
     const timer = window.setTimeout(() => {
       setSaveState('saving');
       setMessage('사진 변경 내용을 저장하고 있습니다.');
-      updateDraftPhotos(draftPostId, toEditItems(photos), abortController.signal)
+      const savePhotos = scope === 'published'
+        ? updateManagedPublishedPhotos
+        : updateDraftPhotos;
+      savePhotos(postId, toEditItems(photos), abortController.signal)
         .then((savedPhotos) => {
           lastSavedSnapshot.current = snapshot(savedPhotos);
           setPhotos(savedPhotos);
@@ -88,7 +102,7 @@ export function DraftPhotoEditor({ draftPostId, onUnauthorized, onSaved }: Draft
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [draftPostId, loadState, onSaved, onUnauthorized, photos, retryVersion]);
+  }, [loadState, onSaved, onUnauthorized, photos, postId, retryVersion, scope]);
 
   const movePhoto = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;

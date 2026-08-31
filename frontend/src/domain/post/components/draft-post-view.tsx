@@ -11,7 +11,9 @@ import {
   DraftPostApiError,
   deleteDraftPost,
   getDraftPost,
+  getManagedPublishedPost,
   updateDraftPost,
+  updateManagedPublishedPost,
 } from '../api/draft-post-api';
 import type { DraftPost, DraftPostUpdateInput } from '../types';
 import {
@@ -25,6 +27,7 @@ import {
 import { PlaceFields } from './place-fields';
 import { DraftPhotoEditor } from '@/domain/photo/components/draft-photo-editor';
 import { DraftPublicationPanel } from './draft-publication-panel';
+import { PhotoUploader } from '@/domain/photo/components/photo-uploader';
 
 type DraftState =
   | { status: 'loading' }
@@ -34,6 +37,7 @@ type DraftState =
 type SaveState =
   | { status: 'saved' }
   | { status: 'saving' }
+  | { status: 'dirty' }
   | { status: 'incomplete' }
   | { status: 'error'; message: string };
 
@@ -52,20 +56,30 @@ interface DraftPostViewProps {
 
 interface DraftPostEditorProps {
   initialDraft: DraftPost;
+  mode?: 'draft' | 'published';
 }
 
 const AUTOSAVE_DELAY_MS = 700;
 
 export function DraftPostView({ draftPostId }: DraftPostViewProps) {
+  return <ManagedPostView postId={draftPostId} mode="draft" />;
+}
+
+export function PublishedPostView({ postId }: { postId: string }) {
+  return <ManagedPostView postId={postId} mode="published" />;
+}
+
+function ManagedPostView({ postId, mode }: { postId: string; mode: 'draft' | 'published' }) {
   const router = useRouter();
   const [state, setState] = useState<DraftState>({ status: 'loading' });
 
   useEffect(() => {
     let isActive = true;
-    const nextPath = `/manage/drafts/${draftPostId}`;
+    const nextPath = mode === 'draft' ? `/manage/drafts/${postId}` : `/manage/posts/${postId}/edit`;
+    const loadPost = mode === 'draft' ? getDraftPost : getManagedPublishedPost;
 
     getAdministratorSession()
-      .then(() => getDraftPost(draftPostId))
+      .then(() => loadPost(postId))
       .then((draft) => {
         if (isActive) setState({ status: 'ready', draft });
       })
@@ -79,20 +93,20 @@ export function DraftPostView({ draftPostId }: DraftPostViewProps) {
           status: 'unavailable',
           message: error instanceof AuthenticationApiError || error instanceof DraftPostApiError
             ? error.message
-            : '초안을 불러오지 못했습니다.',
+            : mode === 'draft' ? '초안을 불러오지 못했습니다.' : '게시 기록을 불러오지 못했습니다.',
         });
       });
 
     return () => {
       isActive = false;
     };
-  }, [draftPostId, router]);
+  }, [mode, postId, router]);
 
   if (state.status === 'loading') {
     return (
       <section className="manage-gate" aria-live="polite">
-        <p className="login-status">PRIVATE DRAFT</p>
-        <h1>작성 중인 기록을 불러오고 있습니다.</h1>
+        <p className="login-status">{mode === 'draft' ? 'PRIVATE DRAFT' : 'PUBLISHED RECORD'}</p>
+        <h1>{mode === 'draft' ? '작성 중인 기록' : '게시 기록'}을 불러오고 있습니다.</h1>
         <p>저장된 제목과 방문 기록을 안전하게 확인하고 있습니다.</p>
       </section>
     );
@@ -102,28 +116,32 @@ export function DraftPostView({ draftPostId }: DraftPostViewProps) {
     return (
       <section className="manage-gate" role="alert">
         <p className="login-status">확인 필요</p>
-        <h1>초안을 열지 못했습니다.</h1>
+        <h1>{mode === 'draft' ? '초안' : '게시 기록'}을 열지 못했습니다.</h1>
         <p>{state.message}</p>
         <Link className="draft-back-link" href="/manage">관리 화면으로 돌아가기</Link>
       </section>
     );
   }
 
-  return <DraftPostEditor initialDraft={state.draft} />;
+  return <DraftPostEditor initialDraft={state.draft} mode={mode} />;
 }
 
-function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
+function DraftPostEditor({ initialDraft, mode = 'draft' }: DraftPostEditorProps) {
   const router = useRouter();
   const [draft, setDraft] = useState(initialDraft);
   const [form, setForm] = useState<DraftEditorForm>(() => toEditorForm(initialDraft));
   const [saveState, setSaveState] = useState<SaveState>({ status: 'saved' });
   const [retryVersion, setRetryVersion] = useState(0);
   const [publicationVersion, setPublicationVersion] = useState(0);
+  const [photoVersion, setPhotoVersion] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const lastSavedSnapshot = useRef(JSON.stringify(toEditorForm(initialDraft)));
   const handleUnauthorized = useCallback(() => {
-    router.replace(`/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`);
-  }, [initialDraft.id, router]);
+    const nextPath = mode === 'draft'
+      ? `/manage/drafts/${initialDraft.id}`
+      : `/manage/posts/${initialDraft.id}/edit`;
+    router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
+  }, [initialDraft.id, mode, router]);
   const completionCount = useMemo(() => [
     form.title.trim().length > 0,
     form.visitMonth.length > 0,
@@ -131,6 +149,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
   ].filter(Boolean).length, [form.summary, form.title, form.visitMonth]);
 
   useEffect(() => {
+    if (mode !== 'draft') return;
     if (isDeleting) return;
     const snapshot = JSON.stringify(form);
     if (snapshot === lastSavedSnapshot.current) return;
@@ -169,7 +188,36 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [form, initialDraft.category, initialDraft.id, isDeleting, retryVersion, router]);
+  }, [form, initialDraft.category, initialDraft.id, isDeleting, mode, retryVersion, router]);
+
+  async function handlePublishedSave() {
+    if (!form.title.trim()) {
+      setSaveState({ status: 'incomplete' });
+      return;
+    }
+    setSaveState({ status: 'saving' });
+    try {
+      const savedPost = await updateManagedPublishedPost(
+        initialDraft.id,
+        toUpdateInput(form, initialDraft.category),
+      );
+      lastSavedSnapshot.current = JSON.stringify(form);
+      setDraft(savedPost);
+      setSaveState({ status: 'saved' });
+      router.refresh();
+    } catch (error: unknown) {
+      if (error instanceof DraftPostApiError && error.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      setSaveState({
+        status: 'error',
+        message: error instanceof DraftPostApiError
+          ? error.message
+          : '게시 기록 변경 내용을 저장하지 못했습니다.',
+      });
+    }
+  }
 
   async function handleDelete() {
     if (!window.confirm(`“${draft.title}” 초안을 삭제할까요? 사진과 작성 내용도 함께 삭제되며 되돌릴 수 없습니다.`)) {
@@ -191,6 +239,9 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       setSaveState({ status: 'incomplete' });
     }
     setForm((current) => ({ ...current, [field]: value }));
+    if (mode === 'published' && !(field === 'title' && !value.trim())) {
+      setSaveState({ status: 'dirty' });
+    }
   };
 
   const handleRestaurantFieldChange = (
@@ -201,6 +252,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       ...current,
       restaurant: { ...current.restaurant, [field]: value },
     }));
+    if (mode === 'published') setSaveState({ status: 'dirty' });
   };
 
   const handleDestinationFieldChange = (
@@ -211,6 +263,7 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       ...current,
       destination: { ...current.destination, [field]: value },
     }));
+    if (mode === 'published') setSaveState({ status: 'dirty' });
   };
 
   return (
@@ -218,13 +271,13 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       <section className="draft-editor-form">
         <div className="draft-editor-heading">
           <div>
-            <p className="login-status">PRIVATE DRAFT</p>
+            <p className="login-status">{mode === 'draft' ? 'PRIVATE DRAFT' : 'PUBLISHED RECORD'}</p>
             <p className="overline">
               {draft.category === 'RESTAURANT' ? '맛집 기록' : '여행지 기록'}
             </p>
-            <h1>기록 정보 편집</h1>
+            <h1>{mode === 'draft' ? '기록 정보 편집' : '공개 기록 수정'}</h1>
           </div>
-          <AutosaveStatus state={saveState} updatedAt={draft.updatedAt} />
+          <SaveStatus state={saveState} updatedAt={draft.updatedAt} mode={mode} />
         </div>
 
         <div className="draft-editor-fields">
@@ -284,21 +337,33 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
           </label>
         </div>
 
+        {mode === 'published' && (
+          <PhotoUploader
+            targetPost={{ id: draft.id, category: draft.category }}
+            onCompleted={() => setPhotoVersion((value) => value + 1)}
+          />
+        )}
+
         <DraftPhotoEditor
-          draftPostId={draft.id}
+          postId={draft.id}
+          scope={mode}
+          reloadVersion={photoVersion}
           onUnauthorized={handleUnauthorized}
           onSaved={() => setPublicationVersion((value) => value + 1)}
         />
 
         <PlaceFields
-          draftPostId={draft.id}
+          postId={draft.id}
+          scope={mode}
           value={draft.place}
           onSaved={(savedDraft) => {
             setDraft(savedDraft);
             setPublicationVersion((value) => value + 1);
           }}
           onUnauthorized={() => router.replace(
-            `/login?next=${encodeURIComponent(`/manage/drafts/${initialDraft.id}`)}`,
+            `/login?next=${encodeURIComponent(mode === 'draft'
+              ? `/manage/drafts/${initialDraft.id}`
+              : `/manage/posts/${initialDraft.id}/edit`)}`,
           )}
         />
 
@@ -316,20 +381,36 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
           />
         )}
 
-        <DraftPublicationPanel
-          draftPostId={draft.id}
-          canPublish={saveState.status === 'saved'}
-          readinessVersion={publicationVersion}
-          onUnauthorized={handleUnauthorized}
-        />
+        {mode === 'draft' && (
+          <DraftPublicationPanel
+            draftPostId={draft.id}
+            canPublish={saveState.status === 'saved'}
+            readinessVersion={publicationVersion}
+            onUnauthorized={handleUnauthorized}
+          />
+        )}
 
         <div className="draft-editor-actions">
           <Link href="/manage">관리 화면으로 돌아가기</Link>
-          <button className="draft-delete-button" type="button" disabled={isDeleting} onClick={() => void handleDelete()}>
-            {isDeleting ? '삭제 중…' : '초안 삭제'}
-          </button>
-          {saveState.status === 'error' && (
-            <button type="button" onClick={() => setRetryVersion((value) => value + 1)}>
+          {mode === 'draft' ? (
+            <button className="draft-delete-button" type="button" disabled={isDeleting} onClick={() => void handleDelete()}>
+              {isDeleting ? '삭제 중…' : '초안 삭제'}
+            </button>
+          ) : (
+            <button
+              className="published-save-button"
+              type="button"
+              disabled={saveState.status === 'saving' || saveState.status === 'saved'}
+              onClick={() => void handlePublishedSave()}
+            >
+              {saveState.status === 'saving' ? '저장 중…' : '공개 기록 변경사항 저장'}
+            </button>
+          )}
+          {mode === 'draft' && saveState.status === 'error' && (
+            <button
+              type="button"
+              onClick={() => setRetryVersion((value) => value + 1)}
+            >
               다시 저장
             </button>
           )}
@@ -337,33 +418,48 @@ function DraftPostEditor({ initialDraft }: DraftPostEditorProps) {
       </section>
 
       <aside className="draft-editor-guide">
-        <p className="login-status">AUTOSAVE</p>
+        <p className="login-status">{mode === 'draft' ? 'AUTOSAVE' : 'PUBLISHED EDIT'}</p>
         <h2>{completionCount}/3 작성 완료</h2>
-        <p>입력을 멈추면 자동으로 저장됩니다. 다른 기기에서도 로그인하면 이어서 작성할 수 있습니다.</p>
+        <p>{mode === 'draft'
+          ? '입력을 멈추면 자동으로 저장됩니다. 다른 기기에서도 로그인하면 이어서 작성할 수 있습니다.'
+          : '내용을 확인한 뒤 변경사항 저장 버튼을 누르면 공개 페이지에 반영됩니다.'}</p>
         <ul>
           <li className={form.title.trim() ? 'is-complete' : ''}>기록 제목</li>
           <li className={form.visitMonth ? 'is-complete' : ''}>방문 월</li>
           <li className={form.summary.trim() ? 'is-complete' : ''}>한줄평</li>
         </ul>
-        <strong>사진과 입력 내용은 게시하기 전까지 비공개로 유지됩니다.</strong>
+        <strong>{mode === 'draft'
+          ? '사진과 입력 내용은 게시하기 전까지 비공개로 유지됩니다.'
+          : '추가 사진은 메타데이터 제거와 워터마크 처리가 끝난 뒤에만 공개됩니다.'}</strong>
       </aside>
     </article>
   );
 }
 
-function AutosaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: string }) {
+function SaveStatus({
+  state,
+  updatedAt,
+  mode,
+}: {
+  state: SaveState;
+  updatedAt: string;
+  mode: 'draft' | 'published';
+}) {
   if (state.status === 'saving') {
     return <p className="draft-save-status is-saving" aria-live="polite">저장 중…</p>;
   }
   if (state.status === 'incomplete') {
     return <p className="draft-save-status is-warning" aria-live="polite">제목을 입력하면 저장됩니다.</p>;
   }
+  if (state.status === 'dirty') {
+    return <p className="draft-save-status is-warning" aria-live="polite">저장하지 않은 변경사항이 있습니다.</p>;
+  }
   if (state.status === 'error') {
     return <p className="draft-save-status is-error" role="alert">{state.message}</p>;
   }
   return (
     <p className="draft-save-status" aria-live="polite">
-      자동 저장됨 · <time dateTime={updatedAt}>{formatSavedAt(updatedAt)}</time>
+      {mode === 'draft' ? '자동 저장됨' : '저장됨'} · <time dateTime={updatedAt}>{formatSavedAt(updatedAt)}</time>
     </p>
   );
 }

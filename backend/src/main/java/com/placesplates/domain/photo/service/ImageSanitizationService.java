@@ -103,7 +103,13 @@ public class ImageSanitizationService {
 			String storageKey = sanitizedStorageKey(ownerUserId, job.getId());
 			photoStorage.storeSanitizedMaster(storageKey, sanitized.bytes(), sanitized.mimeType());
 
-			photo = photoRepository.save(Photo.processing(ownerUserId, job.getPostId()));
+			int displayOrder = photoRepository
+				.findTopByPostIdAndOwnerUserIdOrderByDisplayOrderDescCreatedAtDesc(
+					job.getPostId(), ownerUserId
+				)
+				.map(existing -> existing.getDisplayOrder() + 1)
+				.orElse(0);
+			photo = photoRepository.save(Photo.processing(ownerUserId, job.getPostId(), displayOrder));
 			photoAssetRepository.save(PhotoAsset.sanitizedMaster(
 				photo.getId(), storageKey, sanitized.mimeType(), sanitized.width(), sanitized.height(), sanitized.bytes().length
 			));

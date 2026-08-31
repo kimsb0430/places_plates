@@ -14,9 +14,15 @@ public record DraftPhotoResponse(
 	String thumbnailPath
 ) {
 
-	public static DraftPhotoResponse from(Photo photo, UUID draftId, boolean thumbnailAvailable) {
+	public static DraftPhotoResponse from(
+		Photo photo,
+		UUID postId,
+		boolean thumbnailAvailable,
+		boolean published
+	) {
 		String thumbnailPath = thumbnailAvailable
-			? "/api/v1/manage/drafts/" + draftId + "/photos/" + photo.getId() + "/thumbnail"
+			? "/api/v1/manage/" + (published ? "posts/" : "drafts/") + postId
+				+ "/photos/" + photo.getId() + "/thumbnail"
 			: null;
 		return new DraftPhotoResponse(
 			photo.getId(),

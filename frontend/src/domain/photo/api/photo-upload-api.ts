@@ -76,8 +76,13 @@ async function mutate<T>(path: string, body?: unknown): Promise<T> {
 export function createUploadBatch(
   category: PostCategory,
   files: UploadFileDescriptor[],
+  targetPostId?: string,
 ): Promise<UploadBatch> {
-  return mutate<UploadBatch>('/api/v1/manage/photo-uploads', { category, files });
+  return mutate<UploadBatch>('/api/v1/manage/photo-uploads', { category, targetPostId, files });
+}
+
+export function getUploadBatch(batchId: string): Promise<UploadBatch> {
+  return request<UploadBatch>(`/api/v1/manage/photo-uploads/${batchId}`);
 }
 
 export function recordUploadProgress(

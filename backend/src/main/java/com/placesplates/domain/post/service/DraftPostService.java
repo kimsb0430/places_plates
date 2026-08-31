@@ -88,8 +88,13 @@ public class DraftPostService {
 	}
 
 	public DraftPostResponse findDraft(UUID ownerUserId, UUID draftId) {
-		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
+		DraftPost draft = findOwnedPost(ownerUserId, draftId, PostStatus.DRAFT);
 		return toResponse(draft, findPlace(draft), findRestaurantDetail(draft), findDestinationDetail(draft));
+	}
+
+	public DraftPostResponse findPublishedPost(UUID ownerUserId, UUID postId) {
+		DraftPost post = findOwnedPost(ownerUserId, postId, PostStatus.PUBLISHED);
+		return toResponse(post, findPlace(post), findRestaurantDetail(post), findDestinationDetail(post));
 	}
 
 	@Transactional
@@ -98,18 +103,36 @@ public class DraftPostService {
 		UUID draftId,
 		DraftPostUpdateRequest request
 	) {
+		return updatePost(ownerUserId, draftId, PostStatus.DRAFT, request);
+	}
+
+	@Transactional
+	public DraftPostResponse updatePublishedPost(
+		UUID ownerUserId,
+		UUID postId,
+		DraftPostUpdateRequest request
+	) {
+		return updatePost(ownerUserId, postId, PostStatus.PUBLISHED, request);
+	}
+
+	private DraftPostResponse updatePost(
+		UUID ownerUserId,
+		UUID postId,
+		PostStatus status,
+		DraftPostUpdateRequest request
+	) {
 		validateVisitMonthPair(request.publicVisitYear(), request.publicVisitMonth());
-		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
-		updateRestaurantDetail(draft, request.restaurantDetails());
-		updateDestinationDetail(draft, request.destinationDetails());
-		draft.updateEditorFields(
+		DraftPost post = findOwnedPost(ownerUserId, postId, status);
+		updateRestaurantDetail(post, request.restaurantDetails());
+		updateDestinationDetail(post, request.destinationDetails());
+		post.updateEditorFields(
 			request.title(),
 			request.summary(),
 			request.content(),
 			request.publicVisitYear(),
 			request.publicVisitMonth()
 		);
-		return toResponse(draft, findPlace(draft), findRestaurantDetail(draft), findDestinationDetail(draft));
+		return toResponse(post, findPlace(post), findRestaurantDetail(post), findDestinationDetail(post));
 	}
 
 	@Transactional
@@ -118,23 +141,50 @@ public class DraftPostService {
 		UUID draftId,
 		PlaceConnectionRequest request
 	) {
+		return connectPlace(ownerUserId, draftId, PostStatus.DRAFT, request);
+	}
+
+	@Transactional
+	public DraftPostResponse connectPublishedPlace(
+		UUID ownerUserId,
+		UUID postId,
+		PlaceConnectionRequest request
+	) {
+		return connectPlace(ownerUserId, postId, PostStatus.PUBLISHED, request);
+	}
+
+	private DraftPostResponse connectPlace(
+		UUID ownerUserId,
+		UUID postId,
+		PostStatus status,
+		PlaceConnectionRequest request
+	) {
 		validateCoordinates(request.latitude(), request.longitude());
-		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
+		DraftPost post = findOwnedPost(ownerUserId, postId, status);
 		Place place = request.source() == PlaceSource.GOOGLE
 			? connectGooglePlace(ownerUserId, request)
 			: connectManualPlace(ownerUserId, request);
 		PostCoordinateVisibility coordinateVisibility = place.getLatitude() == null
 			? PostCoordinateVisibility.HIDDEN
 			: PostCoordinateVisibility.EXACT;
-		draft.connectPlace(place.getId(), coordinateVisibility);
-		return toResponse(draft, place, findRestaurantDetail(draft), findDestinationDetail(draft));
+		post.connectPlace(place.getId(), coordinateVisibility);
+		return toResponse(post, place, findRestaurantDetail(post), findDestinationDetail(post));
 	}
 
 	@Transactional
 	public DraftPostResponse disconnectPlace(UUID ownerUserId, UUID draftId) {
-		DraftPost draft = findOwnedDraft(ownerUserId, draftId);
-		draft.disconnectPlace();
-		return toResponse(draft, null, findRestaurantDetail(draft), findDestinationDetail(draft));
+		return disconnectPlace(ownerUserId, draftId, PostStatus.DRAFT);
+	}
+
+	@Transactional
+	public DraftPostResponse disconnectPublishedPlace(UUID ownerUserId, UUID postId) {
+		return disconnectPlace(ownerUserId, postId, PostStatus.PUBLISHED);
+	}
+
+	private DraftPostResponse disconnectPlace(UUID ownerUserId, UUID postId, PostStatus status) {
+		DraftPost post = findOwnedPost(ownerUserId, postId, status);
+		post.disconnectPlace();
+		return toResponse(post, null, findRestaurantDetail(post), findDestinationDetail(post));
 	}
 
 	private Place connectGooglePlace(UUID ownerUserId, PlaceConnectionRequest request) {
@@ -302,13 +352,15 @@ public class DraftPostService {
 			: url + "&query_place_id=" + URLEncoder.encode(googlePlaceId.trim(), StandardCharsets.UTF_8);
 	}
 
-	private DraftPost findOwnedDraft(UUID ownerUserId, UUID draftId) {
+	private DraftPost findOwnedPost(UUID ownerUserId, UUID postId, PostStatus status) {
 		return draftPostRepository
-			.findByIdAndOwnerUserIdAndStatus(draftId, ownerUserId, PostStatus.DRAFT)
+			.findByIdAndOwnerUserIdAndStatus(postId, ownerUserId, status)
 			.orElseThrow(() -> new DraftPostException(
 				HttpStatus.NOT_FOUND,
-				"DRAFT_POST_NOT_FOUND",
-				"작성 중인 초안을 찾을 수 없습니다."
+				status == PostStatus.DRAFT ? "DRAFT_POST_NOT_FOUND" : "MANAGED_POST_NOT_FOUND",
+				status == PostStatus.DRAFT
+					? "작성 중인 초안을 찾을 수 없습니다."
+					: "수정할 게시 기록을 찾을 수 없습니다."
 			));
 	}
 
