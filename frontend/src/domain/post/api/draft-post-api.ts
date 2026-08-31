@@ -84,6 +84,27 @@ export function getManagedPublishedPosts(): Promise<DraftPost[]> {
   return request<DraftPost[]>('/api/v1/manage/posts');
 }
 
+export function getManagedPublishedPost(postId: string): Promise<DraftPost> {
+  return request<DraftPost>(`/api/v1/manage/posts/${postId}`);
+}
+
+export async function updateManagedPublishedPost(
+  postId: string,
+  input: DraftPostUpdateInput,
+  signal?: AbortSignal,
+): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf', { signal });
+  return request<DraftPost>(`/api/v1/manage/posts/${postId}`, {
+    method: 'PATCH',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      [csrfToken.headerName]: csrfToken.token,
+    },
+    body: JSON.stringify(input),
+  });
+}
+
 export async function deleteManagedPublishedPost(postId: string): Promise<void> {
   const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
   return request<void>(`/api/v1/manage/posts/${postId}`, {
@@ -132,6 +153,29 @@ export async function connectDraftPlace(
 export async function disconnectDraftPlace(draftPostId: string): Promise<DraftPost> {
   const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
   return request<DraftPost>(`/api/v1/manage/drafts/${draftPostId}/place`, {
+    method: 'DELETE',
+    headers: { [csrfToken.headerName]: csrfToken.token },
+  });
+}
+
+export async function connectManagedPublishedPlace(
+  postId: string,
+  input: PlaceConnectionInput,
+): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<DraftPost>(`/api/v1/manage/posts/${postId}/place`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      [csrfToken.headerName]: csrfToken.token,
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectManagedPublishedPlace(postId: string): Promise<DraftPost> {
+  const csrfToken = await request<CsrfTokenResponse>('/api/v1/auth/csrf');
+  return request<DraftPost>(`/api/v1/manage/posts/${postId}/place`, {
     method: 'DELETE',
     headers: { [csrfToken.headerName]: csrfToken.token },
   });

@@ -57,6 +57,10 @@ export function getDraftPhotos(draftPostId: string): Promise<DraftPhoto[]> {
   return request<DraftPhoto[]>(`/api/v1/manage/drafts/${draftPostId}/photos`);
 }
 
+export function getManagedPublishedPhotos(postId: string): Promise<DraftPhoto[]> {
+  return request<DraftPhoto[]>(`/api/v1/manage/posts/${postId}/photos`);
+}
+
 export async function updateDraftPhotos(
   draftPostId: string,
   photos: DraftPhotoEditItem[],
@@ -64,6 +68,23 @@ export async function updateDraftPhotos(
 ): Promise<DraftPhoto[]> {
   const csrf = await request<CsrfTokenResponse>('/api/v1/auth/csrf', { signal });
   return request<DraftPhoto[]>(`/api/v1/manage/drafts/${draftPostId}/photos`, {
+    method: 'PUT',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      [csrf.headerName]: csrf.token,
+    },
+    body: JSON.stringify({ photos }),
+  });
+}
+
+export async function updateManagedPublishedPhotos(
+  postId: string,
+  photos: DraftPhotoEditItem[],
+  signal?: AbortSignal,
+): Promise<DraftPhoto[]> {
+  const csrf = await request<CsrfTokenResponse>('/api/v1/auth/csrf', { signal });
+  return request<DraftPhoto[]>(`/api/v1/manage/posts/${postId}/photos`, {
     method: 'PUT',
     signal,
     headers: {

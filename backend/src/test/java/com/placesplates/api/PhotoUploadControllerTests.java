@@ -46,6 +46,11 @@ import com.placesplates.domain.photo.repository.PhotoRepository;
 import com.placesplates.domain.photo.repository.UploadItemRepository;
 import com.placesplates.domain.photo.service.ImageProcessingJobService;
 import com.placesplates.domain.post.repository.DraftPostRepository;
+import com.placesplates.domain.post.entity.DraftPost;
+import com.placesplates.domain.post.entity.PostCategory;
+import com.placesplates.domain.post.entity.PostVisibility;
+import com.placesplates.domain.place.entity.Place;
+import com.placesplates.domain.place.repository.PlaceRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.PrivatePhotoStorage;
 import com.placesplates.infra.storage.StorageAccessException;
@@ -93,6 +98,9 @@ class PhotoUploadControllerTests {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private PlaceRepository placeRepository;
+
 	@MockitoBean
 	private TemporaryUploadSigner uploadSigner;
 
@@ -101,6 +109,7 @@ class PhotoUploadControllerTests {
 
 	private final Map<String, byte[]> storedMasters = new ConcurrentHashMap<>();
 	private final Map<String, byte[]> storedVariants = new ConcurrentHashMap<>();
+	private AdministratorAccount administrator;
 
 	@BeforeEach
 	void setUp() {
@@ -111,8 +120,9 @@ class PhotoUploadControllerTests {
 		photoAssetRepository.deleteAll();
 		photoRepository.deleteAll();
 		draftPostRepository.deleteAll();
+		placeRepository.deleteAll();
 		accountRepository.deleteAll();
-		accountRepository.save(AdministratorAccount.create(
+		administrator = accountRepository.save(AdministratorAccount.create(
 			ADMIN_EMAIL,
 			passwordEncoder.encode(ADMIN_PASSWORD)
 		));
@@ -408,6 +418,37 @@ class PhotoUploadControllerTests {
 				.cookie(authenticated.cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].category").value("DESTINATION"));
+	}
+
+	@Test
+	void createsUploadBatchForOwnedPublishedPostWithoutCreatingAnotherDraft() throws Exception {
+		DraftPost post = DraftPost.create(administrator.getId(), PostCategory.RESTAURANT);
+		Place place = placeRepository.save(Place.manual(
+			administrator.getId(), "사진 추가 장소", null, null, null, null
+		));
+		post.updateEditorFields(post.getTitle(), null, null, 2026, 8);
+		post.connectPlace(place.getId());
+		post.publish(PostVisibility.PUBLIC);
+		post = draftPostRepository.save(post);
+		long postCount = draftPostRepository.count();
+		AuthenticatedSession authenticated = login();
+
+		mockMvc.perform(post("/api/v1/manage/photo-uploads")
+				.cookie(authenticated.cookie())
+				.header(authenticated.headerName(), authenticated.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{
+					  "category":"RESTAURANT",
+					  "targetPostId":"%s",
+					  "files":[{"clientFileName":"added.jpg","mimeType":"image/jpeg","byteSize":1024}]
+					}
+					""".formatted(post.getId())))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.draftPostId").value(post.getId().toString()))
+			.andExpect(jsonPath("$.items.length()").value(1));
+
+		assertThat(draftPostRepository.count()).isEqualTo(postCount);
 	}
 
 	@Test

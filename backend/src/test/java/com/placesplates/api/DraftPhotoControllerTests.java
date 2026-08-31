@@ -35,7 +35,10 @@ import com.placesplates.domain.photo.repository.PhotoAssetRepository;
 import com.placesplates.domain.photo.repository.PhotoRepository;
 import com.placesplates.domain.post.entity.DraftPost;
 import com.placesplates.domain.post.entity.PostCategory;
+import com.placesplates.domain.post.entity.PostVisibility;
 import com.placesplates.domain.post.repository.DraftPostRepository;
+import com.placesplates.domain.place.entity.Place;
+import com.placesplates.domain.place.repository.PlaceRepository;
 import com.placesplates.infra.storage.PrivatePhotoStorage;
 
 import jakarta.servlet.http.Cookie;
@@ -65,6 +68,9 @@ class DraftPhotoControllerTests {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private PlaceRepository placeRepository;
+
 	@MockitoBean
 	private PrivatePhotoStorage privatePhotoStorage;
 
@@ -75,6 +81,7 @@ class DraftPhotoControllerTests {
 		photoAssetRepository.deleteAll();
 		photoRepository.deleteAll();
 		draftPostRepository.deleteAll();
+		placeRepository.deleteAll();
 		accountRepository.deleteAll();
 		administrator = accountRepository.save(AdministratorAccount.create(
 			ADMIN_EMAIL,
@@ -179,6 +186,43 @@ class DraftPhotoControllerTests {
 			.andExpect(jsonPath("$.code").value("DRAFT_PHOTO_NOT_FOUND"));
 	}
 
+	@Test
+	void updatesCoverAndOrderForOwnedPublishedPhotos() throws Exception {
+		DraftPost post = DraftPost.create(administrator.getId(), PostCategory.DESTINATION);
+		Place place = placeRepository.save(Place.manual(
+			administrator.getId(), "게시 사진 장소", null, null, null, null
+		));
+		post.updateEditorFields(post.getTitle(), null, null, 2026, 8);
+		post.connectPlace(place.getId());
+		post.publish(PostVisibility.PUBLIC);
+		post = draftPostRepository.save(post);
+		Photo first = readyPhoto(post.getId());
+		Photo second = readyPhoto(post.getId());
+		addThumbnail(first, "variants/published/first-thumbnail.jpg");
+		addThumbnail(second, "variants/published/second-thumbnail.jpg");
+		AuthenticatedSession session = login();
+
+		String path = publishedPhotoPath(post.getId());
+		mockMvc.perform(put(path)
+				.cookie(session.cookie())
+				.header(session.headerName(), session.token())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"photos":[
+					  {"photoId":"%s","cover":true,"altText":"새 대표 사진"},
+					  {"photoId":"%s","cover":false,"altText":"기존 사진"}
+					]}
+					""".formatted(second.getId(), first.getId())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(second.getId().toString()))
+			.andExpect(jsonPath("$[0].cover").value(true))
+			.andExpect(jsonPath("$[0].thumbnailPath")
+				.value(org.hamcrest.Matchers.containsString("/api/v1/manage/posts/")));
+
+		assertThat(photoRepository.findById(second.getId()).orElseThrow().isCover()).isTrue();
+		assertThat(photoRepository.findById(first.getId()).orElseThrow().isCover()).isFalse();
+	}
+
 	private Photo readyPhoto(UUID draftId) {
 		Photo photo = Photo.processing(administrator.getId(), draftId);
 		photo.markReady();
@@ -226,6 +270,10 @@ class DraftPhotoControllerTests {
 
 	private static String photoPath(UUID draftId) {
 		return "/api/v1/manage/drafts/" + draftId + "/photos";
+	}
+
+	private static String publishedPhotoPath(UUID postId) {
+		return "/api/v1/manage/posts/" + postId + "/photos";
 	}
 
 	private record AuthenticatedSession(Cookie cookie, String headerName, String token) {

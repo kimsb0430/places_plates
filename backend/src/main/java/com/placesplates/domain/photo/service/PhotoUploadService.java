@@ -25,8 +25,10 @@ import com.placesplates.domain.photo.entity.UploadItem;
 import com.placesplates.domain.photo.entity.UploadItemStatus;
 import com.placesplates.domain.photo.exception.PhotoUploadException;
 import com.placesplates.domain.photo.repository.UploadBatchRepository;
+import com.placesplates.domain.photo.repository.PhotoRepository;
 import com.placesplates.domain.post.entity.DraftPost;
 import com.placesplates.domain.post.entity.PostCategory;
+import com.placesplates.domain.post.entity.PostStatus;
 import com.placesplates.domain.post.repository.DraftPostRepository;
 import com.placesplates.infra.storage.SignedUploadTicket;
 import com.placesplates.infra.storage.StorageAccessException;
@@ -52,17 +54,20 @@ public class PhotoUploadService {
 
 	private final UploadBatchRepository uploadBatchRepository;
 	private final DraftPostRepository draftPostRepository;
+	private final PhotoRepository photoRepository;
 	private final ImageProcessingJobService imageProcessingJobService;
 	private final TemporaryUploadSigner uploadSigner;
 
 	public PhotoUploadService(
 		UploadBatchRepository uploadBatchRepository,
 		DraftPostRepository draftPostRepository,
+		PhotoRepository photoRepository,
 		ImageProcessingJobService imageProcessingJobService,
 		TemporaryUploadSigner uploadSigner
 	) {
 		this.uploadBatchRepository = uploadBatchRepository;
 		this.draftPostRepository = draftPostRepository;
+		this.photoRepository = photoRepository;
 		this.imageProcessingJobService = imageProcessingJobService;
 		this.uploadSigner = uploadSigner;
 	}
@@ -70,12 +75,10 @@ public class PhotoUploadService {
 	@Transactional
 	public UploadBatchResponse createBatch(UUID ownerUserId, CreateUploadBatchRequest request) {
 		OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plus(UPLOAD_EXPIRY);
-		PostCategory category = request.category() == null
-			? PostCategory.DESTINATION
-			: request.category();
-		DraftPost draft = draftPostRepository.save(DraftPost.create(ownerUserId, category));
+		DraftPost targetPost = resolveTargetPost(ownerUserId, request);
+		ensurePhotoLimit(ownerUserId, targetPost.getId(), request.files().size());
 		UploadBatch batch = UploadBatch.create(ownerUserId, expiresAt);
-		batch.assignPost(draft.getId());
+		batch.assignPost(targetPost.getId());
 		for (UploadFileRequest file : request.files()) {
 			String mimeType = normalizeMimeType(file.mimeType());
 			batch.addItem(UploadItem.create(
@@ -133,6 +136,9 @@ public class PhotoUploadService {
 		UploadBatch batch = getOwnedBatch(ownerUserId, batchId);
 		UploadItem item = getItem(batch, itemId);
 		ensureActive(item);
+		if (item.getStatus() == UploadItemStatus.FAILED) {
+			return UploadItemResponse.from(item, null);
+		}
 		ensureUploading(item);
 		item.markFailed(failureCode);
 		batch.refreshStatus();
@@ -144,6 +150,10 @@ public class PhotoUploadService {
 		UploadBatch batch = getOwnedBatch(ownerUserId, batchId);
 		UploadItem item = getItem(batch, itemId);
 		ensureActive(item);
+		if (item.getStatus() == UploadItemStatus.UPLOADING
+			|| item.getStatus() == UploadItemStatus.PENDING) {
+			item.markFailed("CLIENT_RETRY");
+		}
 		if (item.getStatus() != UploadItemStatus.FAILED) {
 			throw invalidState("PHOTO_UPLOAD_NOT_RETRYABLE", "실패한 사진만 다시 시도할 수 있습니다.");
 		}
@@ -194,6 +204,46 @@ public class PhotoUploadService {
 				"PHOTO_UPLOAD_BATCH_NOT_FOUND",
 				"사진 업로드 묶음을 찾을 수 없습니다."
 			));
+	}
+
+	/**
+	 * 新規記録では非公開下書きを作成し、既存記録への追加では所有済み公開記録を再利用する。
+	 */
+	private DraftPost resolveTargetPost(UUID ownerUserId, CreateUploadBatchRequest request) {
+		PostCategory requestedCategory = request.category() == null
+			? PostCategory.DESTINATION
+			: request.category();
+		if (request.targetPostId() == null) {
+			return draftPostRepository.save(DraftPost.create(ownerUserId, requestedCategory));
+		}
+		DraftPost targetPost = draftPostRepository.findByIdAndOwnerUserIdAndStatus(
+			request.targetPostId(),
+			ownerUserId,
+			PostStatus.PUBLISHED
+		).orElseThrow(() -> new PhotoUploadException(
+			HttpStatus.NOT_FOUND,
+			"PHOTO_UPLOAD_TARGET_NOT_FOUND",
+			"사진을 추가할 게시 기록을 찾을 수 없습니다."
+		));
+		if (targetPost.getCategory() != requestedCategory) {
+			throw new PhotoUploadException(
+				HttpStatus.BAD_REQUEST,
+				"PHOTO_UPLOAD_CATEGORY_MISMATCH",
+				"게시 기록과 사진 업로드의 기록 종류가 일치하지 않습니다."
+			);
+		}
+		return targetPost;
+	}
+
+	private void ensurePhotoLimit(UUID ownerUserId, UUID postId, int requestedCount) {
+		long existingCount = photoRepository.countByPostIdAndOwnerUserId(postId, ownerUserId);
+		if (existingCount + requestedCount > 100) {
+			throw new PhotoUploadException(
+				HttpStatus.BAD_REQUEST,
+				"PHOTO_UPLOAD_POST_LIMIT_EXCEEDED",
+				"기록 한 개에는 사진을 최대 100장까지 보관할 수 있습니다."
+			);
+		}
 	}
 
 	private UploadBatch getLockedOwnedBatch(UUID ownerUserId, UUID batchId) {

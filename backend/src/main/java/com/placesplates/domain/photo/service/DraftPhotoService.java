@@ -48,10 +48,18 @@ public class DraftPhotoService {
 	}
 
 	public List<DraftPhotoResponse> findPhotos(UUID ownerUserId, UUID draftId) {
-		ensureOwnedDraft(ownerUserId, draftId);
+		return findPhotos(ownerUserId, draftId, PostStatus.DRAFT);
+	}
+
+	public List<DraftPhotoResponse> findPublishedPhotos(UUID ownerUserId, UUID postId) {
+		return findPhotos(ownerUserId, postId, PostStatus.PUBLISHED);
+	}
+
+	private List<DraftPhotoResponse> findPhotos(UUID ownerUserId, UUID postId, PostStatus status) {
+		ensureOwnedPost(ownerUserId, postId, status);
 		List<Photo> photos = photoRepository
-			.findAllByPostIdAndOwnerUserIdOrderByDisplayOrderAscCreatedAtAsc(draftId, ownerUserId);
-		return responses(draftId, photos);
+			.findAllByPostIdAndOwnerUserIdOrderByDisplayOrderAscCreatedAtAsc(postId, ownerUserId);
+		return responses(postId, photos, status);
 	}
 
 	/**
@@ -63,8 +71,26 @@ public class DraftPhotoService {
 		UUID draftId,
 		DraftPhotoEditRequest request
 	) {
-		ensureOwnedDraft(ownerUserId, draftId);
-		List<Photo> photos = photoRepository.findAllForUpdate(draftId, ownerUserId);
+		return updatePhotos(ownerUserId, draftId, PostStatus.DRAFT, request);
+	}
+
+	@Transactional
+	public List<DraftPhotoResponse> updatePublishedPhotos(
+		UUID ownerUserId,
+		UUID postId,
+		DraftPhotoEditRequest request
+	) {
+		return updatePhotos(ownerUserId, postId, PostStatus.PUBLISHED, request);
+	}
+
+	private List<DraftPhotoResponse> updatePhotos(
+		UUID ownerUserId,
+		UUID postId,
+		PostStatus status,
+		DraftPhotoEditRequest request
+	) {
+		ensureOwnedPost(ownerUserId, postId, status);
+		List<Photo> photos = photoRepository.findAllForUpdate(postId, ownerUserId);
 		validateCompletePhotoSet(photos, request.photos());
 
 		Map<UUID, Photo> photosById = new HashMap<>();
@@ -79,14 +105,27 @@ public class DraftPhotoService {
 			photosById.get(item.photoId()).updateEditorState(index, item.cover(), item.altText());
 		}
 		photoRepository.flush();
-		return responses(draftId, request.photos().stream()
+		return responses(postId, request.photos().stream()
 			.map(item -> photosById.get(item.photoId()))
-			.toList());
+			.toList(), status);
 	}
 
 	public DraftPhotoContent getThumbnail(UUID ownerUserId, UUID draftId, UUID photoId) {
-		ensureOwnedDraft(ownerUserId, draftId);
-		photoRepository.findByIdAndPostIdAndOwnerUserId(photoId, draftId, ownerUserId)
+		return getThumbnail(ownerUserId, draftId, photoId, PostStatus.DRAFT);
+	}
+
+	public DraftPhotoContent getPublishedThumbnail(UUID ownerUserId, UUID postId, UUID photoId) {
+		return getThumbnail(ownerUserId, postId, photoId, PostStatus.PUBLISHED);
+	}
+
+	private DraftPhotoContent getThumbnail(
+		UUID ownerUserId,
+		UUID postId,
+		UUID photoId,
+		PostStatus status
+	) {
+		ensureOwnedPost(ownerUserId, postId, status);
+		photoRepository.findByIdAndPostIdAndOwnerUserId(photoId, postId, ownerUserId)
 			.orElseThrow(() -> notFound("사진을 찾을 수 없습니다."));
 		PhotoAsset asset = photoAssetRepository
 			.findByPhotoIdAndVariantType(photoId, PhotoAssetVariantType.THUMBNAIL)
@@ -105,7 +144,11 @@ public class DraftPhotoService {
 		}
 	}
 
-	private List<DraftPhotoResponse> responses(UUID draftId, List<Photo> photos) {
+	private List<DraftPhotoResponse> responses(
+		UUID postId,
+		List<Photo> photos,
+		PostStatus status
+	) {
 		if (photos.isEmpty()) {
 			return List.of();
 		}
@@ -116,15 +159,18 @@ public class DraftPhotoService {
 		return photos.stream()
 			.map(photo -> DraftPhotoResponse.from(
 				photo,
-				draftId,
-				thumbnailPhotoIds.contains(photo.getId())
+				postId,
+				thumbnailPhotoIds.contains(photo.getId()),
+				status == PostStatus.PUBLISHED
 			))
 			.toList();
 	}
 
-	private void ensureOwnedDraft(UUID ownerUserId, UUID draftId) {
-		draftPostRepository.findByIdAndOwnerUserIdAndStatus(draftId, ownerUserId, PostStatus.DRAFT)
-			.orElseThrow(() -> notFound("사진을 편집할 초안을 찾을 수 없습니다."));
+	private void ensureOwnedPost(UUID ownerUserId, UUID postId, PostStatus status) {
+		draftPostRepository.findByIdAndOwnerUserIdAndStatus(postId, ownerUserId, status)
+			.orElseThrow(() -> notFound(status == PostStatus.DRAFT
+				? "사진을 편집할 초안을 찾을 수 없습니다."
+				: "사진을 편집할 게시 기록을 찾을 수 없습니다."));
 	}
 
 	private static void validateCompletePhotoSet(
@@ -143,7 +189,7 @@ public class DraftPhotoService {
 			}
 		}
 		if (!actualIds.equals(requestedIds)) {
-			throw invalidRequest("초안의 모든 사진을 빠짐없이 포함해주세요.");
+			throw invalidRequest("기록의 모든 사진을 빠짐없이 포함해주세요.");
 		}
 		if (coverCount > 1) {
 			throw invalidRequest("대표 사진은 한 장만 선택할 수 있습니다.");

@@ -4,7 +4,7 @@
 운영 Web: https://placesplates.vercel.app  
 운영 API: https://places-plates-api-481849639838.asia-northeast3.run.app
 
-이 문서는 C43의 최종 출시 승인, 태그 생성, GitHub Release와 ROLLBACK 기준이다. 비밀키·개인 이메일·결제 계정·실제 사진과 원본 메타데이터는 출시 증거에 포함하지 않는다.
+이 문서는 C44까지 반영한 최종 출시 승인, 태그 생성, GitHub Release와 ROLLBACK 기준이다. 비밀키·개인 이메일·결제 계정·실제 사진과 원본 메타데이터는 출시 증거에 포함하지 않는다.
 
 ## 1. 출시 불가 조건
 
@@ -26,7 +26,7 @@
 3. `scripts/verify-all.ps1`과 비밀정보 검사를 통과시킨다.
 4. GitHub `main`의 Secret protection·Verify·Production smoke 성공 커밋 SHA를 기록한다.
 5. `/`, `/posts`, `/map`, `/api/deployment`, `/api/v1/health`, 공개 목록·지도 API가 HTTPS 200인지 확인한다.
-6. 관리자 로그인, 사진 업로드·정제, 초안 자동 저장, 게시, 목록·상세·지도 노출, 초안·공개 기록 삭제를 데스크톱 또는 모바일에서 한 번 수행한다.
+6. 관리자 로그인, 사진 2장 이상 업로드·정제, 초안 자동 저장, 게시, 게시 완료 기록 본문 수정·사진 추가·대표 사진 변경, 목록·상세·지도 노출, 초안·공개 기록 삭제를 데스크톱 또는 모바일에서 한 번 수행한다.
 7. 공개 대표 사진과 상세 사진이 같은 출처 프록시를 사용하고 메타데이터 제거·픽셀 워터마크·보호 헤더를 유지하는지 확인한다.
 8. DB와 `sanitized/`·`variants/` Storage의 최신 백업 및 복원 훈련 증거, Vercel 이전 배포와 Cloud Run 정상 리비전의 ROLLBACK 지점을 확인한다.
 9. Google Cloud 월 JPY 500 예산 경고, Cloud Run 0~1, Maps·Places 키 제한, Supabase Free, Vercel Hobby 알림을 확인한다.
@@ -39,7 +39,7 @@
 
 ## 3. 병합 후 태그와 Release
 
-C43 PR을 Rebase and merge한 뒤 새 작업을 시작하지 않은 상태에서 실행한다.
+C44 PR을 Rebase and merge한 뒤 새 작업을 시작하지 않은 상태에서 실행한다.
 
 ```powershell
 git switch main

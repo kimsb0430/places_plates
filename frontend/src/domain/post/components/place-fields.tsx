@@ -2,7 +2,9 @@
 
 import { FormEvent, useRef, useState } from 'react';
 import {
+  connectManagedPublishedPlace,
   connectDraftPlace,
+  disconnectManagedPublishedPlace,
   disconnectDraftPlace,
   DraftPostApiError,
   searchPlaces,
@@ -10,7 +12,8 @@ import {
 import type { DraftPost, Place, PlaceConnectionInput, PlaceSearchResult } from '../types';
 
 interface PlaceFieldsProps {
-  draftPostId: string;
+  postId: string;
+  scope?: 'draft' | 'published';
   value: Place | null;
   onSaved: (draft: DraftPost) => void;
   onUnauthorized: () => void;
@@ -22,7 +25,8 @@ type RequestState =
   | { status: 'error'; message: string };
 
 export function PlaceFields({
-  draftPostId,
+  postId,
+  scope = 'draft',
   value,
   onSaved,
   onUnauthorized,
@@ -58,7 +62,9 @@ export function PlaceFields({
   const savePlace = async (input: PlaceConnectionInput) => {
     setSaveState({ status: 'loading' });
     try {
-      onSaved(await connectDraftPlace(draftPostId, input));
+      onSaved(await (scope === 'published'
+        ? connectManagedPublishedPlace(postId, input)
+        : connectDraftPlace(postId, input)));
       setSaveState({ status: 'idle' });
     } catch (error) {
       handleError(error, setSaveState, onUnauthorized);
@@ -68,7 +74,9 @@ export function PlaceFields({
   const removePlace = async () => {
     setSaveState({ status: 'loading' });
     try {
-      onSaved(await disconnectDraftPlace(draftPostId));
+      onSaved(await (scope === 'published'
+        ? disconnectManagedPublishedPlace(postId)
+        : disconnectDraftPlace(postId)));
       setSaveState({ status: 'idle' });
     } catch (error) {
       handleError(error, setSaveState, onUnauthorized);
@@ -82,7 +90,7 @@ export function PlaceFields({
           <p className="overline">PLACE CONNECTION</p>
           <h2 id="place-heading">장소 연결</h2>
         </div>
-        <span>게시 전 필수</span>
+        <span>{scope === 'published' ? '공개 지도 반영' : '게시 전 필수'}</span>
       </div>
 
       {value && (
