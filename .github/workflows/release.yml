@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FRONTEND_BASE_URL: ${{ vars.PRODUCTION_FRONTEND_URL || 'https://placesplates.vercel.app' }}
+      API_BASE_URL: ${{ vars.PRODUCTION_API_URL || 'https://places-plates-api-481849639838.asia-northeast3.run.app' }}
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify release contract and tagged HEAD
+        shell: pwsh
+        run: >-
+          ./scripts/check-release-readiness.ps1
+          -Tag $env:GITHUB_REF_NAME
+          -RequireTaggedHead
+      - name: Verify tagged commit belongs to main
+        shell: bash
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Verify required main checks
+        shell: pwsh
+        run: |
+          $runs = gh run list --repo $env:GITHUB_REPOSITORY --commit $env:GITHUB_SHA --limit 20 --json workflowName,status,conclusion | ConvertFrom-Json
+          foreach ($workflow in @('Secret protection', 'Verify', 'Production smoke')) {
+            $successful = @($runs | Where-Object { $_.workflowName -eq $workflow -and $_.status -eq 'completed' -and $_.conclusion -eq 'success' })
+            if ($successful.Count -eq 0) { throw "Required main workflow did not succeed for the tagged commit: $workflow" }
+          }
+      - name: Verify production serves tagged commit
+        shell: pwsh
+        run: >-
+          ./scripts/test-production-smoke.ps1
+          -FrontendBaseUrl $env:FRONTEND_BASE_URL
+          -ApiBaseUrl $env:API_BASE_URL
+          -ExpectedCommitSha $env:GITHUB_SHA
+          -RetryCount 3
+          -RetryDelaySeconds 10
+      - name: Publish GitHub Release
+        shell: pwsh
+        run: >-
+          gh release create $env:GITHUB_REF_NAME
+          --repo $env:GITHUB_REPOSITORY
+          --verify-tag
+          --title "Places & Plates $env:GITHUB_REF_NAME"
+          --notes-file docs/releases/v1.0.0.md

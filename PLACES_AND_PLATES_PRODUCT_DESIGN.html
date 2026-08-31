@@ -486,7 +486,7 @@
   <main class="shell">
     <header class="hero">
       <div>
-        <span class="eyebrow">Product · UX · Exploration · Image Protection · v1.12</span>
+        <span class="eyebrow">Product · UX · Exploration · Image Protection · v1.14</span>
         <h1>사진은 빠르게 담고,<br>기억은 선명하게 읽는다.</h1>
         <p class="hero-copy">여행지와 식당 사진을 부담 없이 기록하고, 서버에는 업로드 원본을 남기지 않으면서 지도 정보와 개인의 기억을 편안하게 읽는 여행 아카이브 설계안입니다. 첫 버전은 개인 페이지로 시작하고 향후 사용자별 페이지가 있는 커뮤니티로 확장합니다.</p>
       </div>
@@ -810,6 +810,7 @@
       <div class="callout"><strong>C40~C40C 회귀 수정 기준:</strong> 홈은 목업 장소와 통계를 제거하고 실제 전체 공개 게시물 합계와 최근 카드를 표시한다. 상단 메뉴는 기록·지도만 유지하고 홈 제목은 “나의 기록”으로 표시한다. 영웅 영역의 전체 기록·지도 링크와 대표 게시물 사진, 기록 작성 설명은 모두 제거한다. 우측에는 관리자 공간으로 이동하는 “기록하기” 버튼을 데스크톱 약 430×270px로 하단 왼쪽에 배치하고 나머지 영역은 배경 공백으로 두며 모바일에서는 화면 폭에 맞게 축소한다. 고정된 Kyoto 여행 하단 띠는 제거한다. 공개 상세의 <code>CATEGORY NOTE</code>는 사진보다 먼저 읽히며 사진을 선택하면 원본 업로드가 아니라 EXIF 제거·워터마크 적용·긴 변 최대 2,000px 공개 파생본을 확대한다. 로그인한 관리자는 공개 상세와 관리 화면에서 확인 절차를 거쳐 본인 초안과 게시 완료 기록을 영구 삭제할 수 있고, 서버는 관련 Storage 객체를 모두 지운 뒤 DB 행을 제거하며 장소 행은 재사용을 위해 보존한다.</div>
       <div class="callout"><strong>C41 운영 기준:</strong> 초기 복구 목표는 RPO 24시간·RTO 4시간으로 두고 매주 PostgreSQL 애플리케이션 데이터와 비공개 Storage의 <code>sanitized/</code>·<code>variants/</code>를 분리 백업한다. 세션·Flyway 이력과 <code>temporary/</code> 원본은 복구 대상에서 제외한다. 매월 새 Supabase 프로젝트에 Storage, Flyway 스키마, 데이터 순서로 복구 훈련하고 RLS·관리자 로그인·공개 사진·운영 스모크를 확인한다. 프론트 장애는 Vercel의 이전 운영 배포, API 장애는 Cloud Run의 정상 리비전 100% 트래픽으로 되돌리며 비호환 DB 마이그레이션은 코드만 롤백하지 않는다. P1 데이터 노출·자격 증명 유출은 공개 범위 축소와 키 회전을 먼저 수행하고 비용 알림은 자동 지출 상한이 아님을 명시한다.</div>
       <div class="callout"><strong>C42 운영 비용 기준:</strong> v1 운영 주소는 <code>placesplates.vercel.app</code>과 숫자 프로젝트 ID가 포함된 서울 리전 Cloud Run URL로 고정하고 사용자 도메인 구매는 별도 비용 승인 뒤 진행한다. Google Cloud는 프로젝트 범위 월 JPY 500 알림 예산에 실제 50%·80%·100%와 예측 100% 경고를 두되 결제를 자동 해제하지 않는다. Cloud Run은 최소 0·최대 1 인스턴스, Dynamic Maps는 월 9,000회, Places Text Search는 월 1,000회 초기 목표를 사용한다. Maps 분당 30,000회 공급자 한도는 조정 불가이고 Places 일 75,000·분당 600 한도는 현재 무료 평가판에서 편집할 수 없으므로 지연 로딩·관리자 전용 검색·월 누계로 보완한다. Supabase Free와 Vercel Hobby는 유료 초과 사용 없이 주 1회 사용량과 Web·Email 알림을 확인하며, 모든 목표 상태는 <code>config/production-guardrails.json</code>에 기록한다.</div>
+      <div class="callout"><strong>C43 v1 출시 기준:</strong> 프런트와 백엔드 버전은 <code>1.0.0</code>, 안정 채널의 annotated tag는 <code>v1.0.0</code>으로 맞춘다. 태그 커밋은 최신 <code>main</code>에 포함되어야 하고 같은 SHA의 Secret protection·Verify·Production smoke와 실제 Vercel·Cloud Run 운영 스모크가 모두 성공해야 한다. 최소 DB migration V16, <code>places-plates-corner-v1</code> 워터마크, 비공개 Storage 경로 부재와 백업·복구·롤백 지점을 출시 점검표로 확인한다. 태그 워크플로는 이 조건을 다시 검사한 뒤에만 GitHub Release를 생성하며 실패한 태그에는 Release를 수동 생성하거나 기존 태그를 덮어쓰지 않는다.</div>
       <div class="callout"><strong>C28 검증 기준:</strong> 전체·맛집·여행지 목록과 합계, 게시물 상세, <code>MAP_CARD</code> 대표 사진, <code>PUBLIC_DETAIL</code> 상세 사진, 같은 장소 이력을 하나의 공개 범위 회귀 묶음으로 확인한다. 애플리케이션 API와 실제 PostgreSQL RLS 모두 <code>PUBLIC + PUBLISHED</code> 조합만 허용하며 <code>PUBLIC + DRAFT</code>, <code>UNLISTED + PUBLISHED</code>, <code>PRIVATE + PUBLISHED</code>와 그 게시물에 연결된 카테고리 상세·장소·사진·자산은 목록에서 제외하고 직접 URL에도 404를 반환한다.</div>
 
       <div class="grid grid-3" style="margin-top:18px">
@@ -975,7 +976,7 @@
   </main>
 
   <footer class="shell">
-    <div class="footer-line"><span>Places &amp; Plates · Product, UX, Exploration &amp; Image Protection Specification</span><span>2026-08-30 · v1.13</span></div>
+    <div class="footer-line"><span>Places &amp; Plates · Product, UX, Exploration &amp; Image Protection Specification</span><span>2026-08-31 · v1.14</span></div>
   </footer>
 </body>
 </html>

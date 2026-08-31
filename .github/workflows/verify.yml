@@ -28,6 +28,9 @@ jobs:
         run: |
           ./scripts/verify-cloud-run-container.ps1
           ./scripts/verify-production-deployment.ps1
+          ./scripts/check-operations-runbook.ps1
+          ./scripts/check-production-guardrails.ps1
+          ./scripts/check-release-readiness.ps1
 
   frontend:
     name: Frontend
