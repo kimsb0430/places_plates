@@ -7,7 +7,7 @@ test.beforeEach(async ({ request }) => {
   expect(response.ok()).toBeTruthy();
 });
 
-test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다', async ({ page }) => {
+test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다', async ({ page }, testInfo) => {
   await page.goto('/manage');
   await expect(page.getByRole('heading', { name: '기록 관리' })).toBeVisible();
 
@@ -39,6 +39,26 @@ test('사진 업로드부터 공개 목록과 지도 탐색까지 완료한다',
   await page.getByRole('radio', { name: /전체 공개/ }).check();
   await publishButton.click();
   await expect(page.getByRole('heading', { name: '기록 게시 완료' })).toBeVisible();
+
+  await page.goto('/manage');
+  const managedActions = page.getByRole('group', { name: 'C38 교토 점심 기록 관리 작업' });
+  const managedEdit = managedActions.getByRole('link', { name: 'C38 교토 점심 기록 공개 기록 수정' });
+  const managedDelete = managedActions.getByRole('button', { name: 'C38 교토 점심 기록 공개 기록 삭제' });
+  await expect(managedActions).toBeVisible();
+  await expect(managedEdit).toBeVisible();
+  await expect(managedDelete).toBeVisible();
+  const editBox = await managedEdit.boundingBox();
+  const deleteBox = await managedDelete.boundingBox();
+  if (!editBox || !deleteBox) {
+    throw new Error('管理操作ボタンの表示領域を取得できませんでした。');
+  }
+  if (testInfo.project.name === 'mobile-chromium') {
+    expect(deleteBox.y).toBeGreaterThan(editBox.y + editBox.height);
+  } else {
+    expect(deleteBox.y).toBe(editBox.y);
+    expect(Math.abs(deleteBox.width - editBox.width)).toBeLessThanOrEqual(1);
+  }
+  await expectNoHorizontalOverflow(page);
 
   await page.goto('/');
   const primaryNavigation = page.getByRole('navigation', { name: '주요 메뉴' });
