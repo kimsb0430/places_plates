@@ -81,17 +81,24 @@ export function PublishedPostList() {
                 <small>{visitMonth(post)}</small>
                 <i aria-hidden="true">↗</i>
               </Link>
-              <Link className="managed-record-edit" href={`/manage/posts/${post.id}/edit`}>
-                공개 기록 수정
-              </Link>
-              <button
-                className="managed-record-delete"
-                type="button"
-                disabled={deletingId === post.id}
-                onClick={() => void handleDelete(post)}
-              >
-                {deletingId === post.id ? '삭제 중…' : '공개 기록 삭제'}
-              </button>
+              <div className="managed-record-actions" role="group" aria-label={`${post.title} 관리 작업`}>
+                <Link
+                  className="managed-record-edit"
+                  href={`/manage/posts/${post.id}/edit`}
+                  aria-label={`${post.title} 공개 기록 수정`}
+                >
+                  수정
+                </Link>
+                <button
+                  className="managed-record-delete"
+                  type="button"
+                  aria-label={`${post.title} 공개 기록 삭제`}
+                  disabled={deletingId === post.id}
+                  onClick={() => void handleDelete(post)}
+                >
+                  {deletingId === post.id ? '삭제 중…' : '삭제'}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

@@ -14,6 +14,7 @@ const publicCategorySource = readSource('src/domain/post/components/public-post-
 const publicPostIndexSource = readSource('src/domain/post/components/public-post-index.tsx');
 const publicPhotoGallerySource = readSource('src/domain/post/components/public-photo-gallery.tsx');
 const managedPublicPostActionsSource = readSource('src/domain/post/components/managed-public-post-actions.tsx');
+const publishedPostListSource = readSource('src/domain/post/components/published-post-list.tsx');
 
 test('공개 사진 설명이 비어 있으면 기록 맥락을 담은 대체 문구를 사용한다', () => {
   assert.equal(resolvePublicPhotoAltText('  따뜻한 국물이 담긴 그릇  ', '기본 설명'), '따뜻한 국물이 담긴 그릇');
@@ -62,6 +63,14 @@ test('로그인한 관리자는 공개 상세에서 CSRF 보호 삭제를 실행
   assert.match(managedPublicPostActionsSource, /deleteManagedPublishedPost\(postId\)/);
   assert.match(managedPublicPostActionsSource, /window\.confirm/);
   assert.match(managedPublicPostActionsSource, /이 기록 삭제/);
+});
+
+test('관리 목록의 공개 기록 수정과 삭제는 이름이 있는 전용 작업 영역에 배치된다', () => {
+  assert.match(publishedPostListSource, /className="managed-record-actions" role="group"/);
+  assert.match(publishedPostListSource, /aria-label=\{`\$\{post\.title\} 공개 기록 수정`\}/);
+  assert.match(publishedPostListSource, /aria-label=\{`\$\{post\.title\} 공개 기록 삭제`\}/);
+  assert.match(globalStylesSource, /\.published-post-list \.managed-record-edit,\.published-post-list \.managed-record-delete \{ width:100%; min-height:44px;/);
+  assert.match(globalStylesSource, /\.managed-record-actions \{ padding:10px; display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\);/);
 });
 
 test('공개 사진 확대 화면은 대화상자 이름과 키보드 닫기 계약을 갖는다', () => {
